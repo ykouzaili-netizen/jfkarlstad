@@ -7,7 +7,7 @@ import { icon } from "./icons.js";
 import { NAV, isActive } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "3";
+export const ASSET_VERSION = "4";
 
 export interface PageMeta {
   title: string;
@@ -124,6 +124,7 @@ function footer(s: Settings): SafeHtml {
         <ul class="footer-legal">
           <li><a href="/integritetspolicy">Integritetspolicy</a></li>
           <li><a href="/cookies">Cookie-inställningar</a></li>
+          <li><a class="footer-login" href="/admin" rel="nofollow">${icon("lock", "icon icon-sm")}Logga in för styrelsen</a></li>
         </ul>
       </div>
     </div>
