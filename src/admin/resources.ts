@@ -9,7 +9,7 @@ import { mediaUrl } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton, statusPill } from "./layout.js";
-import { handleUpload } from "./uploads.js";
+import { handleUpload, uploadInput } from "./uploads.js";
 
 /**
  * Generisk redigering (skapa, lista, ändra, publicera, ta bort) för innehållstyperna.
@@ -75,7 +75,7 @@ export const RESOURCES: Resource[] = [
       { name: "title", label: "Rubrik", type: "text", required: true, max: 150 },
       { name: "excerpt", label: "Ingress", type: "textarea", rows: 3, max: 300, help: "En eller två meningar som sammanfattar nyheten. Visas på startsidan och i listan." },
       { name: "body", label: "Text", type: "textarea", rows: 14, max: 20000, help: MARKDOWN_HELP },
-      { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true, help: "Valfri. Liggande bild fungerar bäst (t.ex. 1600 × 1000 px). Max 5 MB." },
+      { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true, help: "Valfri. Liggande bild fungerar bäst (t.ex. 1600 × 1000 px). Stora foton komprimeras automatiskt." },
       { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200, help: "Beskriv vad bilden visar för den som inte kan se den." },
     ],
     listColumns: [
@@ -264,7 +264,7 @@ export const RESOURCES: Resource[] = [
     orderBy: "album, sort_order, id DESC",
     emptyText: "Inga bilder ännu.",
     fields: [
-      { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, help: "JPG, PNG eller WebP, max 5 MB." },
+      { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, help: "JPG, PNG, WebP eller HEIC. Stora foton komprimeras automatiskt." },
       { name: "album", label: "Album", type: "select", required: true, options: GALLERY_ALBUMS.map((a) => ({ value: a, label: a })) },
       { name: "alt", label: "Bildbeskrivning (alt-text)", type: "text", required: true, max: 200, help: "Krävs för tillgänglighet, t.ex. ”Studenter skålar på vårbanketten 2026”." },
       { name: "caption", label: "Bildtext", type: "text", max: 200, help: "Valfri text som visas under bilden." },
@@ -329,7 +329,7 @@ export const RESOURCES: Resource[] = [
         options: Object.entries(DOCUMENT_CATEGORIES).map(([value, label]) => ({ value, label })),
       },
       { name: "year", label: "År", type: "number", required: true, min: 2011, max: 2100 },
-      { name: "file_key", label: "PDF-fil", type: "text", upload: "pdf", nullable: true, help: "Max 20 MB. Utan fil står det ”Laddas upp inom kort” på webbplatsen." },
+      { name: "file_key", label: "PDF-fil", type: "text", upload: "pdf", nullable: true, help: "Max 24 MB. Utan fil står det ”Laddas upp inom kort” på webbplatsen." },
     ],
     listColumns: [
       { label: "Titel", render: (r) => html`<a class="row-title" href="/admin/dokument/${r.id}">${String(r.title)}</a>` },
@@ -393,7 +393,7 @@ function imageField(f: AdminField, current: string, error?: string): SafeHtml {
           ? html`<p class="upload-current">${icon("lock", "icon icon-sm")} En PDF är uppladdad.</p>`
           : html`<img class="upload-preview" alt="" data-preview="${f.name}" hidden>`}
       <div class="upload-controls">
-        <input class="upload-input" type="file" id="${id}" name="${f.name}" accept="${f.upload === "pdf" ? "application/pdf,.pdf" : "image/jpeg,image/png,image/webp,image/gif,image/svg+xml"}" aria-labelledby="${id}-etikett" aria-describedby="${f.help ? `${f.name}-hjalp` : ""}${error ? ` ${f.name}-fel` : ""}" data-upload="${f.name}">
+        ${uploadInput({ id, name: f.name, kind: f.upload!, labelledBy: `${id}-etikett`, describedBy: [f.help ? `${f.name}-hjalp` : "", error ? `${f.name}-fel` : ""].filter(Boolean).join(" ") })}
         ${current ? html`<span class="field-help">Välj en ny fil för att ersätta den nuvarande.</span>` : ""}
         ${current && !f.requiredOnCreate ? html`<label class="check-field check-small"><input type="checkbox" name="${f.name}__ta_bort" value="1"><span>Ta bort ${f.upload === "pdf" ? "filen" : "bilden"}</span></label>` : ""}
       </div>

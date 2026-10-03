@@ -20,8 +20,10 @@ interface FileMeta {
   filename: string;
 }
 
+/** Max storlek för en bild som sparas. Större bilder komprimeras automatiskt i webbläsaren innan uppladdning (public/assets/admin.js). */
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
-export const MAX_PDF_BYTES = 20 * 1024 * 1024; // 20 MB
+/** Max storlek för PDF. KV tillåter 25 MiB per värde – vi håller lite marginal. PDF:er kan inte komprimeras i webbläsaren. */
+export const MAX_PDF_BYTES = 24 * 1024 * 1024; // 24 MB
 
 export const IMAGE_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",

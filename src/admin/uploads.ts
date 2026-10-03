@@ -1,4 +1,5 @@
 import type { Env } from "../env.js";
+import { html, type SafeHtml } from "../lib/html.js";
 import { IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_PDF_BYTES, isSafeSvg, putFile, randomKey, sniffType } from "../lib/storage.js";
 
 export type UploadResult = { ok: true; key: string; size: number } | { ok: false; error: string } | { ok: true; key: null; size: 0 };
@@ -15,7 +16,14 @@ export async function handleUpload(env: Env, value: FormDataEntryValue | null, k
   if (!isFile(value) || value.size === 0) return { ok: true, key: null, size: 0 };
   const max = kind === "image" ? MAX_IMAGE_BYTES : MAX_PDF_BYTES;
   if (value.size > max) {
-    return { ok: false, error: `Filen är för stor (${(value.size / 1024 / 1024).toFixed(1).replace(".", ",")} MB). Max ${max / 1024 / 1024} MB.` };
+    const size = (value.size / 1024 / 1024).toFixed(1).replace(".", ",");
+    return {
+      ok: false,
+      error:
+        kind === "image"
+          ? `Bilden är för stor (${size} MB, max ${max / 1024 / 1024} MB). Normalt komprimeras stora bilder automatiskt – ladda om sidan och välj bilden igen, eller förminska den först.`
+          : `PDF:en är för stor (${size} MB, max ${max / 1024 / 1024} MB). Gör den mindre, t.ex. med ”Spara som PDF → Minsta storlek” i Word eller ”Exportera → Reduce File Size” i Förhandsvisning på Mac.`,
+    };
   }
   const data = await value.arrayBuffer();
   const type = sniffType(new Uint8Array(data.slice(0, 1024)));
@@ -32,4 +40,28 @@ export async function handleUpload(env: Env, value: FormDataEntryValue | null, k
   const filename = value.name.replace(/[^\p{L}\p{N}._ -]/gu, "").slice(0, 120) || `fil.${ext}`;
   await putFile(env, key, data, { contentType: type!, size: value.size, filename });
   return { ok: true, key, size: value.size };
+}
+
+/** Bildtyper som webbläsaren får välja. HEIC (iPhone) konverteras till JPG i webbläsaren om den kan läsa formatet. */
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/svg+xml,image/heic,image/heif,.heic,.heif";
+
+/**
+ * Filfält för uppladdning. admin.js läser data-attributen: bilder som är större än data-max
+ * (eller onödigt stora i pixlar) skalas ned och komprimeras i webbläsaren innan formuläret skickas.
+ */
+export function uploadInput(opts: { id: string; name: string; kind: "image" | "pdf"; labelledBy?: string; describedBy?: string }): SafeHtml {
+  const max = opts.kind === "image" ? MAX_IMAGE_BYTES : MAX_PDF_BYTES;
+  const statusId = `${opts.id}-status`;
+  const describedBy = [opts.describedBy, statusId].filter(Boolean).join(" ");
+  return html`<input class="upload-input" type="file" id="${opts.id}" name="${opts.name}"
+      accept="${opts.kind === "pdf" ? "application/pdf,.pdf" : IMAGE_ACCEPT}"
+      ${opts.labelledBy ? html`aria-labelledby="${opts.labelledBy}"` : ""} aria-describedby="${describedBy}"
+      data-upload="${opts.name}" data-kind="${opts.kind}" data-max="${max}">
+    <p class="upload-status" id="${statusId}" aria-live="polite" data-upload-status="${opts.name}"></p>`;
+}
+
+export function uploadHint(kind: "image" | "pdf"): string {
+  return kind === "image"
+    ? "Större bilder än 5 MB komprimeras automatiskt när du väljer dem."
+    : `PDF, max ${MAX_PDF_BYTES / 1024 / 1024} MB.`;
 }

@@ -24,7 +24,7 @@ import {
   type User,
 } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton } from "./layout.js";
-import { handleUpload } from "./uploads.js";
+import { handleUpload, uploadHint, uploadInput } from "./uploads.js";
 
 const nowSql = () => new Date().toISOString().replace("T", " ").slice(0, 19);
 
@@ -158,7 +158,8 @@ function settingImageField(key: string, label: string, current: string, help?: s
     <div class="upload-box">
       ${src ? html`<img class="upload-preview" src="${src}" alt="Nuvarande bild" data-preview="${key}">` : html`<img class="upload-preview" alt="" data-preview="${key}" hidden>`}
       <div class="upload-controls">
-        <input class="upload-input" type="file" id="falt-${key}" name="${key}" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml" aria-labelledby="falt-${key}-etikett" data-upload="${key}">
+        ${uploadInput({ id: `falt-${key}`, name: key, kind: "image", labelledBy: `falt-${key}-etikett`, describedBy: help ? `${key}-hjalp` : "" })}
+        <p class="field-help">${uploadHint("image")}</p>
         ${current ? html`<label class="check-field check-small"><input type="checkbox" name="${key}__ta_bort" value="1"><span>Ta bort bilden</span></label>` : ""}
       </div>
     </div>
@@ -291,8 +292,8 @@ export async function appearancePage(c: RequestContext, session: Session, overri
               ${logo ? html`<img class="upload-preview upload-preview-logo" src="${logo}" alt="Nuvarande logotyp" data-preview="logo">` : html`<span class="brand-mark brand-mark-lg" aria-hidden="true">§</span><img class="upload-preview upload-preview-logo" alt="" data-preview="logo" hidden>`}
               <div class="upload-controls">
                 <label class="field-label" for="falt-logo">${logo ? "Byt logotyp" : "Ladda upp logotyp"}</label>
-                <p class="field-help">Kvadratisk SVG eller PNG med genomskinlig bakgrund fungerar bäst. Visas i sidhuvudet och sidfoten. Max 5 MB.</p>
-                <input class="upload-input" type="file" id="falt-logo" name="logo" accept="image/png,image/svg+xml,image/webp,image/jpeg" data-upload="logo">
+                <p class="field-help" id="logo-hjalp">Kvadratisk SVG eller PNG med genomskinlig bakgrund fungerar bäst. Visas i sidhuvudet och sidfoten. Stora bilder komprimeras automatiskt.</p>
+                ${uploadInput({ id: "falt-logo", name: "logo", kind: "image", describedBy: "logo-hjalp" })}
                 ${logo ? html`<label class="check-field check-small"><input type="checkbox" name="logo__ta_bort" value="1"><span>Ta bort logotypen (visa §-symbolen igen)</span></label>` : ""}
               </div>
             </div>

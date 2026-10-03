@@ -11,7 +11,9 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   Använd `raw()` bara för kodgenererad markup (t.ex. SVG-ikoner). Aldrig för användardata.
 - **D1** (`env.DB`) för allt innehåll. Schema i `migrations/`, startinnehåll i `seed/seed.sql`.
 - **Filer** (bilder/PDF): Workers KV (`env.FILES`) – R2 (`env.UPLOADS`) används automatiskt om den bindningen läggs till.
-  All filåtkomst går via `src/lib/storage.ts`. Bilder serveras via `/media/:key`, PDF:er via `/dokument/fil/:id`, båda med sandbox-CSP.
+  All filåtkomst går via `src/lib/storage.ts`. Bilder > 5 MB (eller > 3200 px) komprimeras i webbläsaren (`public/assets/admin.js`,
+  canvas → JPEG/WebP, max 2560 px) innan uppladdning; servern kräver ändå ≤ 5 MB. PDF max 24 MB (KV-gräns 25 MiB). Filfält renderas med `uploadInput()`.
+  Bilder serveras via `/media/:key`, PDF:er via `/dokument/fil/:id`, båda med sandbox-CSP.
 - **Adminpanel** i `src/admin/`: `auth.ts` (PBKDF2, sessioner, CSRF), `resources.ts` (generisk CRUD för alla innehållstyper –
   lägg till en ny typ genom att beskriva den där), `pages.ts` (översikt, texter, utseende, meddelanden, användare, logg).
 - **Formulär** i `src/pages/forms.ts`: validering (`src/lib/forms.ts`), honungsfälla + tidstoken + rate limiting (`src/lib/security.ts`),

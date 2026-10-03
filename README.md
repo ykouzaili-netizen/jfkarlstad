@@ -114,7 +114,12 @@ Event som har passerat flyttas automatiskt till *Tidigare evenemang* i kalendern
 ## 4. Bra att veta
 
 - **”Bli medlem”-knapparna** går alltid till länken som står under *Redigera texter → Länkar och kontaktuppgifter*.
-- **Bilder:** JPG, PNG, WebP, GIF eller SVG, max 5 MB. **PDF:er:** max 20 MB.
+- **Bilder:** JPG, PNG, WebP, GIF, SVG eller HEIC (iPhone). Du kan välja hur stora foton som helst – är en bild större än
+  5 MB, eller onödigt stor i pixlar, förminskas och komprimeras den automatiskt i din webbläsare innan den laddas upp
+  (längsta sidan blir max 2560 px, vilket räcker gott för webben). Under fältet står hur stor bilden blev.
+  Genomskinliga bilder (t.ex. logotyper) behåller sin genomskinlighet.
+- **PDF:er:** max 24 MB. PDF:er kan inte komprimeras automatiskt. Är filen för stor: i Word välj *Spara som PDF → Minsta storlek*,
+  på Mac öppna den i Förhandsvisning och välj *Arkiv → Exportera → Quartz-filter: Reduce File Size*.
 - **Alt-text** (bildbeskrivning) gör sidan tillgänglig för personer som använder skärmläsare. Beskriv kort vad bilden visar.
 - **Kakor:** webbplatsen använder inga spårningskakor, därför finns ingen cookie-banner.
 - **Om något går fel:** kontrollera *Ändringslogg* för att se vad som senast ändrades, eller kontakta den som är teknisk ansvarig.
