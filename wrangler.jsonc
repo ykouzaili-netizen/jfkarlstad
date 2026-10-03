@@ -1,0 +1,48 @@
+{
+  // Cloudflare Worker för JFK:s webbplats – https://jfkarlstad.ykouzaili.workers.dev
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jfkarlstad",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-15",
+  "workers_dev": true,
+
+  // Statiska filer (CSS, JS, typsnitt, ikoner). Serveras direkt av Cloudflare.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // D1-databasen med allt innehåll.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jfkarlstad",
+      "database_id": "8551aa94-786d-4d55-b1f9-b6988e2f994f",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Uppladdade bilder och PDF:er (Workers KV). Vill ni byta till R2: aktivera R2 i Cloudflare,
+  // lägg till { "binding": "UPLOADS", "bucket_name": "jfkarlstad-uploads" } under "r2_buckets"
+  // – koden använder då R2 automatiskt för nya uppladdningar (se src/lib/storage.ts).
+  "kv_namespaces": [
+    {
+      "binding": "FILES",
+      "id": "fb4c32c5d0ab47c59eddae11dfeb9610"
+    }
+  ],
+
+  // Daglig städning kl. 03:17 UTC: gamla sessioner, rate limits och meddelanden äldre än 12 månader.
+  "triggers": {
+    "crons": ["17 3 * * *"]
+  },
+
+  // Publika inställningar (inga hemligheter här – de sätts som "Secrets" i Cloudflare).
+  "vars": {
+    "SITE_URL": "https://jfkarlstad.ykouzaili.workers.dev",
+    // Turnstile är avstängt tills TURNSTILE_SECRET_KEY sätts som secret. Byt då även denna mot er riktiga site key.
+    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
+  },
+
+  "observability": { "enabled": true }
+}

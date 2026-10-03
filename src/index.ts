@@ -1,0 +1,107 @@
+import type { Env } from "./env.js";
+import { Router, type RequestContext } from "./router.js";
+import { randomToken, redirect, textResponse } from "./lib/http.js";
+import { getFile } from "./lib/storage.js";
+import { homePage } from "./pages/home.js";
+import { aboutPage } from "./pages/about.js";
+import { membershipPage } from "./pages/membership.js";
+import { studentsPage } from "./pages/students.js";
+import { companiesPage, contactPage, paverkaPage, submitHandler, thanksPage } from "./pages/forms.js";
+import {
+  calendarPage,
+  documentFileHandler,
+  documentsPage,
+  eventDetailPage,
+  faqPage,
+  newsArticlePage,
+  newsListPage,
+  partnerDetailPage,
+  partnersPage,
+} from "./pages/listings.js";
+import { cookiesPage, privacyPage, sitemapXml } from "./pages/legal.js";
+import { errorPage, notFoundPage } from "./pages/errors.js";
+import { registerAdminRoutes } from "./admin/routes.js";
+import { runMaintenance } from "./lib/maintenance.js";
+
+const router = new Router()
+  .get("/", homePage)
+  .get("/om-oss", aboutPage)
+  .get("/bli-medlem", membershipPage)
+  .get("/for-studenter", studentsPage)
+  .get("/for-foretag", (c) => companiesPage(c))
+  .post("/for-foretag", submitHandler("foretag"))
+  .get("/for-foretag/tack", thanksPage("foretag"))
+  .get("/partners", partnersPage)
+  .get("/partners/:slug", partnerDetailPage)
+  .get("/aktuellt", newsListPage)
+  .get("/aktuellt/:slug", newsArticlePage)
+  .get("/kalender", calendarPage)
+  .get("/kalender/:slug", eventDetailPage)
+  .get("/dokument", documentsPage)
+  .get("/dokument/fil/:id", documentFileHandler)
+  .get("/jf-paverka", (c) => paverkaPage(c))
+  .post("/jf-paverka", submitHandler("paverka"))
+  .get("/jf-paverka/tack", thanksPage("paverka"))
+  .get("/faq", faqPage)
+  .get("/kontakt", (c) => contactPage(c))
+  .post("/kontakt", submitHandler("kontakt"))
+  .get("/kontakt/tack", thanksPage("kontakt"))
+  .get("/integritetspolicy", privacyPage)
+  .get("/cookies", cookiesPage)
+  .get("/sitemap.xml", sitemapXml)
+  .get("/robots.txt", (c) =>
+    textResponse(`User-agent: *\nAllow: /\nDisallow: /admin\n\nSitemap: ${c.env.SITE_URL.replace(/\/$/, "")}/sitemap.xml\n`, "text/plain; charset=utf-8"),
+  )
+  .get("/media/:key", mediaHandler);
+
+registerAdminRoutes(router);
+
+/** Uppladdade bilder. Nyckeln innehåller ett slumpat id, så filerna kan cachas länge. */
+async function mediaHandler(c: RequestContext): Promise<Response> {
+  const key = c.params.key ?? "";
+  if (!/^[a-z0-9][a-z0-9._-]{0,200}$/i.test(key)) return notFoundPage(c);
+  const file = await getFile(c.env, key);
+  if (!file) return notFoundPage(c);
+  return new Response(c.req.method === "HEAD" ? null : file.body, {
+    headers: {
+      "Content-Type": file.contentType,
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
+      // Förhindra att uppladdade filer (t.ex. SVG) kan köra skript i vår origin.
+      "Content-Security-Policy": "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox",
+    },
+  });
+}
+
+export default {
+  async fetch(req: Request, env: Env, exec: ExecutionContext): Promise<Response> {
+    const url = new URL(req.url);
+
+    // Endast HTTPS (utom lokalt).
+    if (url.protocol === "http:" && !["localhost", "127.0.0.1"].includes(url.hostname)) {
+      url.protocol = "https:";
+      return redirect(url.toString(), 301);
+    }
+    // Ta bort avslutande snedstreck: /kalender/ → /kalender
+    if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+      return redirect(url.pathname.replace(/\/+$/, "") + url.search, 301);
+    }
+
+    const c: RequestContext = { req, env, exec, url, params: {}, nonce: randomToken(16) };
+    try {
+      const match = router.match(req.method, url.pathname);
+      if (match === "method-not-allowed") return new Response("Metoden stöds inte", { status: 405, headers: { Allow: "GET, HEAD, POST" } });
+      if (!match) return await notFoundPage(c);
+      c.params = match.params;
+      return await match.handler(c);
+    } catch (err) {
+      console.error("Ohanterat fel", req.method, url.pathname, err);
+      return errorPage(c);
+    }
+  },
+
+  /** Körs dagligen (se triggers i wrangler.jsonc): rensar gamla sessioner, rate limits och meddelanden. */
+  async scheduled(_controller: ScheduledController, env: Env, exec: ExecutionContext): Promise<void> {
+    exec.waitUntil(runMaintenance(env));
+  },
+};

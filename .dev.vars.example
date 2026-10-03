@@ -1,0 +1,19 @@
+# Kopiera till .dev.vars för lokal utveckling. Committa ALDRIG .dev.vars.
+# I produktion sätts samma värden med: npx wrangler secret put <NAMN>
+
+# SMTP via One.com (brevlådan som skickar notiser till styrelsen)
+SMTP_HOST=send.one.com
+SMTP_PORT=465
+SMTP_USER=informationsansvarig@jfkarlstad.se
+SMTP_PASS=byt-mig
+# Vart notiser om nya meddelanden skickas
+MAIL_TO=informationsansvarig@jfkarlstad.se
+
+# Cloudflare Turnstile (testnyckel som alltid godkänns lokalt)
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+
+# Engångsnyckel för att skapa den första administratören via /admin/setup
+SETUP_TOKEN=byt-till-en-lang-slumpad-strang
+
+# Salt för att hasha IP-adresser i rate limiting (aldrig klartext-IP i databasen)
+IP_HASH_SALT=byt-till-en-annan-lang-slumpad-strang
