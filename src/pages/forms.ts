@@ -60,12 +60,20 @@ const PAVERKA_TYPES = [
 const PAVERKA_FIELDS: FieldSpec[] = [
   { name: "typ", label: "Vad vill du lämna?", type: "radio", required: true, options: PAVERKA_TYPES },
   { name: "rubrik", label: "Rubrik", type: "text", required: true, max: 150, help: "En kort sammanfattning, t.ex. ”Sen återkoppling på tentan i T3”." },
-  { name: "meddelande", label: "Beskriv", type: "textarea", required: true, max: 5000, rows: 8 },
+  {
+    name: "meddelande",
+    label: "Beskriv",
+    type: "textarea",
+    required: true,
+    max: 5000,
+    rows: 8,
+    help: "Skriv bara det som behövs för ärendet. Undvik känsliga uppgifter, som hälsa, och namnge inte andra personer om det inte är nödvändigt.",
+  },
   {
     name: "anonym",
     label: "Skicka anonymt",
     type: "checkbox",
-    help: "Då sparar vi varken namn, e-post eller IP-adress, och styrelsen kan inte svara dig.",
+    help: "Då sparar vi varken namn, e-post eller IP-adress, och styrelsen kan inte svara dig. Tänk på att det du skriver kan avslöja vem du är.",
   },
   { name: "namn", label: "Namn", type: "text", max: 100, autocomplete: "name", wrapClass: "js-identity" },
   { name: "epost", label: "E-post", type: "email", max: 200, autocomplete: "email", wrapClass: "js-identity", help: "Fyll i om du vill att vi återkopplar till dig." },
@@ -215,7 +223,7 @@ export async function paverkaPage(c: RequestContext, values?: Values, errors?: E
           </div>
           <div class="info-card">
             <h2 class="info-title">${icon("lock")} Anonymt på riktigt</h2>
-            <p>När du skickar anonymt sparas bara det du skriver i rubriken och beskrivningen. Ingen IP-adress, inget namn, ingen e-post – varken i databasen eller i mejlet till styrelsen.</p>
+            <p>När du skickar anonymt sparas bara det du skriver i rubriken och beskrivningen. Ingen IP-adress, inget namn, ingen e-post – varken i databasen, i våra loggar eller i mejlet till styrelsen.</p>
           </div>
         </aside>
       </div>

@@ -121,7 +121,31 @@ Event som har passerat flyttas automatiskt till *Tidigare evenemang* i kalendern
 
 ---
 
-## 5. För teknisk ansvarig
+## 5. GDPR – det här ansvarar styrelsen för
+
+Webbplatsen är byggd för att följa GDPR och lagen om elektronisk kommunikation: inga spårningskakor,
+inga analysverktyg, inga inbäddade tjänster från andra, automatisk radering och en fullständig
+integritetspolicy (`/integritetspolicy`). Men en del är rutiner som bara styrelsen kan sköta:
+
+- **Foton på personer.** Fråga alltid innan du laddar upp ett porträtt (styrelsen, hedersmedlemmar, Årets pedagog).
+  Ber någon att en bild tas bort – från galleriet eller någon annanstans – gör det samma dag.
+- **Begäran om registerutdrag eller radering.** Om någon mejlar och vill veta vad vi har om dem:
+  sök under **Meddelanden** (eller exportera CSV) och skicka det som rör personen. Vill de bli raderade:
+  radera meddelandena. Svara inom **en månad**.
+- **Personuppgiftsincident.** Om något hamnar fel (t.ex. ett konto kapas eller meddelanden läcker):
+  byt lösenord, ta bort berörda konton under **Användare** och anmäl till IMY inom **72 timmar** om det
+  inte är uppenbart ofarligt (imy.se → Anmäl personuppgiftsincident).
+- **Personuppgiftsbiträdesavtal.** Spara en kopia av [Cloudflares DPA](https://www.cloudflare.com/cloudflare-customer-dpa/)
+  och One.com:s villkor tillsammans med föreningens papper, och kontrollera att det finns ett avtal med **Hitract** för medlemsregistret.
+- **Konton.** Ta bort konton för personer som lämnar styrelsen direkt vid överlämningen.
+- **Ändrar ni hur personuppgifter används** (t.ex. lägger till nyhetsbrev eller statistikverktyg) måste
+  integritetspolicyn uppdateras, och för statistik/marknadsföring krävs en cookie-banner med samtycke.
+- **Organisationsnummer.** Fyll i det under *Redigera texter → Länkar och kontaktuppgifter*. Det visas då i sidfoten
+  och i integritetspolicyn.
+
+---
+
+## 6. För teknisk ansvarig
 
 Teknisk dokumentation finns i **CLAUDE.md** (arkitektur, konventioner, kommandon). Kort version:
 

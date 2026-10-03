@@ -16,7 +16,7 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   lägg till en ny typ genom att beskriva den där), `pages.ts` (översikt, texter, utseende, meddelanden, användare, logg).
 - **Formulär** i `src/pages/forms.ts`: validering (`src/lib/forms.ts`), honungsfälla + tidstoken + rate limiting (`src/lib/security.ts`),
   valfri Turnstile, sparas alltid i D1 först, e-post via SMTP (`src/lib/mail.ts`, `cloudflare:sockets`) är best effort.
-- **Cron** (dagligen): `src/lib/maintenance.ts` rensar sessioner, rate limits, meddelanden > 12 mån och logg > 24 mån.
+- **Cron** (varje timme): `src/lib/maintenance.ts` rensar sessioner, rate limits, meddelanden > 12 mån och logg > 24 mån.
 - **Publicering:** GitHub-repot är kopplat till Workers Builds – push till `main` = deploy. Build-kommandot är `npm run build` (typkontroll).
 - **Statiska filer** i `public/` (CSS, JS, typsnitt, ikoner) serveras direkt av Cloudflare (Workers Static Assets)
   innan Workern körs. Headers för dem i `public/_headers`.
@@ -64,6 +64,10 @@ tools/local-preview Reservlösning för förhandsvisning utan wrangler (node:sql
   Rubriktypsnittet väljs i adminpanelen och sätts via `--font-display`/`--display-scale`.
 - **Säkerhet:** validera all indata på servern, escapa all utdata, inga hemligheter i koden (Worker secrets).
   Anonyma JF Påverka-inskick: spara/logga aldrig IP, namn eller e-post.
+- **GDPR:** Cloudflares anropsloggar (invocation logs) är avstängda i `wrangler.jsonc` – slå inte på dem, det bryter
+  löftet om anonyma inskick. `console.*` får aldrig innehålla personuppgifter eller engångslänkar.
+  Ingen ny tredjepartstjänst (analys, inbäddningar, typsnitt från CDN) utan att uppdatera integritetspolicyn
+  (`src/pages/legal.ts`, höj `PRIVACY_UPDATED`) – och för icke-nödvändiga kakor krävs samtycke (LEK 9 kap. 28 §).
 
 ## Kommandon
 

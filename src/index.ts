@@ -95,12 +95,14 @@ export default {
       c.params = match.params;
       return await match.handler(c);
     } catch (err) {
-      console.error("Ohanterat fel", req.method, url.pathname, err);
+      // Engångslänkar (lösenord) får aldrig hamna i loggen
+      const safePath = url.pathname.replace(/^\/admin\/losenord\/.+$/, "/admin/losenord/[dold]");
+      console.error("Ohanterat fel", req.method, safePath, err);
       return errorPage(c);
     }
   },
 
-  /** Körs dagligen (se triggers i wrangler.jsonc): rensar gamla sessioner, rate limits och meddelanden. */
+  /** Körs varje timme (se triggers i wrangler.jsonc): rensar gamla sessioner, rate limits och meddelanden. */
   async scheduled(_controller: ScheduledController, env: Env, exec: ExecutionContext): Promise<void> {
     exec.waitUntil(runMaintenance(env));
   },

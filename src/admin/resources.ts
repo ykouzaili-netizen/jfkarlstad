@@ -187,7 +187,7 @@ export const RESOURCES: Resource[] = [
       { name: "name", label: "Namn", type: "text", required: true, max: 100 },
       { name: "role", label: "Roll", type: "text", required: true, max: 100, placeholder: "T.ex. Ordförande" },
       { name: "email", label: "E-post för rollen", type: "email", nullable: true, max: 200 },
-      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, help: "Kvadratiskt porträtt fungerar bäst. Utan foto visas initialerna." },
+      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR). Kvadratiskt porträtt fungerar bäst. Utan foto visas initialerna." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägre tal visas först." },
     ],
     listColumns: [
@@ -220,7 +220,7 @@ export const RESOURCES: Resource[] = [
       { name: "name", label: "Namn", type: "text", required: true, max: 120 },
       { name: "year", label: "År", type: "number", min: 2011, max: 2100, nullable: true },
       { name: "description", label: "Motivering", type: "textarea", rows: 4, max: 1000 },
-      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true },
+      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR)." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999 },
     ],
     listColumns: [
@@ -260,7 +260,7 @@ export const RESOURCES: Resource[] = [
     title: "Bildgalleri",
     singular: "bild",
     newLabel: "Ladda upp bild",
-    lead: "Bilderna visas under För studenter, grupperade per album. Ladda bara upp bilder där de som syns är okej med det.",
+    lead: "Bilderna visas under För studenter, grupperade per album. Publicera inga bilder som kan uppfattas som kränkande, och ta bort en bild direkt om någon som syns på den ber om det (GDPR).",
     orderBy: "album, sort_order, id DESC",
     emptyText: "Inga bilder ännu.",
     fields: [

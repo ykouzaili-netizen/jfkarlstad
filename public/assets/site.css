@@ -1285,6 +1285,15 @@ a.doc-title::after { content: ""; position: absolute; inset: 0; }
 .faq-a p + p { margin-top: 0.8em; }
 
 /* Juridiska sidor */
+.purpose-list { display: grid; gap: 14px; margin: 1em 0 1.5em; }
+.purpose-card { padding: 20px 22px; border-radius: var(--radius); background: var(--c-surface); border: 1px solid var(--c-border); }
+.legal .purpose-card h3 { margin: 0 0 12px; font-size: 1.0625rem; }
+.purpose-card dl { display: grid; gap: 10px; }
+.purpose-card dl > div { display: grid; gap: 2px; }
+@media (min-width: 640px) { .purpose-card dl > div { grid-template-columns: 140px 1fr; gap: 16px; } }
+.purpose-card dt { font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--c-muted); padding-top: 2px; }
+.purpose-card dd { font-size: 0.9375rem; }
+.legal .purpose-note { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--c-accent) 22%, transparent); font-size: 0.9375rem; }
 .legal h2 { font-size: calc(1.5rem * var(--display-scale)); }
 .legal h3 { font-family: var(--font-body); font-size: 1.0625rem; font-weight: 600; letter-spacing: 0; }
 .table-wrap { overflow-x: auto; margin: 1em 0; }

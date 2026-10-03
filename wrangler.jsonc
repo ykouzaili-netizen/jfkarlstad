@@ -32,9 +32,9 @@
     }
   ],
 
-  // Daglig städning kl. 03:17 UTC: gamla sessioner, rate limits och meddelanden äldre än 12 månader.
+  // Städning varje timme (minut 17): utgångna sessioner och rate limits, meddelanden äldre än 12 månader.
   "triggers": {
-    "crons": ["17 3 * * *"]
+    "crons": ["17 * * * *"]
   },
 
   // Publika inställningar (inga hemligheter här – de sätts som "Secrets" i Cloudflare).
@@ -44,5 +44,11 @@
     "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
   },
 
-  "observability": { "enabled": true }
+  // Loggar: bara egna felmeddelanden (som aldrig innehåller personuppgifter). Cloudflares automatiska
+  // anropsloggar är avstängda eftersom de sparar uppgifter om varje besök, t.ex. IP-relaterad metadata,
+  // vilket inte går ihop med löftet om anonyma inskick via JF Påverka.
+  "observability": {
+    "enabled": true,
+    "logs": { "invocation_logs": false }
+  }
 }
