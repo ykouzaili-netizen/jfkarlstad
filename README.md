@@ -25,29 +25,37 @@ be en administratör gå till **Användare** och klicka **Ny lösenordslänk** b
 
 ## 2. Vad kan jag ändra?
 
-Menyn till vänster (i mobilen: knappen ☰ uppe till höger) har tre delar:
+**Allt.** Varje rubrik, text, knapp och bild på webbplatsen går att ändra i adminpanelen. Det enklaste sättet att
+hitta rätt: gå till **Översikt** och **klicka på det du vill ändra** i bilden av webbplatsen till höger – en rubrik,
+en knapp, ett event, en partner eller menyn – så kommer du direkt till rätt fält. Du kan också skriva ett ord i
+sökrutan högst upp (*Hitta text eller innehåll …*).
+
+Menyn till vänster (i mobilen: knappen ☰ uppe till höger):
 
 | Meny | Vad du gör där |
 |---|---|
-| **Översikt** | Snabbknappar, nya meddelanden, kommande event och en att göra-lista. |
-| **Nyheter** | Skriv, ändra, publicera eller ta bort nyheter. De tre senaste visas på startsidan. |
-| **Event** | Lägg in evenemang i kalendern. De tre närmaste visas på startsidan. |
-| **Partners** | Samarbetspartners med logotyp. *Huvudsamarbetspartners* visas stort direkt under toppen på startsidan. |
-| **Styrelsen** | Namn, roll, e-post och foto. Byt ut när en ny styrelse har valts. |
-| **Utmärkelser** | Hedersmedlemmar, utdelade utmärkelser och Årets pedagog. |
-| **Kursombud** | Kursombud per termin. |
-| **Bildgalleri** | Ladda upp bilder i album (Banketter, Inspark …). |
-| **Vanliga frågor** | Frågor och svar. Kategorin *Medlemskap* visas även på sidan Bli medlem. |
-| **Dokument** | Ladda upp stadgar, styrdokument och protokoll som PDF. |
-| **Redigera texter** | Alla texter på sidorna, länken till Hitract, Instagram, kontaktuppgifter och bilderna på startsidan. |
-| **Meddelanden** | Allt som skickas via formulären. |
+| **Översikt** | Klickbar bild av webbplatsen, snabbknappar, nya meddelanden, schemalagt och en att göra-lista. |
+| **Meddelanden** | Allt som skickas via formulären (kontakt, företag, JF Påverka och Engagera dig). |
+| **Texter och sidor** | Alla texter, sida för sida och avsnitt för avsnitt – och **Menyn** (namn, ordning, dölja). |
 | **Utseende** *(admin)* | Färger, typsnitt för rubriker och logotyp. |
+| **Bildbank** | Alla uppladdade bilder. Visar var varje bild används; oanvända bilder kan tas bort. |
+| **Nyheter** | Skriv, schemalägg, kopiera, publicera eller ta bort nyheter. |
+| **Event** | Evenemang i kalendern. *Kopiera* gör det enkelt att lägga in återkommande event. |
+| **Jobb och praktik** | Praktikplatser, notarietjänster och jobb – visas på /karriar och på partnerns sida. |
+| **Partners** | Samarbetspartners med logotyp, och fliken **Statistik** med siffror per termin. |
+| **Dokument** | Stadgar, styrdokument och protokoll som PDF. |
+| **Vanliga frågor** | Frågor och svar. Kategorin *Medlemskap* visas även på sidan Bli medlem. |
+| **Bildgalleri** | Bilder i album (Banketter, Inspark …). |
+| **Styrelse och uppdrag** | Flikar för Styrelsen, Kursombud, Utmärkelser och **Lediga uppdrag** (sidan Engagera dig). |
 | **Användare** *(admin)* | Bjud in och ta bort personer som får logga in. |
+| **Styrelseskifte** *(admin)* | Checklista när en ny styrelse tar över. |
 | **Ändringslogg** *(admin)* | Vem som ändrade vad och när. |
 
+**Mitt konto** (byta lösenord) når du genom att klicka på ditt namn uppe till höger.
+
 Det finns två roller:
-- **Redaktör** – kan ändra allt innehåll och hantera meddelanden.
-- **Administratör** – kan dessutom ändra utseendet, hantera användare och se ändringsloggen.
+- **Redaktör** – kan ändra allt innehåll och alla texter och hantera meddelanden.
+- **Administratör** – kan dessutom ändra utseendet, hantera användare, följa checklistan för styrelseskifte och se ändringsloggen.
 
 ---
 
@@ -76,22 +84,42 @@ Det finns två roller:
 Event som har passerat flyttas automatiskt till *Tidigare evenemang* i kalendern – du behöver inte ta bort dem.
 
 ### Byta ut styrelsen efter årsmötet
-1. **Styrelsen** – klicka **Redigera** på varje person och skriv in den nya ledamoten (namn, roll, foto).
-   Rollens e-postadress kan oftast stå kvar.
-2. Ordningen styrs av fältet **Ordning** (lägre tal visas först).
+Följ checklistan under **Styrelseskifte** – den går igenom allt (nya ledamöter, foton, konton, lösenord och
+inloggningar till andra tjänster) och sparar hur långt ni har kommit. Själva ledamöterna ändrar du under
+**Styrelse och uppdrag → Styrelsen**. Ordningen styrs av fältet **Ordning** (lägre tal visas först).
+
+### Schemalägga en nyhet, ett event eller ett jobb
+Fyll i **Publiceringstid** längst ned när du skriver. Lämnar du fältet tomt publiceras det direkt. Väljer du en tid
+framåt står det *Schemalagd* i listan, och det dyker upp på webbplatsen av sig självt vid den tiden.
+
+### Lägga upp ett jobb eller en praktikplats
+1. **Jobb och praktik → + Lägg upp en tjänst** (eller **+ Lägg upp en tjänst** på en partners sida).
+2. Välj partnern om tjänsten är hos en av dem – då visas deras logotyp och annonsen syns även på partnerns sida.
+3. Fyll i **Sista ansökningsdag**. Annonsen försvinner automatiskt dagen efter. Utan datum står det *Löpande urval*.
+
+### Söka folk till ett uppdrag i föreningen
+**Styrelse och uppdrag → Lediga uppdrag → + Lägg till uppdrag.** Uppdraget visas på sidan **Engagera dig**, där
+studenter kan anmäla intresse. Anmälningarna kommer till **Meddelanden**.
 
 ### Ladda upp ett protokoll
 1. **Dokument → + Ladda upp dokument**.
 2. Titel (t.ex. *Protokoll styrelsemöte 2026-09-14*), kategori **Protokoll**, år och PDF-fil. **Skapa**.
 
-### Byta bild eller text på startsidan
-1. **Redigera texter → Startsidan**.
-2. Ändra texten eller välj en ny bild under *Bild överst* / *”Vilka är JFK?” – bild*.
-3. Titta i **förhandsvisningen** till höger – den visar sidan med dina ändringar medan du skriver
-   och hoppar automatiskt till den del av sidan du redigerar. Växla mellan **Dator** och **Mobil**.
-4. Ser det bra ut? Klicka **Spara ändringar**. Inget syns på webbplatsen innan du sparar.
+### Ändra en text eller bild
+1. Klicka på texten i bilden av webbplatsen på **Översikt** – eller gå till **Texter och sidor**, välj sidan och
+   öppna avsnittet (t.ex. *Toppen av sidan*). Knappar och etiketter som sällan ändras ligger under **Visa fler texter**.
+2. Skriv den nya texten. **Förhandsvisningen** till höger visar sidan med dina ändringar medan du skriver.
+   Klicka på en text i förhandsvisningen så hoppar du till rätt fält. Växla mellan **Dator** och **Mobil**.
+3. Ser det bra ut? Klicka **Spara ändringar**. Inget syns på webbplatsen innan du sparar.
+4. **Ångra:** direkt efter sparningen finns en **Ångra**-knapp. Under varje fält finns också
+   **Tidigare versioner** (de 25 senaste sparas) och **Återställ originaltexten**.
 
+Bilder: välj en ny fil, eller klicka **Välj från bildbanken** för att återanvända en bild som redan finns.
 På en mobil eller liten skärm öppnar du förhandsvisningen med knappen **Visa förhandsvisning** nere till höger.
+
+### Ändra menyn
+**Texter och sidor → Menyn.** Skriv ett nytt namn, flytta med pilarna och bocka ur **Visas** för att dölja ett
+menyval. Sidan finns kvar även om den inte syns i menyn. **Återställ standardmenyn** tar tillbaka originalet.
 
 ### Byta logotyp eller färger *(administratör)*
 1. **Utseende**.
@@ -107,6 +135,8 @@ På en mobil eller liten skärm öppnar du förhandsvisningen med knappen **Visa
 - Öppna ett meddelande → **Svara via e-post** (öppnar ditt mejlprogram) → **Markera som hanterad**.
 - **Exportera CSV** ger en fil som öppnas i Excel.
 - Meddelanden raderas automatiskt efter 12 månader. Du kan också radera dem direkt.
+- Har ett meddelande väntat i mer än en vecka syns det på Översikt, och (om e-post är inställt) får styrelsen
+  ett påminnelsemejl – en gång per meddelande.
 - **Anonyma JF Påverka-inskick** visar aldrig namn, e-post eller IP-adress – inte ens för styrelsen.
 
 ### Bjuda in en ny person *(administratör)*
@@ -118,7 +148,12 @@ På en mobil eller liten skärm öppnar du förhandsvisningen med knappen **Visa
 
 ## 4. Bra att veta
 
-- **”Bli medlem”-knapparna** går alltid till länken som står under *Redigera texter → Länkar och kontaktuppgifter*.
+- **”Bli medlem”-knapparna** går alltid till länken som står under *Texter och sidor → Gemensamt → Kontaktuppgifter och länkar*.
+- **Bildbanken:** en bild som byts ut ligger kvar i bildbanken så att du kan använda den igen. Foton på personer
+  (styrelsen, utmärkelser) och galleribilder raderas däremot helt när de tas bort, eftersom samtycket kan återkallas.
+- **Kalendern** kan prenumereras på (knappen *Prenumerera på kalendern* på /kalender). Nya event dyker då upp
+  automatiskt i besökarens mobilkalender.
+- **Statistik till partners** räknas helt utan kakor och utan att något sparas om besökaren – bara en totalsiffra per dag.
 - **Bilder:** JPG, PNG, WebP, GIF, SVG eller HEIC (iPhone). Du kan välja hur stora foton som helst – är en bild större än
   5 MB, eller onödigt stor i pixlar, förminskas och komprimeras den automatiskt i din webbläsare innan den laddas upp
   (längsta sidan blir max 2560 px, vilket räcker gott för webben). Under fältet står hur stor bilden blev.
@@ -140,7 +175,7 @@ integritetspolicy (`/integritetspolicy`). Men en del är rutiner som bara styrel
 - **Foton på personer.** Fråga alltid innan du laddar upp ett porträtt (styrelsen, hedersmedlemmar, Årets pedagog).
   Ber någon att en bild tas bort – från galleriet eller någon annanstans – gör det samma dag.
 - **Begäran om registerutdrag eller radering.** Om någon mejlar och vill veta vad vi har om dem:
-  sök under **Meddelanden** (eller exportera CSV) och skicka det som rör personen. Vill de bli raderade:
+  sök under **Meddelanden** (intresseanmälningar från Engagera dig ligger också där) (eller exportera CSV) och skicka det som rör personen. Vill de bli raderade:
   radera meddelandena. Svara inom **en månad**.
 - **Personuppgiftsincident.** Om något hamnar fel (t.ex. ett konto kapas eller meddelanden läcker):
   byt lösenord, ta bort berörda konton under **Användare** och anmäl till IMY inom **72 timmar** om det
@@ -150,7 +185,9 @@ integritetspolicy (`/integritetspolicy`). Men en del är rutiner som bara styrel
 - **Konton.** Ta bort konton för personer som lämnar styrelsen direkt vid överlämningen.
 - **Ändrar ni hur personuppgifter används** (t.ex. lägger till nyhetsbrev eller statistikverktyg) måste
   integritetspolicyn uppdateras, och för statistik/marknadsföring krävs en cookie-banner med samtycke.
-- **Organisationsnummer.** Fyll i det under *Redigera texter → Länkar och kontaktuppgifter*. Det visas då i sidfoten
+- **Integritetspolicyn** kan ändras under *Texter och sidor → Integritet och kakor*. Ändra bara om hanteringen
+  faktiskt har ändrats, och uppdatera då datumet *Senast uppdaterad*.
+- **Organisationsnummer.** Fyll i det under *Texter och sidor → Gemensamt → Kontaktuppgifter och länkar*. Det visas då i sidfoten
   och i integritetspolicyn.
 
 ---
@@ -162,6 +199,10 @@ Teknisk dokumentation finns i **CLAUDE.md** (arkitektur, konventioner, kommandon
 - Cloudflare Worker (TypeScript, inga runtime-beroenden) + D1 (databas) + KV (filer).
 - **Publicering:** varje push till `main` i GitHub byggs och publiceras automatiskt av Cloudflare (Workers Builds).
 - **Lokalt:** `npm install`, `npm run db:migrate:local`, `npm run db:seed:local`, `npm run dev`.
+  Utan wrangler: `npm run preview:node -- --reset` (SQLite i stället för D1). Lägg en `.dev.vars` utan
+  `TURNSTILE_SECRET_KEY` om datorn saknar internet, annars stoppas formulären av robotskyddet.
+- **Tester:** `tools/e2e/` (Playwright för Python) – `test_features.py`, `test_regression.py`, `test_public.py`
+  körs mot den lokala förhandsvisningen med nollställd databas.
 
 ### Hemligheter (Cloudflare → Workers & Pages → jfkarlstad → Settings → Variables and Secrets)
 
@@ -182,7 +223,7 @@ Med **Turnstile**: skapa en widget i Cloudflare (Turnstile → Add widget, domä
 lägg in *secret key* som secret och byt `TURNSTILE_SITE_KEY` i `wrangler.jsonc` mot *site key*.
 
 ### Databasändringar
-Lägg till en ny fil i `migrations/` (t.ex. `0002_...sql`) och kör `npm run db:migrate:remote`. Ändra aldrig en migrering som redan körts.
+Lägg till en ny fil i `migrations/` (t.ex. `0003_...sql`) och kör `npm run db:migrate:remote`. Ändra aldrig en migrering som redan körts.
 
 ### Byta till R2 för filer
 Aktivera R2 i Cloudflare, skapa bucketen `jfkarlstad-uploads` och lägg till den under `r2_buckets` i `wrangler.jsonc`

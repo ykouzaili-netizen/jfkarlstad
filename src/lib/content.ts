@@ -27,6 +27,7 @@ export interface EventRow {
   image_key: string | null;
   image_alt: string;
   published: number;
+  publish_at: string | null;
 }
 
 export interface PartnerRow {
@@ -101,6 +102,42 @@ export interface DocumentRow {
   updated_at: string;
 }
 
+export type JobKind = "praktik" | "sommarnotarie" | "trainee" | "jobb" | "uppsats" | "annat";
+export const JOB_KINDS: JobKind[] = ["praktik", "sommarnotarie", "trainee", "jobb", "uppsats", "annat"];
+
+export interface JobRow {
+  id: number;
+  slug: string;
+  title: string;
+  employer: string;
+  partner_id: number | null;
+  kind: JobKind;
+  location: string;
+  summary: string;
+  body: string;
+  apply_url: string | null;
+  deadline: string | null;
+  publish_at: string | null;
+  published: number;
+  updated_at: string;
+  /** Från JOIN mot partners (kan saknas). */
+  partner_slug?: string | null;
+  partner_logo?: string | null;
+}
+
+export interface PositionRow {
+  id: number;
+  title: string;
+  committee: string;
+  description: string;
+  commitment: string;
+  contact_email: string | null;
+  open_until: string | null;
+  sort_order: number;
+  published: number;
+}
+
+/** Standardnamn – på webbplatsen används texterna doc_cat_* från textregistret. */
 export const DOCUMENT_CATEGORIES: Record<DocumentRow["category"], string> = {
   stadgar: "Stadgar",
   styrdokument: "Styrdokument",
@@ -119,21 +156,55 @@ export const GALLERY_ALBUMS = ["Banketter", "Arbetsmarknadsmässor", "Halvtidsmi
 /** Visas ett evenemang utan sluttid till dagens slut. */
 const EVENT_END = "COALESCE(ends_at, substr(starts_at, 1, 10) || 'T23:59')";
 
+/** Schemalagd publicering: syns först när publiceringstiden (UTC) har passerat. */
+const NEWS_LIVE = "published = 1 AND (published_at IS NULL OR published_at <= datetime('now'))";
+const EVENT_LIVE = "published = 1 AND (publish_at IS NULL OR publish_at <= datetime('now'))";
+const JOB_LIVE = "j.published = 1 AND (j.publish_at IS NULL OR j.publish_at <= datetime('now'))";
+
 export const newsQuery = {
   latest: (db: D1Database, limit: number, offset = 0) =>
-    db
-      .prepare("SELECT * FROM news WHERE published = 1 ORDER BY published_at DESC, id DESC LIMIT ? OFFSET ?")
-      .bind(limit, offset),
-  count: (db: D1Database) => db.prepare("SELECT COUNT(*) AS n FROM news WHERE published = 1"),
-  bySlug: (db: D1Database, slug: string) => db.prepare("SELECT * FROM news WHERE published = 1 AND slug = ?").bind(slug),
+    db.prepare(`SELECT * FROM news WHERE ${NEWS_LIVE} ORDER BY published_at DESC, id DESC LIMIT ? OFFSET ?`).bind(limit, offset),
+  count: (db: D1Database) => db.prepare(`SELECT COUNT(*) AS n FROM news WHERE ${NEWS_LIVE}`),
+  bySlug: (db: D1Database, slug: string) => db.prepare(`SELECT * FROM news WHERE ${NEWS_LIVE} AND slug = ?`).bind(slug),
 };
 
 export const eventQuery = {
   upcoming: (db: D1Database, nowLocal: string, limit: number) =>
-    db.prepare(`SELECT * FROM events WHERE published = 1 AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(nowLocal, limit),
+    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(nowLocal, limit),
   past: (db: D1Database, nowLocal: string, limit: number) =>
-    db.prepare(`SELECT * FROM events WHERE published = 1 AND ${EVENT_END} < ? ORDER BY starts_at DESC LIMIT ?`).bind(nowLocal, limit),
-  bySlug: (db: D1Database, slug: string) => db.prepare("SELECT * FROM events WHERE published = 1 AND slug = ?").bind(slug),
+    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} < ? ORDER BY starts_at DESC LIMIT ?`).bind(nowLocal, limit),
+  /** För kalenderprenumerationen: från ett datum och framåt. */
+  since: (db: D1Database, fromLocal: string) =>
+    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT 300`).bind(fromLocal),
+  bySlug: (db: D1Database, slug: string) => db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND slug = ?`).bind(slug),
+};
+
+const JOB_SELECT = "SELECT j.*, p.slug AS partner_slug, p.logo_key AS partner_logo FROM jobs j LEFT JOIN partners p ON p.id = j.partner_id AND p.published = 1";
+
+export const jobQuery = {
+  /** Öppna tjänster: publicerade och sista ansökningsdag inte passerad. `today` = 'YYYY-MM-DD' i svensk tid. */
+  open: (db: D1Database, today: string) =>
+    db.prepare(`${JOB_SELECT} WHERE ${JOB_LIVE} AND (j.deadline IS NULL OR j.deadline >= ?) ORDER BY j.deadline IS NULL, j.deadline, j.id DESC`).bind(today),
+  openCount: (db: D1Database, today: string) =>
+    db.prepare(`SELECT COUNT(*) AS n FROM jobs j WHERE ${JOB_LIVE} AND (j.deadline IS NULL OR j.deadline >= ?)`).bind(today),
+  openForPartner: (db: D1Database, partnerId: number, today: string) =>
+    db.prepare(`${JOB_SELECT} WHERE ${JOB_LIVE} AND j.partner_id = ? AND (j.deadline IS NULL OR j.deadline >= ?) ORDER BY j.deadline IS NULL, j.deadline`).bind(partnerId, today),
+  /** Även tjänster som gått ut, så att gamla länkar fungerar (sidan visar att tiden gått ut). */
+  bySlug: (db: D1Database, slug: string) => db.prepare(`${JOB_SELECT} WHERE ${JOB_LIVE} AND j.slug = ?`).bind(slug),
+  byId: (db: D1Database, id: number) => db.prepare(`${JOB_SELECT} WHERE ${JOB_LIVE} AND j.id = ?`).bind(id),
+};
+
+/** Underlag för sidans sökfunktion. Innehållet är litet, så vi filtrerar i koden (klarar å, ä och ö). */
+export const searchQuery = {
+  news: (db: D1Database) =>
+    db.prepare(`SELECT id, slug, title, excerpt, body, published_at FROM news WHERE ${NEWS_LIVE} ORDER BY published_at DESC LIMIT 500`),
+  events: (db: D1Database) =>
+    db.prepare(`SELECT id, slug, title, summary, body, location, starts_at, ends_at FROM events WHERE ${EVENT_LIVE} ORDER BY starts_at DESC LIMIT 500`),
+};
+
+export const positionQuery = {
+  open: (db: D1Database, today: string) =>
+    db.prepare("SELECT * FROM positions WHERE published = 1 AND (open_until IS NULL OR open_until >= ?) ORDER BY sort_order, id").bind(today),
 };
 
 export const partnerQuery = {

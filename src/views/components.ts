@@ -1,27 +1,34 @@
-import { html, type SafeHtml } from "../lib/html.js";
+import { html, raw, type SafeHtml } from "../lib/html.js";
 import { eventDate, formatDate, isoDate, truncate } from "../lib/format.js";
 import type { EventRow, NewsRow, PartnerRow } from "../lib/content.js";
+import { ec, ek, type SettingKey, type Settings } from "../lib/settings.js";
 import { icon } from "./icons.js";
-import { mediaUrl } from "./layout.js";
+import { mediaUrl, picture } from "./layout.js";
 
-export function arrowLink(href: string, label: string, className = "arrow-link"): SafeHtml {
-  return html`<a class="${className}" href="${href}">${label}${icon("arrowRight", "icon icon-sm")}</a>`;
+export function arrowLink(href: string, label: string, className = "arrow-link", attrs?: SafeHtml): SafeHtml {
+  return html`<a class="${className}" href="${href}"${attrs ?? ""}>${label}${icon("arrowRight", "icon icon-sm")}</a>`;
 }
 
-export function sectionHead(opts: { title: string; id?: string; lead?: string; link?: { href: string; label: string } }): SafeHtml {
+/** Rubrik (+ ingress och länk) för en sektion. Texterna kommer från textregistret. */
+export function sectionHead(
+  s: Settings,
+  opts: { titleKey: SettingKey; id?: string; leadKey?: SettingKey; lead?: string; link?: { href: string; labelKey: SettingKey }; extra?: SafeHtml },
+): SafeHtml {
+  const lead = opts.leadKey ? s[opts.leadKey] : opts.lead;
   return html`<div class="section-head">
     <div>
-      <h2 class="section-title"${opts.id ? html` id="${opts.id}"` : ""}>${opts.title}</h2>
-      ${opts.lead ? html`<p class="section-lead">${opts.lead}</p>` : ""}
+      <h2 class="section-title"${opts.id ? html` id="${opts.id}"` : ""}${ek(s, opts.titleKey)}>${s[opts.titleKey]}</h2>
+      ${lead ? html`<p class="section-lead"${opts.leadKey ? ek(s, opts.leadKey) : ""}>${lead}</p>` : ""}
     </div>
-    ${opts.link ? arrowLink(opts.link.href, opts.link.label, "arrow-link section-link") : ""}
+    ${opts.link ? arrowLink(opts.link.href, s[opts.link.labelKey], "arrow-link section-link", ek(s, opts.link.labelKey)) : ""}
+    ${opts.extra ?? ""}
   </div>`;
 }
 
-export function eventCard(e: EventRow, headingLevel: 2 | 3 = 3): SafeHtml {
+export function eventCard(s: Settings, e: EventRow, headingLevel: 2 | 3 = 3): SafeHtml {
   const d = eventDate(e.starts_at, e.ends_at);
   const heading = html`<a class="card-link" href="/kalender/${e.slug}">${e.title}</a>`;
-  return html`<article class="card event-card">
+  return html`<article class="card event-card"${ec(s, `/admin/event/${e.id}`, `Event › ${e.title}`)}>
     ${d
       ? html`<time class="date-badge" datetime="${d.iso}">
           <span class="date-day">${d.day}</span><span class="date-month">${d.monthShort}</span>
@@ -33,18 +40,17 @@ export function eventCard(e: EventRow, headingLevel: 2 | 3 = 3): SafeHtml {
         ${d ? html`<li>${icon("clock", "icon icon-sm")}<span><span class="capitalize">${d.weekday}</span> ${d.time}</span></li>` : ""}
         ${e.location ? html`<li>${icon("pin", "icon icon-sm")}<span>${e.location}</span></li>` : ""}
       </ul>
-      ${e.members_only ? html`<span class="tag">Endast medlemmar</span>` : ""}
+      ${e.members_only ? html`<span class="tag">${s.members_tag}</span>` : ""}
     </div>
   </article>`;
 }
 
-export function newsCard(n: NewsRow, headingLevel: 2 | 3 = 3): SafeHtml {
-  const img = mediaUrl(n.image_key);
+export function newsCard(s: Settings, n: NewsRow, headingLevel: 2 | 3 = 3): SafeHtml {
   const heading = html`<a class="card-link" href="/aktuellt/${n.slug}">${n.title}</a>`;
-  return html`<article class="card news-card">
-    <div class="news-media${img ? "" : " news-media-empty"}">
-      ${img
-        ? html`<img src="${img}" alt="${n.image_alt}" loading="lazy" decoding="async" width="640" height="400">`
+  return html`<article class="card news-card"${ec(s, `/admin/nyheter/${n.id}`, `Nyhet › ${n.title}`)}>
+    <div class="news-media${n.image_key ? "" : " news-media-empty"}">
+      ${n.image_key
+        ? picture(n.image_key, { alt: n.image_alt, sizes: "(min-width: 1020px) 380px, (min-width: 700px) 50vw, 100vw", width: 640, height: 400 })
         : html`<span class="news-media-mark" aria-hidden="true">§</span>`}
     </div>
     <div class="news-body">
@@ -57,12 +63,23 @@ export function newsCard(n: NewsRow, headingLevel: 2 | 3 = 3): SafeHtml {
 
 /** Partnerns logotyp – eller namnet satt typografiskt om ingen logotyp laddats upp. */
 export function partnerLogo(p: PartnerRow, size: "lg" | "sm" = "lg"): SafeHtml {
-  const src = mediaUrl(p.logo_key);
+  const src = mediaUrl(p.logo_key, "sm");
   return src
     ? html`<img class="partner-logo partner-logo-${size}" src="${src}" alt="${p.name}" loading="lazy" decoding="async">`
     : html`<span class="partner-wordmark partner-wordmark-${size}">${p.name}</span>`;
 }
 
-export function emptyState(text: SafeHtml | string): SafeHtml {
-  return html`<div class="empty-state"><p>${text}</p></div>`;
+/** Partnerkort (startsidan och partnersidan). */
+export function partnerCard(s: Settings, p: PartnerRow): SafeHtml {
+  const kickerKey = p.tier === "huvud" ? "partner_main_kicker" : "partner_kicker";
+  return html`<li class="partner-card"${ec(s, `/admin/partners/${p.id}`, `Partner › ${p.name}`)}>
+    <span class="partner-kicker"${ek(s, kickerKey)}>${s[kickerKey]}</span>
+    <div class="partner-logo-wrap">${partnerLogo(p, "lg")}</div>
+    <p class="partner-tagline">${p.tagline}</p>
+    <a class="card-link arrow-link" href="/partners/${p.slug}">${s.read_more}<span class="sr-only"> om ${p.name}</span>${icon("arrowRight", "icon icon-sm")}</a>
+  </li>`;
+}
+
+export function emptyState(text: SafeHtml | string, attrs?: SafeHtml): SafeHtml {
+  return html`<div class="empty-state"${attrs ?? raw("")}><p>${text}</p></div>`;
 }

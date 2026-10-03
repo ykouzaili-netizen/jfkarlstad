@@ -29,7 +29,8 @@ export function renderMarkdown(source: string | null | undefined): SafeHtml {
   return raw(out.join("\n"));
 }
 
-function inline(text: string): string {
+/** Inline-formatering (länkar, fet, kursiv) för en kort text. Escapar allt. */
+export function inline(text: string): string {
   let s = escapeHtml(text);
   // Länkar: [text](url) – URL:en kontrolleras med safeUrl
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label: string, url: string) => {
@@ -50,4 +51,16 @@ export function plainText(source: string): string {
     .replace(/^\s*[-•]\s+/gm, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Kort text med länkar och fetstil, utan stycken (för meningar som innehåller en länk). */
+export function renderInline(source: string | null | undefined): SafeHtml {
+  return raw(
+    String(source ?? "")
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((l) => inline(l.trim()))
+      .filter(Boolean)
+      .join("<br>"),
+  );
 }

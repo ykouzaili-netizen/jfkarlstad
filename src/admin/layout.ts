@@ -21,6 +21,14 @@ const FLASH: Record<string, { kind: "ok" | "error"; text: string }> = {
   behorighet: { kind: "error", text: "Den sidan kräver administratörsbehörighet." },
   csrf: { kind: "error", text: "Formuläret hade gått ut. Försök igen." },
   uppladdning: { kind: "error", text: "Filen kunde inte laddas upp. Kontrollera filtyp och storlek." },
+  oforandrat: { kind: "ok", text: "Inget hade ändrats, så det fanns inget att spara." },
+  schemalagt: { kind: "ok", text: "Sparat och schemalagt – det dyker upp på webbplatsen vid den tid du valde." },
+  kopierat: { kind: "ok", text: "Kopian är skapad som ett utkast. Ändra det som ska ändras och publicera när du är klar." },
+  angrat: { kind: "ok", text: "Ändringen är ångrad. Texterna är tillbaka som de var." },
+  "angrat-delvis": { kind: "ok", text: "Ändringen är ångrad, utom för texter som någon har ändrat igen efteråt." },
+  "aterstallt-text": { kind: "ok", text: "Versionen är återställd och syns nu på webbplatsen." },
+  anvands: { kind: "error", text: "Bilden används fortfarande och kan inte tas bort." },
+  "bild-borta": { kind: "error", text: "Bilden i den versionen finns inte kvar i bildbanken och kan inte återställas." },
 };
 
 export interface NavEntry {
@@ -28,13 +36,15 @@ export interface NavEntry {
   label: string;
   icon: IconName;
   adminOnly?: boolean;
+  /** Visas bara i mobilmenyn (på dator finns länken i toppraden). */
+  mobileOnly?: boolean;
   badge?: number;
 }
 
 export async function adminLayout(
   c: RequestContext,
   session: Session | null,
-  opts: { title: string; active?: string; newCount?: number; narrow?: boolean; wide?: boolean },
+  opts: { title: string; active?: string; newCount?: number; narrow?: boolean; wide?: boolean; searchQuery?: string },
   content: SafeHtml,
   status = 200,
 ): Promise<Response> {
@@ -43,35 +53,44 @@ export async function adminLayout(
   const flash = FLASH[flashCode];
 
   const groups: { title: string; items: NavEntry[] }[] = [
-    { title: "", items: [{ href: "/admin", label: "Översikt", icon: "sparkle" }] },
     {
-      title: "Innehåll",
+      title: "",
       items: [
-        { href: "/admin/nyheter", label: "Nyheter", icon: "megaphone" },
-        { href: "/admin/event", label: "Event", icon: "calendar" },
-        { href: "/admin/partners", label: "Partners", icon: "briefcase" },
-        { href: "/admin/styrelsen", label: "Styrelsen", icon: "user" },
-        { href: "/admin/utmarkelser", label: "Utmärkelser", icon: "sparkle" },
-        { href: "/admin/kursombud", label: "Kursombud", icon: "network" },
-        { href: "/admin/galleri", label: "Bildgalleri", icon: "instagram" },
-        { href: "/admin/faq", label: "Vanliga frågor", icon: "mail" },
-        { href: "/admin/dokument", label: "Dokument", icon: "lock" },
+        { href: "/admin", label: "Översikt", icon: "sparkle" },
+        { href: "/admin/meddelanden", label: "Meddelanden", icon: "mail", badge: opts.newCount },
       ],
     },
     {
       title: "Webbplatsen",
       items: [
-        { href: "/admin/texter", label: "Redigera texter", icon: "megaphone" },
-        { href: "/admin/meddelanden", label: "Meddelanden", icon: "mail", badge: opts.newCount },
+        { href: "/admin/texter", label: "Texter och sidor", icon: "edit" },
+        { href: "/admin/utseende", label: "Utseende", icon: "sparkle", adminOnly: true },
+        { href: "/admin/bildbank", label: "Bildbank", icon: "image" },
       ],
+    },
+    {
+      title: "Innehåll",
+      items: [
+        { href: "/admin/nyheter", label: "Nyheter", icon: "megaphone" },
+        { href: "/admin/event", label: "Event", icon: "calendar" },
+        { href: "/admin/jobb", label: "Jobb och praktik", icon: "briefcase" },
+        { href: "/admin/partners", label: "Partners", icon: "chart" },
+        { href: "/admin/dokument", label: "Dokument", icon: "lock" },
+        { href: "/admin/faq", label: "Vanliga frågor", icon: "network" },
+        { href: "/admin/galleri", label: "Bildgalleri", icon: "instagram" },
+      ],
+    },
+    {
+      title: "Föreningen",
+      items: [{ href: "/admin/styrelsen", label: "Styrelse och uppdrag", icon: "users" }],
     },
     {
       title: "Administration",
       items: [
-        { href: "/admin/utseende", label: "Utseende", icon: "sparkle", adminOnly: true },
         { href: "/admin/anvandare", label: "Användare", icon: "user", adminOnly: true },
-        { href: "/admin/logg", label: "Ändringslogg", icon: "clock", adminOnly: true },
-        { href: "/admin/konto", label: "Mitt konto", icon: "lock" },
+        { href: "/admin/styrelseskifte", label: "Styrelseskifte", icon: "checklist", adminOnly: true },
+        { href: "/admin/logg", label: "Ändringslogg", icon: "history", adminOnly: true },
+        { href: "/admin/konto", label: "Mitt konto", icon: "lock", mobileOnly: true },
       ],
     },
   ];
@@ -86,7 +105,7 @@ export async function adminLayout(
             <ul>
               ${items.map((i) => {
                 const active = opts.active === i.href;
-                return html`<li><a href="${i.href}"${active ? raw(' aria-current="page"') : ""}>${icon(i.icon, "icon icon-sm")}<span>${i.label}</span>${i.badge ? html`<span class="badge" aria-label="${i.badge} nya">${i.badge}</span>` : ""}</a></li>`;
+                return html`<li${i.mobileOnly ? raw(' class="mobile-only"') : ""}><a href="${i.href}"${active ? raw(' aria-current="page"') : ""}>${icon(i.icon, "icon icon-sm")}<span>${i.label}</span>${i.badge ? html`<span class="badge" aria-label="${i.badge} nya">${i.badge}</span>` : ""}</a></li>`;
               })}
             </ul>
           </div>`;
@@ -111,9 +130,14 @@ export async function adminLayout(
 ${session
   ? html`<header class="admin-top">
       <a class="admin-brand" href="/admin"><span class="brand-mark" aria-hidden="true">§</span><span>Adminpanel</span></a>
+      <form class="admin-top-search" method="get" action="/admin/sok" role="search">
+        <label class="sr-only" for="topp-sok">Hitta text eller innehåll</label>
+        <span class="admin-top-search-icon" aria-hidden="true">${icon("search", "icon icon-sm")}</span>
+        <input type="search" id="topp-sok" name="q" value="${opts.searchQuery ?? ""}" placeholder="Hitta text eller innehåll …" autocomplete="off" maxlength="100">
+      </form>
       <div class="admin-top-actions">
         <a class="admin-top-link" href="/" target="_blank" rel="noopener">${icon("external", "icon icon-sm")}<span>Visa webbplatsen</span></a>
-        <span class="admin-user"><span class="admin-user-name">${session.user.name}</span><span class="admin-user-role">${ROLE_LABELS[session.user.role]}</span></span>
+        <a class="admin-user" href="/admin/konto" title="Mitt konto"><span class="admin-user-name">${session.user.name}</span><span class="admin-user-role">${ROLE_LABELS[session.user.role]} · Mitt konto</span></a>
         <form method="post" action="/admin/logga-ut"><input type="hidden" name="_csrf" value="${session.csrf}"><button class="btn btn-outline btn-sm" type="submit">Logga ut</button></form>
         <button class="admin-menu-toggle" type="button" aria-expanded="false" aria-controls="adminmeny" data-admin-menu>${icon("menu")}<span class="sr-only">Meny</span></button>
       </div>
@@ -126,6 +150,15 @@ ${session
     ${content}
   </main>
 </div>
+${session
+  ? html`<dialog class="bank-dialog" aria-labelledby="bank-titel" data-bank-dialog>
+      <div class="bank-head">
+        <h2 class="bank-title" id="bank-titel">Välj en bild från bildbanken</h2>
+        <button class="lp-close bank-close" type="button" data-bank-close aria-label="Stäng">✕</button>
+      </div>
+      <div class="bank-body" data-bank-body><p class="muted">Laddar bilderna …</p></div>
+    </dialog>`
+  : ""}
 </body>
 </html>`;
 
@@ -156,9 +189,9 @@ export function csrfField(session: Session): SafeHtml {
 }
 
 /** Liten POST-knapp (t.ex. radera/publicera) med CSRF och valfri bekräftelsefråga. */
-export function postButton(session: Session, action: string, label: string, opts: { confirm?: string; className?: string } = {}): SafeHtml {
+export function postButton(session: Session, action: string, label: string, opts: { confirm?: string; className?: string; hidden?: Record<string, string> } = {}): SafeHtml {
   return html`<form class="inline-form" method="post" action="${action}"${opts.confirm ? html` data-confirm="${opts.confirm}"` : ""}>
-    ${csrfField(session)}<button class="${opts.className ?? "btn btn-outline btn-sm"}" type="submit">${label}</button>
+    ${csrfField(session)}${Object.entries(opts.hidden ?? {}).map(([k, v]) => html`<input type="hidden" name="${k}" value="${v}">`)}<button class="${opts.className ?? "btn btn-outline btn-sm"}" type="submit">${label}</button>
   </form>`;
 }
 

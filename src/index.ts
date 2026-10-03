@@ -6,8 +6,11 @@ import { homePage } from "./pages/home.js";
 import { aboutPage } from "./pages/about.js";
 import { membershipPage } from "./pages/membership.js";
 import { studentsPage } from "./pages/students.js";
-import { companiesPage, contactPage, paverkaPage, submitHandler, thanksPage } from "./pages/forms.js";
+import { companiesPage, contactPage, engagePage, paverkaPage, submitHandler, thanksPage } from "./pages/forms.js";
+import { jobDetailPage, jobsPage, outboundHandler } from "./pages/careers.js";
+import { searchPage } from "./pages/search.js";
 import {
+  calendarFeedHandler,
   calendarPage,
   documentFileHandler,
   documentsPage,
@@ -26,8 +29,15 @@ import { runMaintenance } from "./lib/maintenance.js";
 const router = new Router()
   .get("/", homePage)
   .get("/om-oss", aboutPage)
+  .get("/engagera-dig", (c) => engagePage(c))
+  .post("/engagera-dig", submitHandler("engagemang"))
+  .get("/engagera-dig/tack", thanksPage("engagemang"))
   .get("/bli-medlem", membershipPage)
   .get("/for-studenter", studentsPage)
+  .get("/karriar", jobsPage)
+  .get("/karriar/:slug", jobDetailPage)
+  .get("/ut/:kind/:id", outboundHandler)
+  .get("/sok", searchPage)
   .get("/for-foretag", (c) => companiesPage(c))
   .post("/for-foretag", submitHandler("foretag"))
   .get("/for-foretag/tack", thanksPage("foretag"))
@@ -36,6 +46,7 @@ const router = new Router()
   .get("/aktuellt", newsListPage)
   .get("/aktuellt/:slug", newsArticlePage)
   .get("/kalender", calendarPage)
+  .get("/kalender.ics", calendarFeedHandler)
   .get("/kalender/:slug", eventDetailPage)
   .get("/dokument", documentsPage)
   .get("/dokument/fil/:id", documentFileHandler)
@@ -50,7 +61,7 @@ const router = new Router()
   .get("/cookies", cookiesPage)
   .get("/sitemap.xml", sitemapXml)
   .get("/robots.txt", (c) =>
-    textResponse(`User-agent: *\nAllow: /\nDisallow: /admin\n\nSitemap: ${c.env.SITE_URL.replace(/\/$/, "")}/sitemap.xml\n`, "text/plain; charset=utf-8"),
+    textResponse(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /ut/\nDisallow: /sok?\n\nSitemap: ${c.env.SITE_URL.replace(/\/$/, "")}/sitemap.xml\n`, "text/plain; charset=utf-8"),
   )
   .get("/media/:key", mediaHandler);
 
@@ -60,7 +71,8 @@ registerAdminRoutes(router);
 async function mediaHandler(c: RequestContext): Promise<Response> {
   const key = c.params.key ?? "";
   if (!/^[a-z0-9][a-z0-9._-]{0,200}$/i.test(key)) return notFoundPage(c);
-  const file = await getFile(c.env, key);
+  // Den lilla versionen (".sm") finns inte för äldre bilder och SVG – svara då med originalet.
+  const file = (await getFile(c.env, key)) ?? (key.endsWith(".sm") ? await getFile(c.env, key.slice(0, -3)) : null);
   if (!file) return notFoundPage(c);
   return new Response(c.req.method === "HEAD" ? null : file.body, {
     headers: {

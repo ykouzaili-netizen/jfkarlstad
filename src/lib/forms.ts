@@ -15,7 +15,16 @@ export interface FieldSpec {
   rows?: number;
   /** Extra klass på fältets wrapper, t.ex. för att JS ska kunna dölja det. */
   wrapClass?: string;
+  /** Extra attribut på etiketten (förhandsvisningens klickbara texter). */
+  labelAttr?: SafeHtml;
 }
+
+/** Små texter i formulären som kan ändras i adminpanelen. */
+export interface FormUiTexts {
+  optional: string;
+  select: string;
+}
+const DEFAULT_UI: FormUiTexts = { optional: "(valfritt)", select: "Välj …" };
 
 export type Values = Record<string, string>;
 export type Errors = Record<string, string>;
@@ -33,7 +42,17 @@ export function validate(fields: FieldSpec[], form: FormData): { values: Values;
     values[f.name] = v;
 
     if (!v) {
-      if (f.required) errors[f.name] = f.type === "radio" || f.type === "select" ? `Välj ${f.label.toLowerCase()}.` : f.type === "checkbox" ? "Du behöver kryssa i rutan." : `Fyll i ${f.label.toLowerCase()}.`;
+      if (f.required) {
+        // Etiketter som är frågor ("Vad gäller det?") fungerar inte i "Fyll i …" – använd då en neutral text.
+        const question = /\?\s*$/.test(f.label);
+        const label = f.label.charAt(0).toLowerCase() + f.label.slice(1);
+        errors[f.name] =
+          f.type === "radio" || f.type === "select"
+            ? question ? "Välj ett av alternativen." : `Välj ${label}.`
+            : f.type === "checkbox"
+              ? "Du behöver kryssa i rutan."
+              : question ? "Fyll i det här fältet." : `Fyll i ${label}.`;
+      }
       continue;
     }
     const max = f.max ?? (f.type === "textarea" ? 5000 : 200);
@@ -46,6 +65,7 @@ export function validate(fields: FieldSpec[], form: FormData): { values: Values;
       errors[f.name] = f.min !== undefined && f.max !== undefined ? `Ange ett tal mellan ${f.min} och ${f.max}.` : "Ange ett heltal.";
     else if (f.type === "color" && !/^#[0-9a-f]{6}$/i.test(v)) errors[f.name] = "Ange en färg i formatet #rrggbb.";
     else if (f.type === "datetime-local" && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) errors[f.name] = "Ange datum och tid.";
+    else if (f.type === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(v)) errors[f.name] = "Ange ett datum.";
   }
   return { values, errors };
 }
@@ -55,10 +75,11 @@ function describedBy(f: FieldSpec, error?: string): string {
   return ids.join(" ");
 }
 
-export function renderField(f: FieldSpec, value = "", error?: string): SafeHtml {
+export function renderField(f: FieldSpec, value = "", error?: string, ui: FormUiTexts = DEFAULT_UI): SafeHtml {
   const id = `falt-${f.name}`;
   const desc = describedBy(f, error);
-  const req = f.required ? html` <span class="req" aria-hidden="true">*</span>` : html` <span class="optional">(valfritt)</span>`;
+  const req = f.required ? html` <span class="req" aria-hidden="true">*</span>` : html` <span class="optional">${ui.optional}</span>`;
+  const la = f.labelAttr ?? "";
   const common = html`id="${id}" name="${f.name}"${f.required ? html` required` : ""}${desc ? html` aria-describedby="${desc}"` : ""}${error ? html` aria-invalid="true"` : ""}`;
   const help = f.help ? html`<p class="field-help" id="${f.name}-hjalp">${f.help}</p>` : "";
   const err = error ? html`<p class="field-error" id="${f.name}-fel">${error}</p>` : "";
@@ -66,7 +87,7 @@ export function renderField(f: FieldSpec, value = "", error?: string): SafeHtml 
 
   if (f.type === "radio") {
     return html`<fieldset class="${wrap} field-choices"${desc ? html` aria-describedby="${desc}"` : ""}>
-      <legend class="field-label">${f.label}${req}</legend>
+      <legend class="field-label"${la}>${f.label}${req}</legend>
       ${help}
       <div class="choice-grid">
         ${(f.options ?? []).map(
@@ -81,7 +102,7 @@ export function renderField(f: FieldSpec, value = "", error?: string): SafeHtml 
   }
   if (f.type === "checkbox") {
     return html`<div class="${wrap}">
-      <label class="check-field"><input type="checkbox" ${common} value="1"${value ? html` checked` : ""}><span>${f.label}</span></label>
+      <label class="check-field"${la}><input type="checkbox" ${common} value="1"${value ? html` checked` : ""}><span>${f.label}</span></label>
       ${help}${err}
     </div>`;
   }
@@ -91,14 +112,14 @@ export function renderField(f: FieldSpec, value = "", error?: string): SafeHtml 
     control = html`<textarea ${common} rows="${f.rows ?? 6}"${f.max ? html` maxlength="${f.max}"` : ""}${f.placeholder ? html` placeholder="${f.placeholder}"` : ""}>${value}</textarea>`;
   } else if (f.type === "select") {
     control = html`<select ${common}>
-      <option value="">Välj …</option>
+      <option value="">${ui.select}</option>
       ${(f.options ?? []).map((o) => html`<option value="${o.value}"${value === o.value ? html` selected` : ""}>${o.label}</option>`)}
     </select>`;
   } else {
     control = html`<input type="${f.type}" ${common} value="${value}"${f.autocomplete ? html` autocomplete="${f.autocomplete}"` : ""}${f.type !== "number" && f.max ? html` maxlength="${f.max}"` : ""}${f.type === "number" && f.min !== undefined ? html` min="${f.min}"` : ""}${f.type === "number" && f.max !== undefined ? html` max="${f.max}"` : ""}${f.placeholder ? html` placeholder="${f.placeholder}"` : ""}>`;
   }
   return html`<div class="${wrap}">
-    <label class="field-label" for="${id}">${f.label}${req}</label>
+    <label class="field-label" for="${id}"${la}>${f.label}${req}</label>
     ${help}${control}${err}
   </div>`;
 }

@@ -1,31 +1,42 @@
-import { html, paragraphs, safeUrl } from "../lib/html.js";
-import { loadSettings } from "../lib/settings.js";
+import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
+import { ec, ek, loadSettings, type Settings } from "../lib/settings.js";
 import {
-  DOCUMENT_CATEGORIES,
   documentQuery,
   eventQuery,
   faqQuery,
+  jobQuery,
   newsQuery,
   partnerQuery,
   rows,
   type DocumentRow,
   type EventRow,
   type FaqRow,
+  type JobRow,
   type NewsRow,
   type PartnerRow,
 } from "../lib/content.js";
-import { renderMarkdown, plainText } from "../lib/markdown.js";
-import { eventDate, formatDate, isoDate, localToIso, stockholmNow, truncate } from "../lib/format.js";
+import { plainText, renderInline, renderMarkdown } from "../lib/markdown.js";
+import { eventDate, formatDate, isoDate, localToIso, stockholmNow, stockholmToday, truncate } from "../lib/format.js";
+import { fill } from "../lib/texts.js";
 import { htmlResponse } from "../lib/http.js";
 import { getFile } from "../lib/storage.js";
+import { countStat, isCountable } from "../lib/stats.js";
 import type { RequestContext } from "../router.js";
-import { joinButton, layout, mediaUrl } from "../views/layout.js";
-import { arrowLink, emptyState, eventCard, newsCard, partnerLogo } from "../views/components.js";
+import { joinButton, layout, mediaUrl, picture } from "../views/layout.js";
+import { arrowLink, emptyState, eventCard, newsCard, partnerCard, partnerLogo } from "../views/components.js";
 import { icon } from "../views/icons.js";
 import { breadcrumb, faqList, pageHeader } from "../views/page.js";
+import { jobCard } from "./careers.js";
 import { notFoundPage } from "./errors.js";
 
 const site = (c: RequestContext) => c.env.SITE_URL.replace(/\/$/, "");
+const newTab = html`<span class="sr-only"> (öppnas i ny flik)</span>`;
+
+/** Räkna en visning till partnerstatistiken – aldrig i förhandsvisningar eller för robotar. */
+export function track(c: RequestContext, kind: Parameters<typeof countStat>[1], id: number): void {
+  if (c.preview || !isCountable(c.req)) return;
+  c.exec.waitUntil(countStat(c.env, kind, id));
+}
 
 // ───────────────────────── Partners ─────────────────────────
 
@@ -34,40 +45,46 @@ export async function partnersPage(c: RequestContext): Promise<Response> {
   const [s, partners] = await Promise.all([loadSettings(db, c.preview), rows<PartnerRow>(partnerQuery.all(db))]);
   const main = partners.filter((p) => p.tier === "huvud");
   const others = partners.filter((p) => p.tier !== "huvud");
-  const card = (p: PartnerRow) => html`<li class="partner-card">
-    <span class="partner-kicker">${p.tier === "huvud" ? "Huvudsamarbetspartner" : "Samarbetspartner"}</span>
-    <div class="partner-logo-wrap">${partnerLogo(p, "lg")}</div>
-    <p class="partner-tagline">${p.tagline}</p>
-    <a class="card-link arrow-link" href="/partners/${p.slug}">Läs mer<span class="sr-only"> om ${p.name}</span>${icon("arrowRight", "icon icon-sm")}</a>
-  </li>`;
   const content = html`
-    ${pageHeader({ kicker: "Partners", title: "Våra samarbetspartners", lead: s.partners_lead })}
+    ${pageHeader(s, { kickerKey: "partners_kicker", titleKey: "partners_title", leadKey: "partners_lead" })}
     <section class="section section-tight-top">
       <div class="container">
-        ${main.length ? html`<h2 class="subsection-title first">Huvudsamarbetspartners</h2><ul class="partner-main">${main.map(card)}</ul>` : ""}
-        ${others.length ? html`<h2 class="subsection-title">Samarbetspartners</h2><ul class="partner-main">${others.map(card)}</ul>` : ""}
-        ${!partners.length ? emptyState("Våra samarbetspartners presenteras snart.") : ""}
+        ${main.length
+          ? html`<h2 class="subsection-title first"${ek(s, "partners_main_title")}>${s.partners_main_title}</h2><ul class="partner-main">${main.map((p) => partnerCard(s, p))}</ul>`
+          : ""}
+        ${others.length
+          ? html`<h2 class="subsection-title${main.length ? "" : " first"}"${ek(s, "partners_other_title")}>${s.partners_other_title}</h2><ul class="partner-main">${others.map((p) => partnerCard(s, p))}</ul>`
+          : ""}
+        ${!partners.length ? emptyState(s.partners_empty, ek(s, "partners_empty")) : ""}
         <div class="cta-inline">
-          <div><h2 class="cta-inline-title">Vill ni också samarbeta med JFK?</h2><p>Vi berättar gärna mer om hur ett samarbete kan se ut.</p></div>
-          <a class="btn btn-primary" href="/for-foretag">Bli samarbetspartner</a>
+          <div>
+            <h2 class="cta-inline-title"${ek(s, "partners_cta_title")}>${s.partners_cta_title}</h2>
+            <p${ek(s, "partners_cta_text")}>${s.partners_cta_text}</p>
+          </div>
+          <a class="btn btn-primary" href="/for-foretag"${ek(s, "partners_cta_button")}>${s.partners_cta_button}</a>
         </div>
       </div>
     </section>`;
-  return htmlResponse(c, layout(c, s, { title: "Samarbetspartners", description: s.partners_lead }, content));
+  return htmlResponse(c, layout(c, s, { title: s.partners_title, description: s.partners_lead }, content));
 }
 
 export async function partnerDetailPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const [s, p] = await Promise.all([loadSettings(db, c.preview), partnerQuery.bySlug(db, c.params.slug ?? "").first<PartnerRow>()]);
   if (!p) return notFoundPage(c);
+  const jobs = await rows<JobRow>(jobQuery.openForPartner(db, p.id, stockholmToday()));
+  track(c, "partner_view", p.id);
+  const kickerKey = p.tier === "huvud" ? "partner_main_kicker" : "partner_kicker";
+  const vars = { namn: p.name };
+
   const content = html`
     <section class="page-hero">
       <div class="container">
-        ${breadcrumb([{ href: "/partners", label: "Partners" }, { label: p.name }])}
-        <div class="partner-hero">
+        ${breadcrumb([{ href: "/partners", label: s.partners_kicker }, { label: p.name }])}
+        <div class="partner-hero"${ec(s, `/admin/partners/${p.id}`, `Partner › ${p.name}`)}>
           <div class="partner-hero-logo">${partnerLogo(p, "lg")}</div>
           <div>
-            <p class="page-kicker">${p.tier === "huvud" ? "Huvudsamarbetspartner" : "Samarbetspartner"}</p>
+            <p class="page-kicker"${ek(s, kickerKey)}>${s[kickerKey]}</p>
             <h1 class="page-title">${p.name}</h1>
             ${p.tagline ? html`<p class="page-lead">${p.tagline}</p>` : ""}
           </div>
@@ -76,17 +93,31 @@ export async function partnerDetailPage(c: RequestContext): Promise<Response> {
     </section>
     <section class="section section-tight-top">
       <div class="container split split-top">
-        <div class="prose prose-lg">${paragraphs(p.description)}</div>
-        <aside class="aside-card">
-          <h2 class="aside-title">Läs mer om ${p.name}</h2>
-          <div class="stack-sm">
-            ${p.career_url ? html`<a class="btn btn-primary btn-block" href="${safeUrl(p.career_url)}" target="_blank" rel="noopener">Karriär hos ${p.name}${icon("external", "icon icon-sm")}<span class="sr-only"> (öppnas i ny flik)</span></a>` : ""}
-            ${p.website_url ? html`<a class="btn btn-outline btn-block" href="${safeUrl(p.website_url)}" target="_blank" rel="noopener">Webbplats${icon("external", "icon icon-sm")}<span class="sr-only"> (öppnas i ny flik)</span></a>` : ""}
-          </div>
-        </aside>
+        <div class="prose prose-lg"${ec(s, `/admin/partners/${p.id}`, `Partner › ${p.name}`)}>${paragraphs(p.description)}</div>
+        ${p.career_url || p.website_url
+          ? html`<aside class="aside-card">
+              <h2 class="aside-title"${ek(s, "partner_aside_title")}>${fill(s.partner_aside_title, vars)}</h2>
+              <div class="stack-sm">
+                ${p.career_url
+                  ? html`<a class="btn btn-primary btn-block" href="/ut/karriar/${p.id}" target="_blank" rel="noopener nofollow"${ek(s, "partner_career")}>${fill(s.partner_career, vars)}${icon("external", "icon icon-sm")}${newTab}</a>`
+                  : ""}
+                ${p.website_url
+                  ? html`<a class="btn btn-outline btn-block" href="/ut/webb/${p.id}" target="_blank" rel="noopener nofollow"${ek(s, "partner_website")}>${s.partner_website}${icon("external", "icon icon-sm")}${newTab}</a>`
+                  : ""}
+              </div>
+            </aside>`
+          : ""}
       </div>
-      <div class="container"><p class="after-list">${arrowLink("/partners", "Alla samarbetspartners")}</p></div>
-    </section>`;
+    </section>
+    ${jobs.length
+      ? html`<section class="section section-surface" aria-labelledby="partner-jobb">
+          <div class="container">
+            <h2 class="section-title" id="partner-jobb"${ek(s, "partner_jobs_title")}>${fill(s.partner_jobs_title, vars)}</h2>
+            <ul class="job-list">${jobs.map((j) => jobCard(s, j, false))}</ul>
+          </div>
+        </section>`
+      : ""}
+    <div class="container"><p class="after-list after-list-page">${arrowLink("/partners", s.partner_all, "arrow-link", ek(s, "partner_all"))}</p></div>`;
   return htmlResponse(c, layout(c, s, { title: p.name, description: p.tagline || truncate(p.description, 155) }, content));
 }
 
@@ -107,20 +138,21 @@ export async function newsListPage(c: RequestContext): Promise<Response> {
   if (page > pages) return notFoundPage(c);
 
   const content = html`
-    ${pageHeader({ kicker: "Aktuellt", title: "Nyheter", lead: "Det senaste från föreningen – evenemang, beslut och annat som är bra att veta." })}
+    ${pageHeader(s, { kickerKey: "news_kicker", titleKey: "news_title", leadKey: "news_lead" })}
     <section class="section section-tight-top">
       <div class="container">
-        ${news.length ? html`<div class="card-grid">${news.map((n) => newsCard(n, 2))}</div>` : emptyState("Inga nyheter ännu.")}
+        ${news.length ? html`<div class="card-grid">${news.map((n) => newsCard(s, n, 2))}</div>` : emptyState(s.news_empty, ek(s, "news_empty"))}
         ${pages > 1
           ? html`<nav class="pagination" aria-label="Sidor">
-              ${page > 1 ? html`<a class="btn btn-outline btn-sm" href="/aktuellt${page - 1 > 1 ? `?sida=${page - 1}` : ""}" rel="prev">Nyare</a>` : html`<span></span>`}
-              <span class="muted">Sida ${page} av ${pages}</span>
-              ${page < pages ? html`<a class="btn btn-outline btn-sm" href="/aktuellt?sida=${page + 1}" rel="next">Äldre</a>` : html`<span></span>`}
+              ${page > 1 ? html`<a class="btn btn-outline btn-sm" href="/aktuellt${page - 1 > 1 ? `?sida=${page - 1}` : ""}" rel="prev"${ek(s, "news_newer")}>${s.news_newer}</a>` : html`<span></span>`}
+              <span class="muted"${ek(s, "news_page")}>${fill(s.news_page, { sida: page, antal: pages })}</span>
+              ${page < pages ? html`<a class="btn btn-outline btn-sm" href="/aktuellt?sida=${page + 1}" rel="next"${ek(s, "news_older")}>${s.news_older}</a>` : html`<span></span>`}
             </nav>`
           : ""}
       </div>
     </section>`;
-  return htmlResponse(c, layout(c, s, { title: page > 1 ? `Nyheter – sida ${page}` : "Nyheter", description: "Nyheter från Juridiska Föreningen i Karlstad.", path: page > 1 ? `/aktuellt?sida=${page}` : "/aktuellt" }, content));
+  const title = page > 1 ? `${s.news_title} – ${fill(s.news_page, { sida: page, antal: pages }).toLocaleLowerCase("sv")}` : s.news_title;
+  return htmlResponse(c, layout(c, s, { title, description: s.news_lead, path: page > 1 ? `/aktuellt?sida=${page}` : "/aktuellt" }, content));
 }
 
 export async function newsArticlePage(c: RequestContext): Promise<Response> {
@@ -139,21 +171,24 @@ export async function newsArticlePage(c: RequestContext): Promise<Response> {
     publisher: { "@type": "Organization", name: s.site_name },
     mainEntityOfPage: `${site(c)}/aktuellt/${n.slug}`,
   };
+  const edit = ec(s, `/admin/nyheter/${n.id}`, `Nyhet › ${n.title}`);
   const content = html`
     <article>
       <header class="page-hero article-hero">
-        <div class="container narrow">
-          ${breadcrumb([{ href: "/aktuellt", label: "Nyheter" }, { label: n.title }])}
+        <div class="container narrow"${edit}>
+          ${breadcrumb([{ href: "/aktuellt", label: s.news_title }, { label: n.title }])}
           <time class="news-date" datetime="${isoDate(n.published_at)}">${formatDate(n.published_at)}</time>
           <h1 class="page-title">${n.title}</h1>
           ${n.excerpt ? html`<p class="page-lead">${n.excerpt}</p>` : ""}
         </div>
       </header>
-      ${img ? html`<div class="container article-image-wrap"><img class="article-image" src="${img}" alt="${n.image_alt}" width="1200" height="675"></div>` : ""}
+      ${n.image_key
+        ? html`<div class="container article-image-wrap">${picture(n.image_key, { alt: n.image_alt, className: "article-image", sizes: "(min-width: 1240px) 1160px, 100vw", width: 1200, height: 675, eager: true })}</div>`
+        : ""}
       <div class="section section-tight-top">
         <div class="container narrow">
-          <div class="prose prose-lg article-body">${renderMarkdown(n.body)}</div>
-          <p class="after-list">${arrowLink("/aktuellt", "Alla nyheter")}</p>
+          <div class="prose prose-lg article-body"${edit}>${renderMarkdown(n.body)}</div>
+          <p class="after-list">${arrowLink("/aktuellt", s.news_all, "arrow-link", ek(s, "news_all"))}</p>
         </div>
       </div>
     </article>`;
@@ -161,6 +196,8 @@ export async function newsArticlePage(c: RequestContext): Promise<Response> {
 }
 
 // ───────────────────────── Kalender ─────────────────────────
+
+const MONTH_NAMES = ["Januari", "Februari", "Mars", "April", "Maj", "Juni", "Juli", "Augusti", "September", "Oktober", "November", "December"];
 
 export async function calendarPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
@@ -171,45 +208,62 @@ export async function calendarPage(c: RequestContext): Promise<Response> {
 
   // Gruppera kommande evenemang per månad
   const months = new Map<string, EventRow[]>();
-  const monthName = (iso: string) => {
-    const [y, m] = iso.split("-");
-    const names = ["Januari", "Februari", "Mars", "April", "Maj", "Juni", "Juli", "Augusti", "September", "Oktober", "November", "December"];
-    return `${names[+m! - 1]} ${y}`;
-  };
   for (const e of upcoming) {
-    const key = monthName(e.starts_at);
+    const [y, m] = e.starts_at.split("-");
+    const key = `${MONTH_NAMES[+m! - 1]} ${y}`;
     if (!months.has(key)) months.set(key, []);
     months.get(key)!.push(e);
   }
 
   const content = html`
-    ${pageHeader({ kicker: "Aktuellt", title: "Kalender", lead: "Sittningar, föreläsningar, arbetsmarknadsdagar och mycket mer. Biljetter till medlemsevenemang köper du via Hitract." })}
+    ${pageHeader(s, { kickerKey: "cal_kicker", titleKey: "cal_title", leadKey: "cal_lead", actions: subscribePanel(c, s) })}
     <section class="section section-tight-top">
       <div class="container">
         ${upcoming.length
           ? [...months.entries()].map(
-              ([month, evs], i) => html`<h2 class="subsection-title${i === 0 ? " first" : ""}">${month}</h2><div class="card-grid">${evs.map((e) => eventCard(e, 3))}</div>`,
+              ([month, evs], i) => html`<h2 class="subsection-title${i === 0 ? " first" : ""}">${month}</h2><div class="card-grid">${evs.map((e) => eventCard(s, e, 3))}</div>`,
             )
-          : emptyState(html`Inga kommande evenemang är inlagda just nu. Följ <a href="${safeUrl(s.instagram_url)}" target="_blank" rel="noopener">${s.instagram_handle}</a> så missar du inget.`)}
+          : emptyState(renderInline(s.cal_empty), ek(s, "cal_empty"))}
       </div>
     </section>
     ${past.length
       ? html`<section class="section section-surface" aria-labelledby="tidigare">
           <div class="container">
-            <h2 class="section-title" id="tidigare">Tidigare evenemang</h2>
+            <h2 class="section-title" id="tidigare"${ek(s, "cal_past_title")}>${s.cal_past_title}</h2>
             <ul class="past-list">
               ${past.map((e) => {
                 const d = eventDate(e.starts_at, e.ends_at);
-                return html`<li><time datetime="${d?.iso ?? ""}">${d ? `${d.day} ${d.monthShort} ${e.starts_at.slice(0, 4)}` : ""}</time><a href="/kalender/${e.slug}">${e.title}</a></li>`;
+                return html`<li${ec(s, `/admin/event/${e.id}`, `Event › ${e.title}`)}><time datetime="${d?.iso ?? ""}">${d ? `${d.day} ${d.monthShort} ${e.starts_at.slice(0, 4)}` : ""}</time><a href="/kalender/${e.slug}">${e.title}</a></li>`;
               })}
             </ul>
           </div>
         </section>`
       : ""}`;
 
-  const site_ = site(c);
-  const jsonLd = upcoming.slice(0, 10).map((e) => eventJsonLd(site_, s.site_name, e));
-  return htmlResponse(c, layout(c, s, { title: "Kalender", description: "Kommande evenemang i Juridiska Föreningen i Karlstad.", jsonLd }, content));
+  const jsonLd = upcoming.slice(0, 10).map((e) => eventJsonLd(site(c), s.site_name, e));
+  return htmlResponse(c, layout(c, s, { title: s.cal_title, description: s.cal_lead, jsonLd }, content));
+}
+
+/** "Prenumerera på kalendern" – fungerar utan JS tack vare <details>; JS lägger bara till kopieringsknappen. */
+function subscribePanel(c: RequestContext, s: Settings): SafeHtml {
+  const feed = `${site(c)}/kalender.ics`;
+  const webcal = feed.replace(/^https?:/, "webcal:");
+  const google = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`;
+  return html`<details class="subscribe">
+    <summary class="btn btn-outline"${ek(s, "cal_sub_button")}>${icon("calendar", "icon icon-sm")}${s.cal_sub_button}</summary>
+    <div class="subscribe-panel">
+      <h2 class="subscribe-title"${ek(s, "cal_sub_title")}>${s.cal_sub_title}</h2>
+      <p${ek(s, "cal_sub_text")}>${s.cal_sub_text}</p>
+      <div class="subscribe-actions">
+        <a class="btn btn-primary btn-sm" href="${webcal}"${ek(s, "cal_sub_apple")}>${s.cal_sub_apple}</a>
+        <a class="btn btn-outline btn-sm" href="${google}" target="_blank" rel="noopener"${ek(s, "cal_sub_google")}>${s.cal_sub_google}${newTab}</a>
+      </div>
+      <div class="copy-field">
+        <input type="text" readonly value="${feed}" aria-label="${s.cal_sub_copy}" data-copy-source>
+        <button class="btn btn-ghost btn-sm" type="button" hidden data-copy data-copied="${s.cal_sub_copied}"${ek(s, "cal_sub_copy")}>${icon("copy", "icon icon-sm")}<span>${s.cal_sub_copy}</span></button>
+      </div>
+    </div>
+  </details>`;
 }
 
 function eventJsonLd(siteUrl: string, org: string, e: EventRow): object {
@@ -233,18 +287,19 @@ function eventJsonLd(siteUrl: string, org: string, e: EventRow): object {
 export async function eventDetailPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const slug = c.params.slug ?? "";
-  if (slug.endsWith(".ics")) return icsHandler(c, slug.slice(0, -4));
+  if (slug.endsWith(".ics")) return eventIcsHandler(c, slug.slice(0, -4));
   const [s, e] = await Promise.all([loadSettings(db, c.preview), eventQuery.bySlug(db, slug).first<EventRow>()]);
   if (!e) return notFoundPage(c);
   const d = eventDate(e.starts_at, e.ends_at);
   const isPast = (e.ends_at ?? e.starts_at.slice(0, 10) + "T23:59") < stockholmNow();
   const img = mediaUrl(e.image_key);
+  const edit = ec(s, `/admin/event/${e.id}`, `Event › ${e.title}`);
   const content = html`
     <article>
       <header class="page-hero">
         <div class="container">
-          ${breadcrumb([{ href: "/kalender", label: "Kalender" }, { label: e.title }])}
-          <div class="event-hero">
+          ${breadcrumb([{ href: "/kalender", label: s.cal_title }, { label: e.title }])}
+          <div class="event-hero"${edit}>
             ${d ? html`<time class="date-badge date-badge-lg" datetime="${d.iso}"><span class="date-day">${d.day}</span><span class="date-month">${d.monthShort}</span></time>` : ""}
             <div>
               <h1 class="page-title">${e.title}</h1>
@@ -255,31 +310,31 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
       </header>
       <section class="section section-tight-top">
         <div class="container split split-top">
-          <div>
-            ${img ? html`<img class="article-image" src="${img}" alt="${e.image_alt}" width="1200" height="675">` : ""}
+          <div${edit}>
+            ${e.image_key ? picture(e.image_key, { alt: e.image_alt, className: "article-image", sizes: "(min-width: 920px) 60vw, 100vw", width: 1200, height: 675, eager: true }) : ""}
             <div class="prose prose-lg">${renderMarkdown(e.body)}</div>
           </div>
           <aside class="aside-card">
-            ${isPast ? html`<p class="tag tag-muted">Evenemanget har redan ägt rum</p>` : ""}
+            ${isPast ? html`<p class="tag tag-muted"${ek(s, "event_past")}>${s.event_past}</p>` : ""}
             <ul class="meta-list meta-list-lg">
               ${d ? html`<li>${icon("calendar", "icon")}<span class="capitalize-first">${d.dateLong}</span></li>` : ""}
               ${d ? html`<li>${icon("clock", "icon")}<span>${d.time}</span></li>` : ""}
               ${e.location ? html`<li>${icon("pin", "icon")}<span>${e.location}</span></li>` : ""}
-              ${e.members_only ? html`<li>${icon("lock", "icon")}<span>Endast för medlemmar</span></li>` : ""}
+              ${e.members_only ? html`<li${ek(s, "event_members_only")}>${icon("lock", "icon")}<span>${s.event_members_only}</span></li>` : ""}
             </ul>
             ${!isPast
               ? html`<div class="stack-sm">
                   ${e.signup_url
-                    ? html`<a class="btn btn-primary btn-block" href="${safeUrl(e.signup_url)}" target="_blank" rel="noopener">Anmälan och biljetter${icon("external", "icon icon-sm")}<span class="sr-only"> (öppnas i ny flik)</span></a>`
+                    ? html`<a class="btn btn-primary btn-block" href="${safeUrl(e.signup_url)}" target="_blank" rel="noopener"${ek(s, "event_signup")}>${s.event_signup}${icon("external", "icon icon-sm")}${newTab}</a>`
                     : e.members_only
-                      ? joinButton(s, { className: "btn btn-primary btn-block", label: "Bli medlem för att delta" })
+                      ? joinButton(s, { className: "btn btn-primary btn-block", labelKey: "event_join" })
                       : ""}
-                  <a class="btn btn-outline btn-block" href="/kalender/${e.slug}.ics" download>${icon("calendar", "icon icon-sm")}Lägg till i kalendern</a>
+                  <a class="btn btn-outline btn-block" href="/kalender/${e.slug}.ics" download${ek(s, "event_add")}>${icon("calendar", "icon icon-sm")}${s.event_add}</a>
                 </div>`
               : ""}
           </aside>
         </div>
-        <div class="container"><p class="after-list">${arrowLink("/kalender", "Alla evenemang")}</p></div>
+        <div class="container"><p class="after-list">${arrowLink("/kalender", s.event_all, "arrow-link", ek(s, "event_all"))}</p></div>
       </section>
     </article>`;
   return htmlResponse(
@@ -288,106 +343,196 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
   );
 }
 
-/** iCalendar-fil så att besökaren kan lägga in evenemanget i sin egen kalender. */
-async function icsHandler(c: RequestContext, slug: string): Promise<Response> {
-  const e = await eventQuery.bySlug(c.env.DB, slug).first<EventRow>();
-  if (!e) return notFoundPage(c);
-  const toIcs = (local: string) => local.replace(/[-:]/g, "") + "00";
-  const esc = (t: string) => t.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
-  const end = e.ends_at ?? (() => {
-    const [d, t] = e.starts_at.split("T");
-    const [h, m] = (t ?? "00:00").split(":").map(Number);
-    return `${d}T${String(Math.min(23, (h ?? 0) + 2)).padStart(2, "0")}:${String(m ?? 0).padStart(2, "0")}`;
-  })();
-  const ics = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Juridiska Foreningen i Karlstad//Webbplats//SV",
-    "CALSCALE:GREGORIAN",
+// ───────────────────────── iCalendar ─────────────────────────
+
+/** Tidszonsdefinition så att alla kalenderappar tolkar tiderna som svensk tid (inkl. sommartid). */
+const VTIMEZONE = [
+  "BEGIN:VTIMEZONE",
+  "TZID:Europe/Stockholm",
+  "X-LIC-LOCATION:Europe/Stockholm",
+  "BEGIN:DAYLIGHT",
+  "TZOFFSETFROM:+0100",
+  "TZOFFSETTO:+0200",
+  "TZNAME:CEST",
+  "DTSTART:19700329T020000",
+  "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
+  "END:DAYLIGHT",
+  "BEGIN:STANDARD",
+  "TZOFFSETFROM:+0200",
+  "TZOFFSETTO:+0100",
+  "TZNAME:CET",
+  "DTSTART:19701025T030000",
+  "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
+  "END:STANDARD",
+  "END:VTIMEZONE",
+];
+
+const icsText = (t: string) => t.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+const icsTime = (local: string) => local.replace(/[-:]/g, "") + "00";
+
+/** Raderna får vara högst 75 oktetter (RFC 5545) – längre rader viks med CRLF + mellanslag. */
+function foldLine(line: string): string {
+  const enc = new TextEncoder();
+  if (enc.encode(line).length <= 75) return line;
+  const out: string[] = [];
+  let cur = "";
+  let curLen = 0;
+  for (const ch of line) {
+    const len = enc.encode(ch).length;
+    const max = out.length ? 74 : 75; // fortsättningsrader börjar med ett mellanslag
+    if (curLen + len > max) {
+      out.push(cur);
+      cur = "";
+      curLen = 0;
+    }
+    cur += ch;
+    curLen += len;
+  }
+  out.push(cur);
+  return out.join("\r\n ");
+}
+
+function eventEnd(e: EventRow): string {
+  if (e.ends_at) return e.ends_at;
+  const [d, t] = e.starts_at.split("T");
+  const [h, m] = (t ?? "00:00").split(":").map(Number);
+  return `${d}T${String(Math.min(23, (h ?? 0) + 2)).padStart(2, "0")}:${String(m ?? 0).padStart(2, "0")}`;
+}
+
+function vevent(siteUrl: string, e: EventRow, stamp: string): string[] {
+  const url = `${siteUrl}/kalender/${e.slug}`;
+  return [
     "BEGIN:VEVENT",
     `UID:event-${e.id}@jfkarlstad`,
-    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`,
-    `DTSTART;TZID=Europe/Stockholm:${toIcs(e.starts_at)}`,
-    `DTEND;TZID=Europe/Stockholm:${toIcs(end)}`,
-    `SUMMARY:${esc(e.title)}`,
-    e.location ? `LOCATION:${esc(e.location)}` : "",
-    `DESCRIPTION:${esc((e.summary ? e.summary + "\n\n" : "") + site(c) + "/kalender/" + e.slug)}`,
-    `URL:${site(c)}/kalender/${e.slug}`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;TZID=Europe/Stockholm:${icsTime(e.starts_at)}`,
+    `DTEND;TZID=Europe/Stockholm:${icsTime(eventEnd(e))}`,
+    `SUMMARY:${icsText(e.title)}`,
+    ...(e.location ? [`LOCATION:${icsText(e.location)}`] : []),
+    `DESCRIPTION:${icsText((e.summary ? e.summary + "\n\n" : "") + url)}`,
+    `URL:${url}`,
     "END:VEVENT",
-    "END:VCALENDAR",
-  ]
-    .filter(Boolean)
-    .join("\r\n");
-  return new Response(ics, {
-    headers: {
-      "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${e.slug}.ics"`,
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  ];
+}
+
+function icsResponse(lines: string[], filename: string | null): Response {
+  const body = lines.map(foldLine).join("\r\n") + "\r\n";
+  const headers: Record<string, string> = {
+    "Content-Type": "text/calendar; charset=utf-8",
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "public, max-age=900",
+  };
+  if (filename) headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+  return new Response(body, { headers });
+}
+
+const nowStamp = () => new Date().toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
+
+/** Ett enskilt evenemang som .ics-fil ("Lägg till i kalendern"). */
+async function eventIcsHandler(c: RequestContext, slug: string): Promise<Response> {
+  const e = await eventQuery.bySlug(c.env.DB, slug).first<EventRow>();
+  if (!e) return notFoundPage(c);
+  return icsResponse(
+    ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Juridiska Foreningen i Karlstad//Webbplats//SV", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", ...VTIMEZONE, ...vevent(site(c), e, nowStamp()), "END:VCALENDAR"],
+    `${e.slug}.ics`,
+  );
+}
+
+/** Prenumerationsflöde med alla evenemang (från 60 dagar bakåt). Kalenderappar hämtar det regelbundet. */
+export async function calendarFeedHandler(c: RequestContext): Promise<Response> {
+  const db = c.env.DB;
+  const from = stockholmNow(new Date(Date.now() - 60 * 86400_000));
+  const [s, events] = await Promise.all([loadSettings(db), rows<EventRow>(eventQuery.since(db, from))]);
+  const stamp = nowStamp();
+  return icsResponse(
+    [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Juridiska Foreningen i Karlstad//Webbplats//SV",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+      `X-WR-CALNAME:${icsText(s.site_short_name)}`,
+      `X-WR-CALDESC:${icsText(s.site_name)}`,
+      "X-WR-TIMEZONE:Europe/Stockholm",
+      "REFRESH-INTERVAL;VALUE=DURATION:PT6H",
+      "X-PUBLISHED-TTL:PT6H",
+      ...VTIMEZONE,
+      ...events.flatMap((e) => vevent(site(c), e, stamp)),
+      "END:VCALENDAR",
+    ],
+    null,
+  );
 }
 
 // ───────────────────────── Dokument ─────────────────────────
+
+const docCategory = (s: Settings, cat: DocumentRow["category"]) => s[`doc_cat_${cat}` as const] ?? cat;
+const DOC_CATS: DocumentRow["category"][] = ["stadgar", "styrdokument", "protokoll", "ovrigt"];
 
 export async function documentsPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const q = (c.url.searchParams.get("q") ?? "").trim().slice(0, 100);
   const cat = c.url.searchParams.get("kategori") ?? "";
   const [s, docs] = await Promise.all([loadSettings(db, c.preview), rows<DocumentRow>(documentQuery.all(db))]);
-  const norm = (t: string) => t.toLowerCase();
-  const filtered = docs.filter(
-    (d) => (!cat || d.category === cat) && (!q || norm(`${d.title} ${DOCUMENT_CATEGORIES[d.category]} ${d.year}`).includes(norm(q))),
-  );
+  const norm = (t: string) => t.toLocaleLowerCase("sv");
+  const haystack = (d: DocumentRow) => norm(`${d.title} ${docCategory(s, d.category)} ${d.year}`);
+  const filtered = docs.filter((d) => (!cat || d.category === cat) && (!q || haystack(d).includes(norm(q))));
   const years = new Map<number, DocumentRow[]>();
   for (const d of filtered) {
     if (!years.has(d.year)) years.set(d.year, []);
     years.get(d.year)!.push(d);
   }
   const size = (b: number | null) => (b ? (b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1).replace(".", ",")} MB` : `${Math.max(1, Math.round(b / 1024))} kB`) : "");
+  const filtering = Boolean(q || cat);
 
   const content = html`
-    ${pageHeader({ kicker: "Om oss", title: "Dokument och protokoll", lead: "Stadgar, styrdokument och protokoll. Som medlem förbinder du dig att följa stadgarna och gällande styrdokument." })}
+    ${pageHeader(s, { kickerKey: "docs_kicker", titleKey: "docs_title", leadKey: "docs_lead" })}
     <section class="section section-tight-top">
       <div class="container">
         <form class="doc-filter" method="get" action="/dokument" role="search" data-doc-filter>
           <div class="field field-inline">
-            <label class="field-label" for="dok-sok">Sök bland dokumenten</label>
-            <input type="search" id="dok-sok" name="q" value="${q}" placeholder="T.ex. stadgar eller 2025" autocomplete="off">
+            <label class="field-label" for="dok-sok"${ek(s, "docs_search_label")}>${s.docs_search_label}</label>
+            <input type="search" id="dok-sok" name="q" value="${q}" placeholder="${s.docs_search_placeholder}" autocomplete="off">
           </div>
           <div class="field field-inline">
-            <label class="field-label" for="dok-kat">Kategori</label>
+            <label class="field-label" for="dok-kat"${ek(s, "docs_category_label")}>${s.docs_category_label}</label>
             <select id="dok-kat" name="kategori">
-              <option value="">Alla kategorier</option>
-              ${Object.entries(DOCUMENT_CATEGORIES).map(([k, v]) => html`<option value="${k}"${cat === k ? html` selected` : ""}>${v}</option>`)}
+              <option value="">${s.docs_all_categories}</option>
+              ${DOC_CATS.map((k) => html`<option value="${k}"${cat === k ? html` selected` : ""}>${docCategory(s, k)}</option>`)}
             </select>
           </div>
-          <button class="btn btn-primary" type="submit">Sök</button>
+          <button class="btn btn-primary" type="submit"${ek(s, "docs_search_button")}>${s.docs_search_button}</button>
         </form>
-        <p class="doc-count muted" aria-live="polite" data-doc-count>${filtered.length} dokument${q || cat ? " matchar" : ""}</p>
+        <p class="doc-count muted" aria-live="polite" data-doc-count data-count-all="${s.docs_count}" data-count-match="${s.docs_count_match}"${ek(s, "docs_count")}>${fill(filtering ? s.docs_count_match : s.docs_count, { antal: filtered.length })}</p>
         ${years.size
           ? [...years.entries()].map(
               ([year, list]) => html`<section class="doc-year" data-doc-year>
                 <h2 class="subsection-title">${year}</h2>
                 <ul class="doc-list">
                   ${list.map(
-                    (d) => html`<li class="doc-item" data-doc="${`${d.title} ${DOCUMENT_CATEGORIES[d.category]} ${d.year}`.toLowerCase()}" data-cat="${d.category}">
+                    (d) => html`<li class="doc-item" data-doc="${haystack(d)}" data-cat="${d.category}"${ec(s, `/admin/dokument/${d.id}`, `Dokument › ${d.title}`)}>
                       <span class="doc-icon" aria-hidden="true">PDF</span>
                       <div class="doc-body">
                         ${d.file_key
                           ? html`<a class="doc-title" href="/dokument/fil/${d.id}" target="_blank" rel="noopener">${d.title}<span class="sr-only"> (PDF, öppnas i ny flik)</span></a>`
                           : html`<span class="doc-title">${d.title}</span>`}
-                        <span class="doc-meta">${DOCUMENT_CATEGORIES[d.category]}${d.file_key ? ` · ${size(d.file_size)}` : " · Laddas upp inom kort"}</span>
+                        <span class="doc-meta">${docCategory(s, d.category)} · ${d.file_key ? size(d.file_size) : s.docs_pending}</span>
                       </div>
                     </li>`,
                   )}
                 </ul>
               </section>`,
             )
-          : emptyState(q || cat ? html`Inga dokument matchar din sökning. <a href="/dokument">Visa alla dokument</a>` : "Inga dokument är uppladdade ännu.")}
-        <p class="after-list muted">Saknar du ett protokoll? Mejla <a href="mailto:sekreterare@jfkarlstad.se">sekreterare@jfkarlstad.se</a>.</p>
+          : ""}
+        ${years.size
+          ? html`<div class="empty-state" hidden data-doc-empty><p>${renderInline(s.docs_no_match)}</p></div>`
+          : filtering
+            ? emptyState(renderInline(s.docs_no_match), ek(s, "docs_no_match"))
+            : emptyState(s.docs_empty, ek(s, "docs_empty"))}
+        <p class="after-list muted"${ek(s, "docs_missing")}>${renderInline(s.docs_missing)}</p>
       </div>
     </section>`;
-  return htmlResponse(c, layout(c, s, { title: "Dokument och protokoll", description: "Stadgar, styrdokument och protokoll för Juridiska Föreningen i Karlstad." }, content));
+  return htmlResponse(c, layout(c, s, { title: s.docs_title, description: s.docs_lead }, content));
 }
 
 export async function documentFileHandler(c: RequestContext): Promise<Response> {
@@ -425,17 +570,20 @@ export async function faqPage(c: RequestContext): Promise<Response> {
     mainEntity: items.map((f) => ({ "@type": "Question", name: f.question, acceptedAnswer: { "@type": "Answer", text: f.answer } })),
   };
   const content = html`
-    ${pageHeader({ kicker: "Hjälp", title: "Vanliga frågor", lead: "Svar på det vi oftast får frågor om. Hittar du inte svaret? Hör av dig till oss." })}
+    ${pageHeader(s, { kickerKey: "faq_kicker", titleKey: "faq_title", leadKey: "faq_lead" })}
     <section class="section section-tight-top">
       <div class="container narrow">
         ${groups.size
-          ? [...groups.entries()].map(([cat, list], i) => html`<h2 class="subsection-title${i === 0 ? " first" : ""}">${cat}</h2>${faqList(list)}`)
-          : emptyState("Inga frågor ännu.")}
+          ? [...groups.entries()].map(([cat, list], i) => html`<h2 class="subsection-title${i === 0 ? " first" : ""}">${cat}</h2>${faqList(s, list)}`)
+          : emptyState(s.faq_empty, ek(s, "faq_empty"))}
         <div class="cta-inline">
-          <div><h2 class="cta-inline-title">Hittade du inte svaret?</h2><p>Skicka din fråga så svarar vi så snart vi kan.</p></div>
-          <a class="btn btn-primary" href="/kontakt">Kontakta oss</a>
+          <div>
+            <h2 class="cta-inline-title"${ek(s, "faq_cta_title")}>${s.faq_cta_title}</h2>
+            <p${ek(s, "faq_cta_text")}>${s.faq_cta_text}</p>
+          </div>
+          <a class="btn btn-primary" href="/kontakt"${ek(s, "faq_cta_button")}>${s.faq_cta_button}</a>
         </div>
       </div>
     </section>`;
-  return htmlResponse(c, layout(c, s, { title: "Vanliga frågor", description: "Vanliga frågor om Juridiska Föreningen i Karlstad och medlemskapet.", jsonLd: items.length ? [faqLd] : [] }, content));
+  return htmlResponse(c, layout(c, s, { title: s.faq_title, description: s.faq_lead, jsonLd: items.length ? [faqLd] : [] }, content));
 }

@@ -11,6 +11,8 @@ export interface RequestContext {
   nonce: string;
   /** Satt bara när adminpanelen förhandsvisar osparade ändringar. */
   preview?: Partial<Settings>;
+  /** Översiktens klickbara webbplats: allt som går att ändra markeras när man pekar på det. */
+  editMap?: boolean;
 }
 
 export type Handler = (c: RequestContext) => Promise<Response> | Response;

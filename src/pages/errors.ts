@@ -1,5 +1,5 @@
 import { html } from "../lib/html.js";
-import { loadSettings } from "../lib/settings.js";
+import { ek, loadSettings } from "../lib/settings.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
 import { layout } from "../views/layout.js";
@@ -7,20 +7,23 @@ import { icon } from "../views/icons.js";
 
 export async function notFoundPage(c: RequestContext): Promise<Response> {
   const s = await loadSettings(c.env.DB, c.preview);
+  const links = [
+    ["/", "notfound_link_home"],
+    ["/kalender", "notfound_link_calendar"],
+    ["/aktuellt", "notfound_link_news"],
+    ["/kontakt", "notfound_link_contact"],
+  ] as const;
   const content = html`<section class="section error-page">
     <div class="container narrow">
       <p class="error-code" aria-hidden="true">404</p>
-      <h1 class="page-title">Sidan kunde inte hittas</h1>
-      <p class="page-lead">Länken kan vara gammal, eller så har sidan flyttats. Prova någon av de här i stället:</p>
+      <h1 class="page-title"${ek(s, "notfound_title")}>${s.notfound_title}</h1>
+      <p class="page-lead"${ek(s, "notfound_text")}>${s.notfound_text}</p>
       <ul class="error-links">
-        <li><a href="/">${icon("arrowRight", "icon icon-sm")}Startsidan</a></li>
-        <li><a href="/kalender">${icon("arrowRight", "icon icon-sm")}Kalendern</a></li>
-        <li><a href="/aktuellt">${icon("arrowRight", "icon icon-sm")}Nyheter</a></li>
-        <li><a href="/kontakt">${icon("arrowRight", "icon icon-sm")}Kontakta oss</a></li>
+        ${links.map(([href, key]) => html`<li><a href="${href}"${ek(s, key)}>${icon("arrowRight", "icon icon-sm")}${s[key]}</a></li>`)}
       </ul>
     </div>
   </section>`;
-  return htmlResponse(c, layout(c, s, { title: "Sidan kunde inte hittas", noindex: true }, content), 404);
+  return htmlResponse(c, layout(c, s, { title: s.notfound_title, noindex: true }, content), 404);
 }
 
 /** Används om något går riktigt fel. Får inte vara beroende av databasen. */

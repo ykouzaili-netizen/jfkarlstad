@@ -119,3 +119,36 @@ export function truncate(text: string, max: number): string {
   const t = text.replace(/\s+/g, " ").trim();
   return t.length <= max ? t : t.slice(0, max - 1).replace(/\s+\S*$/, "") + "…";
 }
+
+/** Dagens datum i Stockholm som 'YYYY-MM-DD'. */
+export function stockholmToday(now = new Date()): string {
+  return stockholmNow(now).slice(0, 10);
+}
+
+/** 'YYYY-MM-DD' → "15 november 2026". */
+export function formatDay(day: string | null | undefined): string {
+  const p = parseLocal(day);
+  return p ? `${p.day} ${MONTHS[p.month - 1]} ${p.year}` : "";
+}
+
+/** Svensk lokal tid 'YYYY-MM-DDTHH:MM' → UTC i databasformat 'YYYY-MM-DD HH:MM:SS'. */
+export function localToUtcSql(local: string | null | undefined): string | null {
+  const iso = localToIso(local);
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().replace("T", " ").slice(0, 19);
+}
+
+/** UTC i databasformat → svensk lokal tid 'YYYY-MM-DDTHH:MM' (för datetime-local-fält). */
+export function utcSqlToLocal(utc: string | null | undefined): string {
+  if (!utc) return "";
+  const d = new Date(utc.replace(" ", "T") + (utc.endsWith("Z") ? "" : "Z"));
+  return Number.isNaN(d.getTime()) ? "" : stockholmNow(d);
+}
+
+/** UTC i databasformat → "6 okt 2026 08:00" i svensk tid. */
+export function formatDateTimeShort(utc: string | null | undefined): string {
+  const local = utcSqlToLocal(utc);
+  const p = parseLocal(local);
+  return p ? `${p.day} ${MONTHS_SHORT[p.month - 1]} ${p.year} ${pad(p.hour)}:${pad(p.minute)}` : "";
+}

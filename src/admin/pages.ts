@@ -1,8 +1,8 @@
 import { html, paragraphs, raw, type SafeHtml } from "../lib/html.js";
-import { DEFAULT_SETTINGS, HEADING_FONTS, SETTINGS_GROUPS, THEME_KEYS, headingFont, loadSettings, type SettingKey, type Settings } from "../lib/settings.js";
+import { DEFAULT_SETTINGS, HEADING_FONTS, THEME_KEYS, headingFont, loadSettings, type SettingKey, type Settings } from "../lib/settings.js";
 import { contrastRatio, isHex, readableOn } from "../lib/color.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec } from "../lib/forms.js";
-import { eventDate, formatDate, stockholmNow } from "../lib/format.js";
+import { eventDate, formatDate, formatDateTimeShort, stockholmNow } from "../lib/format.js";
 import { redirect } from "../lib/http.js";
 import { deleteFile } from "../lib/storage.js";
 import { mailConfigured, sendMail } from "../lib/mail.js";
@@ -24,8 +24,13 @@ import {
   type User,
 } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton } from "./layout.js";
-import { handleUpload, uploadHint, uploadInput } from "./uploads.js";
-import { previewPane } from "./preview.js";
+import { handleUpload, uploadInput } from "./uploads.js";
+import { saveSettings } from "./texts.js";
+import { PREVIEW_PAGES, deviceSwitch, previewPane } from "./preview.js";
+import { handoverProgress } from "./handover.js";
+import { FORM_LABELS as FORM_NAMES } from "../pages/forms.js";
+
+const FORM_LABELS: Record<string, string> = FORM_NAMES;
 
 const nowSql = () => new Date().toISOString().replace("T", " ").slice(0, 19);
 
@@ -33,186 +38,134 @@ const nowSql = () => new Date().toISOString().replace("T", " ").slice(0, 19);
 
 export async function dashboard(c: RequestContext, session: Session): Promise<Response> {
   const db = c.env.DB;
-  const [msgs, events, drafts, log] = await db.batch([
+  const isAdmin = session.user.role === "admin";
+  const [msgs, waiting, events, counts, scheduled, log] = await db.batch([
     db.prepare("SELECT id, form, subject, name, anonymous, created_at FROM submissions WHERE status = 'ny' ORDER BY created_at DESC LIMIT 5"),
-    db.prepare("SELECT id, title, starts_at, ends_at, published FROM events WHERE COALESCE(ends_at, substr(starts_at,1,10) || 'T23:59') >= ? ORDER BY starts_at LIMIT 4").bind(stockholmNow()),
-    db.prepare("SELECT (SELECT COUNT(*) FROM news WHERE published = 0) AS news, (SELECT COUNT(*) FROM documents WHERE file_key IS NULL) AS docs"),
+    db.prepare("SELECT COUNT(*) AS n FROM submissions WHERE status = 'ny' AND created_at <= datetime('now', '-7 days')"),
+    db.prepare("SELECT id, title, starts_at, ends_at, published, publish_at FROM events WHERE COALESCE(ends_at, substr(starts_at,1,10) || 'T23:59') >= ? ORDER BY starts_at LIMIT 4").bind(stockholmNow()),
+    db.prepare(
+      `SELECT (SELECT COUNT(*) FROM news WHERE published = 0) AS news,
+              (SELECT COUNT(*) FROM documents WHERE file_key IS NULL) AS docs,
+              (SELECT COUNT(*) FROM partners WHERE published = 1 AND (logo_key IS NULL OR logo_key = '')) AS logos,
+              (SELECT COUNT(*) FROM jobs WHERE published = 1 AND deadline IS NOT NULL AND deadline < date('now')) AS expired`,
+    ),
+    db.prepare(
+      `SELECT 'nyheter' AS path, id, title, published_at AS at FROM news WHERE published = 1 AND published_at > datetime('now')
+       UNION ALL SELECT 'event', id, title, publish_at FROM events WHERE published = 1 AND publish_at > datetime('now')
+       UNION ALL SELECT 'jobb', id, title, publish_at FROM jobs WHERE published = 1 AND publish_at > datetime('now')
+       ORDER BY at LIMIT 5`,
+    ),
     db.prepare("SELECT action, entity, summary, user_email, created_at FROM audit_log ORDER BY id DESC LIMIT 6"),
   ]);
   const newMsgs = msgs!.results as { id: number; form: string; subject: string; name: string | null; anonymous: number; created_at: string }[];
-  const upcoming = events!.results as { id: number; title: string; starts_at: string; ends_at: string | null; published: number }[];
-  const counts = (drafts!.results[0] ?? {}) as { news?: number; docs?: number };
+  const oldWaiting = ((waiting!.results[0] as { n?: number } | undefined)?.n ?? 0) as number;
+  const upcoming = events!.results as { id: number; title: string; starts_at: string; ends_at: string | null; published: number; publish_at: string | null }[];
+  const todo = (counts!.results[0] ?? {}) as { news?: number; docs?: number; logos?: number; expired?: number };
+  const planned = scheduled!.results as { path: string; id: number; title: string; at: string }[];
   const recent = log!.results as { action: string; entity: string; summary: string | null; user_email: string | null; created_at: string }[];
   const newCount = await newMessageCount(db);
   const smtp = mailConfigured(c.env);
+  const s = await loadSettings(db);
+  let handover: { done: number; total: number } | null = null;
+  if (isAdmin) handover = handoverProgress(s);
 
   const quick = [
     { href: "/admin/nyheter/ny", label: "Skriv en nyhet", icon: "megaphone" as const },
     { href: "/admin/event/ny", label: "Lägg till event", icon: "calendar" as const },
-    { href: "/admin/dokument/ny", label: "Ladda upp dokument", icon: "lock" as const },
-    { href: "/admin/texter", label: "Redigera texter", icon: "sparkle" as const },
+    { href: "/admin/jobb/ny", label: "Lägg upp ett jobb", icon: "briefcase" as const },
+    { href: "/admin/texter", label: "Ändra texter", icon: "edit" as const },
   ];
 
+  const todoItems = [
+    todo.news ? html`<li><a href="/admin/nyheter">${todo.news} ${todo.news === 1 ? "opublicerad nyhet" : "opublicerade nyheter"}</a></li>` : "",
+    todo.docs ? html`<li><a href="/admin/dokument">${todo.docs} dokument saknar PDF</a></li>` : "",
+    todo.logos ? html`<li><a href="/admin/partners">${todo.logos} ${todo.logos === 1 ? "partner saknar" : "partners saknar"} logotyp</a></li>` : "",
+    todo.expired ? html`<li><a href="/admin/jobb">${todo.expired} ${todo.expired === 1 ? "jobbannons har" : "jobbannonser har"} gått ut – ta bort eller förläng</a></li>` : "",
+    !s.hero_image_key ? html`<li><a href="/admin/texter?sida=startsida&falt=hero_image_key">Ladda upp en bild överst på startsidan</a></li>` : "",
+    isAdmin && !s.logo_key ? html`<li><a href="/admin/utseende#logotyp">Ladda upp föreningens logotyp</a></li>` : "",
+    isAdmin && !s.org_number ? html`<li><a href="/admin/texter?sida=gemensamt&falt=org_number">Fyll i organisationsnumret</a></li>` : "",
+    handover && handover.done < handover.total
+      ? html`<li><a href="/admin/styrelseskifte">Styrelseskifte: ${handover.done} av ${handover.total} steg klara</a></li>`
+      : "",
+  ].filter(Boolean);
+
   const content = html`
-    ${adminHead(`Hej ${session.user.name.split(" ")[0]}!`, { lead: "Här är en snabb överblick över webbplatsen." })}
-    <ul class="quick-grid">
-      ${quick.map((q) => html`<li><a class="quick-card" href="${q.href}">${icon(q.icon)}<span>${q.label}</span></a></li>`)}
-    </ul>
-    ${!smtp
-      ? html`<div class="alert alert-warn">E-postnotiser är inte inställda ännu, så nya meddelanden syns bara här i panelen. ${session.user.role === "admin" ? "Se README:n för hur du lägger in SMTP-uppgifterna." : ""}</div>`
-      : ""}
-    <div class="dash-grid">
-      <section class="admin-card">
-        <div class="card-head"><h2 class="card-heading">Nya meddelanden ${newCount ? html`<span class="badge">${newCount}</span>` : ""}</h2><a href="/admin/meddelanden">Alla →</a></div>
-        ${newMsgs.length
-          ? html`<ul class="dash-list">${newMsgs.map((m) => html`<li><a href="/admin/meddelanden/${m.id}"><strong>${m.subject}</strong><span class="muted">${FORM_LABELS[m.form] ?? m.form} · ${m.anonymous ? "Anonym" : m.name ?? "–"} · ${formatDate(m.created_at)}</span></a></li>`)}</ul>`
-          : html`<p class="muted">Inga nya meddelanden. Skönt!</p>`}
-      </section>
-      <section class="admin-card">
-        <div class="card-head"><h2 class="card-heading">Kommande event</h2><a href="/admin/event">Alla →</a></div>
-        ${upcoming.length
-          ? html`<ul class="dash-list">${upcoming.map((e) => {
-              const d = eventDate(e.starts_at, e.ends_at);
-              return html`<li><a href="/admin/event/${e.id}"><strong>${e.title}</strong><span class="muted">${d ? `${d.weekday} ${d.day} ${d.monthShort}, ${d.time}` : ""}${e.published ? "" : " · Utkast"}</span></a></li>`;
-            })}</ul>`
-          : html`<p class="muted">Inga kommande event. <a href="/admin/event/ny">Lägg till ett</a>.</p>`}
-      </section>
-      <section class="admin-card">
-        <h2 class="card-heading">Att göra</h2>
-        <ul class="todo-list">
-          ${counts.news ? html`<li><a href="/admin/nyheter">${counts.news} opublicerade nyheter</a></li>` : ""}
-          ${counts.docs ? html`<li><a href="/admin/dokument">${counts.docs} dokument saknar PDF</a></li>` : ""}
-          <li><a href="/admin/event">Byt ut exempel-eventen mot riktiga</a></li>
-          <li><a href="/admin/texter?grupp=startsida">Ladda upp bilder till startsidan</a></li>
-          ${session.user.role === "admin" ? html`<li><a href="/admin/utseende">Ladda upp föreningens logotyp</a></li>` : ""}
+    ${adminHead(`Hej ${session.user.name.split(" ")[0]}!`, { lead: "Här är en snabb överblick. Klicka på något på webbplatsen till höger för att ändra det." })}
+    <div class="dash-layout">
+      <div class="dash-main">
+        <ul class="quick-grid">
+          ${quick.map((q) => html`<li><a class="quick-card" href="${q.href}">${icon(q.icon)}<span>${q.label}</span></a></li>`)}
         </ul>
-      </section>
-      ${session.user.role === "admin"
-        ? html`<section class="admin-card">
-            <div class="card-head"><h2 class="card-heading">Senaste ändringarna</h2><a href="/admin/logg">Hela loggen →</a></div>
-            <ul class="dash-list dash-list-plain">${recent.map((r) => html`<li><span>${r.user_email ?? "System"} ${[r.action, r.entity].filter(Boolean).join(" ")}${r.summary ? html` <em>${r.summary}</em>` : ""}</span><span class="muted">${formatDateTime(r.created_at)}</span></li>`)}</ul>
-          </section>`
-        : ""}
+        ${!smtp
+          ? html`<div class="alert alert-warn">E-postnotiser är inte inställda ännu, så nya meddelanden syns bara här i panelen. ${isAdmin ? "Se README:n för hur du lägger in SMTP-uppgifterna." : ""}</div>`
+          : ""}
+        ${oldWaiting
+          ? html`<div class="alert alert-warn"><strong>${oldWaiting} ${oldWaiting === 1 ? "meddelande har" : "meddelanden har"} väntat på svar i mer än en vecka.</strong> <a href="/admin/meddelanden">Visa meddelandena</a></div>`
+          : ""}
+        <div class="dash-grid">
+          <section class="admin-card">
+            <div class="card-head"><h2 class="card-heading">Nya meddelanden ${newCount ? html`<span class="badge">${newCount}</span>` : ""}</h2><a href="/admin/meddelanden">Alla →</a></div>
+            ${newMsgs.length
+              ? html`<ul class="dash-list">${newMsgs.map((m) => html`<li><a href="/admin/meddelanden/${m.id}"><strong>${m.subject}</strong><span class="muted">${FORM_LABELS[m.form] ?? m.form} · ${m.anonymous ? "Anonym" : (m.name ?? "–")} · ${formatDate(m.created_at)}</span></a></li>`)}</ul>`
+              : html`<p class="muted">Inga nya meddelanden. Skönt!</p>`}
+          </section>
+          <section class="admin-card">
+            <div class="card-head"><h2 class="card-heading">Kommande event</h2><a href="/admin/event">Alla →</a></div>
+            ${upcoming.length
+              ? html`<ul class="dash-list">${upcoming.map((e) => {
+                  const d = eventDate(e.starts_at, e.ends_at);
+                  return html`<li><a href="/admin/event/${e.id}"><strong>${e.title}</strong><span class="muted">${d ? `${d.weekday} ${d.day} ${d.monthShort}, ${d.time}` : ""}${e.published ? "" : " · Utkast"}</span></a></li>`;
+                })}</ul>`
+              : html`<p class="muted">Inga kommande event. <a href="/admin/event/ny">Lägg till ett</a>.</p>`}
+          </section>
+          ${planned.length
+            ? html`<section class="admin-card">
+                <h2 class="card-heading">Schemalagt</h2>
+                <ul class="dash-list">${planned.map((p) => html`<li><a href="/admin/${p.path}/${p.id}"><strong>${p.title}</strong><span class="muted">Publiceras ${formatDateTimeShort(p.at)}</span></a></li>`)}</ul>
+              </section>`
+            : ""}
+          <section class="admin-card">
+            <h2 class="card-heading">Att göra</h2>
+            ${todoItems.length ? html`<ul class="todo-list">${todoItems}</ul>` : html`<p class="muted">${icon("check", "icon icon-sm")} Inget som väntar. Bra jobbat!</p>`}
+          </section>
+          ${isAdmin
+            ? html`<section class="admin-card">
+                <div class="card-head"><h2 class="card-heading">Senaste ändringarna</h2><a href="/admin/logg">Hela loggen →</a></div>
+                <ul class="dash-list dash-list-plain">${recent.map((r) => html`<li><span>${r.user_email ?? "System"} ${[r.action, r.entity].filter(Boolean).join(" ")}${r.summary ? html` <em>${r.summary}</em>` : ""}</span><span class="muted">${formatDateTime(r.created_at)}</span></li>`)}</ul>
+              </section>`
+            : ""}
+        </div>
+      </div>
+      ${siteMapCard()}
     </div>`;
-  return adminLayout(c, session, { title: "Översikt", active: "/admin", newCount }, content);
+  return adminLayout(c, session, { title: "Översikt", active: "/admin", newCount, wide: true }, content);
+}
+
+/** Den klickbara webbplatsen på Översikt. */
+function siteMapCard(): SafeHtml {
+  return html`<section class="site-map" aria-labelledby="webbplatsen-rubrik" data-site-map>
+    <div class="lp-head">
+      <div class="lp-title"><span class="lp-dot" aria-hidden="true"></span><h2 class="site-map-title" id="webbplatsen-rubrik">Din webbplats</h2></div>
+      <div class="lp-controls">
+        <label class="sr-only" for="karta-sida">Sida</label>
+        <select id="karta-sida" class="lp-select" data-map-page>
+          ${PREVIEW_PAGES.map((p) => html`<option value="${p.path}">${p.label}</option>`)}
+        </select>
+        ${deviceSwitch()}
+      </div>
+    </div>
+    <div class="lp-viewport" data-lp-viewport>
+      <iframe src="/admin/webbplatsen?sida=%2F" title="Webbplatsen – klicka på det du vill ändra" data-map-frame tabindex="-1" loading="lazy"></iframe>
+      <div class="lp-loading" data-lp-loading>Laddar webbplatsen …</div>
+    </div>
+    <p class="lp-note">${icon("edit", "icon icon-sm")} <span><strong>Klicka på det du vill ändra</strong> – en text, en bild, ett event eller menyn – så kommer du direkt rätt. Hittar du inte? <a href="/admin/sok">Sök efter texten</a>.</span></p>
+  </section>`;
 }
 
 function formatDateTime(utc: string): string {
   const d = new Date(utc.replace(" ", "T") + "Z");
   if (Number.isNaN(d.getTime())) return utc;
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", dateStyle: "medium", timeStyle: "short" }).format(d);
-}
-
-// ───────────────────────── Redigera texter ─────────────────────────
-
-export async function textsPage(c: RequestContext, session: Session, errors: Errors = {}, override?: Record<string, string>, status = 200): Promise<Response> {
-  const s = await loadSettings(c.env.DB);
-  const groupId = c.url.searchParams.get("grupp") ?? SETTINGS_GROUPS[0]!.id;
-  const group = SETTINGS_GROUPS.find((g) => g.id === groupId) ?? SETTINGS_GROUPS[0]!;
-  const specs = group.fields.filter((f) => f.type !== "image").map(toSpec);
-
-  const content = html`
-    ${adminHead("Redigera texter", { lead: "Välj en sida och ändra texterna. Förhandsvisningen till höger visar hur det blir – inget syns på webbplatsen förrän du sparar." })}
-    <nav class="tabs" aria-label="Välj sida">
-      <ul>${SETTINGS_GROUPS.map((g) => html`<li><a href="/admin/texter?grupp=${g.id}"${g.id === group.id ? raw(' aria-current="page"') : ""}>${g.title}</a></li>`)}</ul>
-    </nav>
-    <div class="editor-with-preview">
-    <form class="admin-form" id="texter-form" method="post" action="/admin/texter?grupp=${group.id}" enctype="multipart/form-data" novalidate data-dirty-check>
-      ${csrfField(session)}
-      ${errorSummary(errors, specs)}
-      <div class="admin-card">
-        ${group.description ? html`<p class="admin-lead">${group.description}</p>` : ""}
-        ${group.fields.map((f) => {
-          const value = override?.[f.key] ?? s[f.key];
-          if (f.type === "image") return settingImageField(f.key, f.label, value, f.help, errors[f.key]);
-          return renderField(toSpec(f), value, errors[f.key]);
-        })}
-      </div>
-      <div class="admin-form-actions sticky-actions">
-        <button class="btn btn-primary btn-lg" type="submit">Spara ändringar</button>
-        <a class="btn btn-outline" href="${previewPath(group.id)}" target="_blank" rel="noopener">${icon("external", "icon icon-sm")}Öppna sidan</a>
-      </div>
-    </form>
-    ${previewPane({ formId: "texter-form", page: previewPath(group.id), csrf: session.csrf })}
-    </div>`;
-  return adminLayout(c, session, { title: "Redigera texter", active: "/admin/texter", newCount: await newMessageCount(c.env.DB), wide: true }, content, status);
-}
-
-function previewPath(groupId: string): string {
-  return { startsida: "/", "om-oss": "/om-oss", "bli-medlem": "/bli-medlem", "for-studenter": "/for-studenter", "for-foretag": "/for-foretag", "jf-paverka": "/jf-paverka", lankar: "/kontakt", allmant: "/" }[groupId] ?? "/";
-}
-
-function toSpec(f: (typeof SETTINGS_GROUPS)[number]["fields"][number]): FieldSpec {
-  return {
-    name: f.key,
-    label: f.label,
-    type: f.type === "lines" ? "textarea" : f.type === "image" ? "text" : f.type,
-    required: f.required,
-    help: f.help,
-    rows: f.type === "lines" ? 6 : f.type === "textarea" ? 4 : undefined,
-    max: f.type === "textarea" || f.type === "lines" ? 4000 : 300,
-  };
-}
-
-function settingImageField(key: string, label: string, current: string, help?: string, error?: string): SafeHtml {
-  const src = mediaUrl(current || null);
-  return html`<div class="field field-upload${error ? " has-error" : ""}">
-    <span class="field-label" id="falt-${key}-etikett">${label} <span class="optional">(valfritt)</span></span>
-    ${help ? html`<p class="field-help" id="${key}-hjalp">${help}</p>` : ""}
-    <div class="upload-box">
-      ${src ? html`<img class="upload-preview" src="${src}" alt="Nuvarande bild" data-preview="${key}">` : html`<img class="upload-preview" alt="" data-preview="${key}" hidden>`}
-      <div class="upload-controls">
-        ${uploadInput({ id: `falt-${key}`, name: key, kind: "image", labelledBy: `falt-${key}-etikett`, describedBy: help ? `${key}-hjalp` : "" })}
-        <p class="field-help">${uploadHint("image")}</p>
-        ${current ? html`<label class="check-field check-small"><input type="checkbox" name="${key}__ta_bort" value="1"><span>Ta bort bilden</span></label>` : ""}
-      </div>
-    </div>
-    ${error ? html`<p class="field-error" id="${key}-fel">${error}</p>` : ""}
-  </div>`;
-}
-
-export async function textsSubmit(c: RequestContext, session: Session): Promise<Response> {
-  const form = await c.req.formData();
-  if (!checkCsrf(c, session, form)) return redirect("/admin/texter?fel=csrf", 303);
-  const groupId = c.url.searchParams.get("grupp") ?? "";
-  const group = SETTINGS_GROUPS.find((g) => g.id === groupId);
-  if (!group) return redirect("/admin/texter", 303);
-
-  const textFields = group.fields.filter((f) => f.type !== "image");
-  const { values, errors } = validate(textFields.map(toSpec), form);
-  const s = await loadSettings(c.env.DB);
-  const updates: [SettingKey, string][] = textFields.map((f) => [f.key, values[f.key] ?? ""]);
-  const oldFiles: string[] = [];
-  const newFiles: string[] = [];
-  for (const f of group.fields.filter((f) => f.type === "image")) {
-    const res = await handleUpload(c.env, form.get(f.key), "image", "sida");
-    if (!res.ok) errors[f.key] = res.error;
-    else if (res.key) {
-      updates.push([f.key, res.key]);
-      newFiles.push(res.key);
-      if (s[f.key]) oldFiles.push(s[f.key]);
-    } else if (form.get(`${f.key}__ta_bort`) && s[f.key]) {
-      updates.push([f.key, ""]);
-      oldFiles.push(s[f.key]);
-    }
-  }
-  if (Object.keys(errors).length) {
-    for (const k of newFiles) await deleteFile(c.env, k);
-    return textsPage(c, session, errors, values, 422);
-  }
-  await saveSettings(c.env.DB, updates);
-  for (const k of oldFiles) await deleteFile(c.env, k);
-  await audit(c.env, session, "ändrade texter", "sida", null, group.title);
-  return redirect(`/admin/texter?grupp=${group.id}&klart=sparat`, 303);
-}
-
-async function saveSettings(db: D1Database, updates: [string, string][]): Promise<void> {
-  if (!updates.length) return;
-  await db.batch(
-    updates.map(([k, v]) =>
-      db.prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").bind(k, v),
-    ),
-  );
 }
 
 // ───────────────────────── Utseende ─────────────────────────
@@ -290,7 +243,7 @@ export async function appearancePage(c: RequestContext, session: Session, overri
             <p class="field-help">Brödtexten använder alltid Montserrat.</p>
           </section>
 
-          <section class="admin-card">
+          <section class="admin-card" id="logotyp">
             <h2 class="card-heading">Logotyp</h2>
             <div class="upload-box">
               ${logo ? html`<img class="upload-preview upload-preview-logo" src="${logo}" alt="Nuvarande logotyp" data-preview="logo">` : html`<span class="brand-mark brand-mark-lg" aria-hidden="true">§</span><img class="upload-preview upload-preview-logo" alt="" data-preview="logo" hidden>`}
@@ -339,29 +292,19 @@ export async function appearanceSubmit(c: RequestContext, session: Session): Pro
   updates.push(["font_heading", font === "cormorant" ? "cormorant" : "playfair"]);
 
   const s = await loadSettings(c.env.DB);
-  const res = await handleUpload(c.env, form.get("logo"), "image", "logo");
-  let oldLogo: string | null = null;
+  const res = await handleUpload(c.env, form, "logo", "image", "logo", session.user.email);
   if (!res.ok) errors.logo = res.error;
-  else if (res.key) {
-    updates.push(["logo_key", res.key]);
-    oldLogo = s.logo_key || null;
-  } else if (form.get("logo__ta_bort") && s.logo_key) {
-    updates.push(["logo_key", ""]);
-    oldLogo = s.logo_key;
-  }
-  if (Object.keys(errors).length) {
-    if (res.ok && res.key) await deleteFile(c.env, res.key);
-    return appearancePage(c, session, override, errors, 422);
-  }
-  await saveSettings(c.env.DB, updates);
-  if (oldLogo) await deleteFile(c.env, oldLogo);
+  else if (res.key) updates.push(["logo_key", res.key]);
+  else if (form.get("logo__ta_bort") && s.logo_key) updates.push(["logo_key", ""]);
+  if (Object.keys(errors).length) return appearancePage(c, session, override, errors, 422);
+  // Den gamla logotypen ligger kvar i bildbanken och kan väljas igen.
+  await saveSettings(c.env.DB, session, updates);
   await audit(c.env, session, "ändrade", "utseende", null, `Färger: ${THEME_KEYS.map((k) => override[k]).join(", ")}; rubriker: ${font}`);
   return redirect("/admin/utseende?klart=sparat", 303);
 }
 
 // ───────────────────────── Meddelanden ─────────────────────────
 
-const FORM_LABELS: Record<string, string> = { kontakt: "Kontakt", foretag: "Företag", paverka: "JF Påverka" };
 
 interface SubmissionRow {
   id: number;

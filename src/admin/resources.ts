@@ -1,15 +1,16 @@
 import { html, type SafeHtml } from "../lib/html.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec, type Values } from "../lib/forms.js";
-import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, HONOR_KINDS } from "../lib/content.js";
-import { eventDate, formatDate } from "../lib/format.js";
-import { deleteFile } from "../lib/storage.js";
+import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, HONOR_KINDS, JOB_KINDS } from "../lib/content.js";
+import { eventDate, formatDate, formatDateTimeShort, formatDay, localToUtcSql, stockholmToday, utcSqlToLocal } from "../lib/format.js";
+import { purgeIfUnused } from "../lib/media.js";
 import { redirect } from "../lib/http.js";
+import { DEFAULT_SETTINGS } from "../lib/settings.js";
 import type { RequestContext } from "../router.js";
 import { mediaUrl } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton, statusPill } from "./layout.js";
-import { handleUpload, uploadInput } from "./uploads.js";
+import { handleUpload, imageUploadField } from "./uploads.js";
 
 /**
  * Generisk redigering (skapa, lista, ändra, publicera, ta bort) för innehållstyperna.
@@ -27,6 +28,15 @@ export interface AdminField extends FieldSpec {
   nullable?: boolean;
   /** Krävs bara när posten skapas (t.ex. bild i galleriet). */
   requiredOnCreate?: boolean;
+  /**
+   * Filen raderas helt när den byts ut eller tas bort (personfoton, galleribilder och PDF:er – GDPR).
+   * Annars ligger bilden kvar i bildbanken så att den kan återanvändas.
+   */
+  purge?: boolean;
+  /** Publiceringstid: visas i svensk tid men sparas i UTC. */
+  schedule?: boolean;
+  /** Val som hämtas från databasen när formuläret visas (t.ex. vilken partner ett jobb hör till). */
+  optionsFrom?: (db: D1Database) => Promise<{ value: string; label: string }[]>;
 }
 
 export interface Resource {
@@ -49,10 +59,40 @@ export interface Resource {
   /** Extra kolumner vid sparning, t.ex. publiceringsdatum. */
   extraColumns?: (v: Values, existing: Row | null) => Record<string, unknown>;
   emptyText: string;
+  /** Kan kopieras ("Kopiera" i listan) – kopian blir ett opublicerat utkast. */
+  duplicable?: boolean;
+  /** Vilket menyval i sidomenyn som ska vara markerat (för typer som visas som flikar). */
+  navActive?: string;
+  /** Flikar ovanför listan, t.ex. Styrelsen · Kursombud · Utmärkelser · Lediga uppdrag. */
+  tabs?: { href: string; label: string }[];
+  /** Extra knappar bredvid "Ny …" i listan. */
+  listActions?: SafeHtml;
 }
 
+const BOARD_TABS = [
+  { href: "/admin/styrelsen", label: "Styrelsen" },
+  { href: "/admin/kursombud", label: "Kursombud" },
+  { href: "/admin/utmarkelser", label: "Utmärkelser" },
+  { href: "/admin/uppdrag", label: "Lediga uppdrag" },
+];
+const PARTNER_TABS = [
+  { href: "/admin/partners", label: "Partners" },
+  { href: "/admin/partners/statistik", label: "Statistik" },
+];
+
+const nowUtc = () => new Date().toISOString().replace("T", " ").slice(0, 19);
+
+/** "Schemalagd · 6 okt 08:00" om publiceringstiden ligger i framtiden, annars vanlig status. */
+function publishPill(r: Row, column: string, labels?: [string, string]): SafeHtml {
+  const at = r[column] as string | null;
+  if (r.published && at && at > nowUtc()) return html`<span class="pill pill-plan">${icon("clock", "icon icon-xs")}Schemalagd · ${formatDateTimeShort(at)}</span>`;
+  return statusPill(!!r.published, labels?.[0], labels?.[1]);
+}
+
+const SCHEDULE_HELP = "Lämna tomt för att publicera direkt när du sparar. Välj en tid framåt för att schemalägga – då syns det automatiskt på webbplatsen vid den tiden.";
+
 const thumb = (key: unknown, alt = "") => {
-  const src = mediaUrl(typeof key === "string" ? key : null);
+  const src = mediaUrl(typeof key === "string" ? key : null, "sm");
   return src ? html`<img class="thumb" src="${src}" alt="${alt}" width="56" height="56" loading="lazy">` : html`<span class="thumb thumb-empty" aria-hidden="true"></span>`;
 };
 
@@ -70,6 +110,7 @@ export const RESOURCES: Resource[] = [
     orderBy: "COALESCE(published_at, created_at) DESC, id DESC",
     slugFrom: "title",
     publishable: true,
+    duplicable: true,
     emptyText: "Inga nyheter ännu. Skriv den första!",
     fields: [
       { name: "title", label: "Rubrik", type: "text", required: true, max: 150 },
@@ -77,18 +118,20 @@ export const RESOURCES: Resource[] = [
       { name: "body", label: "Text", type: "textarea", rows: 14, max: 20000, help: MARKDOWN_HELP },
       { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true, help: "Valfri. Liggande bild fungerar bäst (t.ex. 1600 × 1000 px). Stora foton komprimeras automatiskt." },
       { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200, help: "Beskriv vad bilden visar för den som inte kan se den." },
+      { name: "published_at", label: "Publiceringstid", type: "datetime-local", schedule: true, nullable: true, help: SCHEDULE_HELP + " Tiden visas också som nyhetens datum." },
     ],
     listColumns: [
       { label: "", render: (r) => thumb(r.image_key), className: "col-thumb" },
       { label: "Rubrik", render: (r) => html`<a class="row-title" href="/admin/nyheter/${r.id}">${String(r.title)}</a>` },
       { label: "Publicerad", render: (r) => (r.published_at ? formatDate(String(r.published_at)) : "–") },
-      { label: "Status", render: (r) => statusPill(!!r.published) },
+      { label: "Status", render: (r) => publishPill(r, "published_at") },
     ],
     titleOf: (r) => String(r.title),
-    publicUrl: (r) => (r.published ? `/aktuellt/${r.slug}` : null),
+    publicUrl: (r) => (r.published && (!r.published_at || String(r.published_at) <= nowUtc()) ? `/aktuellt/${r.slug}` : null),
     extraColumns: (v, existing) => {
-      const out: Record<string, unknown> = { updated_at: new Date().toISOString().replace("T", " ").slice(0, 19) };
-      if (v.published === "1" && !existing?.published_at) out.published_at = out.updated_at;
+      const out: Record<string, unknown> = { updated_at: nowUtc() };
+      // Publicerad utan vald tid = nu
+      if (v.published === "1" && !(v.published_at ?? existing?.published_at)) out.published_at = out.updated_at;
       return out;
     },
   },
@@ -102,6 +145,7 @@ export const RESOURCES: Resource[] = [
     orderBy: "starts_at DESC",
     slugFrom: "title",
     publishable: true,
+    duplicable: true,
     emptyText: "Inga event ännu.",
     fields: [
       { name: "title", label: "Namn på eventet", type: "text", required: true, max: 150 },
@@ -114,6 +158,7 @@ export const RESOURCES: Resource[] = [
       { name: "members_only", label: "Endast för medlemmar", type: "checkbox" },
       { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true },
       { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200 },
+      { name: "publish_at", label: "Publicera på webbplatsen", type: "datetime-local", schedule: true, nullable: true, help: SCHEDULE_HELP },
     ],
     check: (v): Errors => (v.ends_at && v.starts_at && v.ends_at < v.starts_at ? { ends_at: "Sluttiden kan inte vara före starttiden." } : {}),
     listColumns: [
@@ -125,11 +170,11 @@ export const RESOURCES: Resource[] = [
         },
       },
       { label: "Event", render: (r) => html`<a class="row-title" href="/admin/event/${r.id}">${String(r.title)}</a>` },
-      { label: "Status", render: (r) => statusPill(!!r.published) },
+      { label: "Status", render: (r) => publishPill(r, "publish_at") },
     ],
     titleOf: (r) => String(r.title),
-    publicUrl: (r) => (r.published ? `/kalender/${r.slug}` : null),
-    extraColumns: () => ({ updated_at: new Date().toISOString().replace("T", " ").slice(0, 19) }),
+    publicUrl: (r) => (r.published && (!r.publish_at || String(r.publish_at) <= nowUtc()) ? `/kalender/${r.slug}` : null),
+    extraColumns: () => ({ updated_at: nowUtc() }),
   },
   {
     path: "partners",
@@ -142,6 +187,7 @@ export const RESOURCES: Resource[] = [
     slugFrom: "name",
     publishable: true,
     publishLabels: ["Visas", "Dold"],
+    tabs: PARTNER_TABS,
     emptyText: "Inga partners ännu.",
     fields: [
       { name: "name", label: "Namn", type: "text", required: true, max: 100 },
@@ -170,7 +216,7 @@ export const RESOURCES: Resource[] = [
     ],
     titleOf: (r) => String(r.name),
     publicUrl: (r) => (r.published ? `/partners/${r.slug}` : null),
-    extraColumns: () => ({ updated_at: new Date().toISOString().replace("T", " ").slice(0, 19) }),
+    extraColumns: () => ({ updated_at: nowUtc() }),
   },
   {
     path: "styrelsen",
@@ -178,16 +224,17 @@ export const RESOURCES: Resource[] = [
     title: "Styrelsen",
     singular: "styrelseledamot",
     newLabel: "Lägg till ledamot",
-    lead: "Visas på Om oss och på kontaktsidan. Byt ut alla när en ny styrelse har valts.",
+    lead: "Visas på Om oss och på kontaktsidan. Byt ut alla när en ny styrelse har valts – checklistan under Styrelseskifte hjälper er.",
     orderBy: "sort_order, name",
     publishable: true,
     publishLabels: ["Visas", "Dold"],
+    tabs: BOARD_TABS,
     emptyText: "Ingen i styrelsen är inlagd ännu.",
     fields: [
       { name: "name", label: "Namn", type: "text", required: true, max: 100 },
       { name: "role", label: "Roll", type: "text", required: true, max: 100, placeholder: "T.ex. Ordförande" },
       { name: "email", label: "E-post för rollen", type: "email", nullable: true, max: 200 },
-      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR). Kvadratiskt porträtt fungerar bäst. Utan foto visas initialerna." },
+      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR). Kvadratiskt porträtt fungerar bäst. Utan foto visas initialerna. Fotot raderas helt när det tas bort." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägre tal visas först." },
     ],
     listColumns: [
@@ -208,6 +255,8 @@ export const RESOURCES: Resource[] = [
     orderBy: "year DESC, sort_order, name",
     publishable: true,
     publishLabels: ["Visas", "Dold"],
+    navActive: "/admin/styrelsen",
+    tabs: BOARD_TABS,
     emptyText: "Inga hedersmedlemmar eller pristagare är inlagda ännu.",
     fields: [
       {
@@ -220,7 +269,7 @@ export const RESOURCES: Resource[] = [
       { name: "name", label: "Namn", type: "text", required: true, max: 120 },
       { name: "year", label: "År", type: "number", min: 2011, max: 2100, nullable: true },
       { name: "description", label: "Motivering", type: "textarea", rows: 4, max: 1000 },
-      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR)." },
+      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR)." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999 },
     ],
     listColumns: [
@@ -240,6 +289,8 @@ export const RESOURCES: Resource[] = [
     newLabel: "Lägg till kursombud",
     lead: "Visas under För studenter. Lämna namn tomt så står det ”Meddelas senare”.",
     orderBy: "sort_order, term",
+    navActive: "/admin/styrelsen",
+    tabs: BOARD_TABS,
     emptyText: "Inga kursombud är inlagda.",
     fields: [
       { name: "term", label: "Termin", type: "text", required: true, max: 20, placeholder: "T.ex. T4" },
@@ -264,7 +315,7 @@ export const RESOURCES: Resource[] = [
     orderBy: "album, sort_order, id DESC",
     emptyText: "Inga bilder ännu.",
     fields: [
-      { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, help: "JPG, PNG, WebP eller HEIC. Stora foton komprimeras automatiskt." },
+      { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, purge: true, help: "JPG, PNG, WebP eller HEIC. Stora foton komprimeras automatiskt. Bilden raderas helt när den tas bort ur galleriet." },
       { name: "album", label: "Album", type: "select", required: true, options: GALLERY_ALBUMS.map((a) => ({ value: a, label: a })) },
       { name: "alt", label: "Bildbeskrivning (alt-text)", type: "text", required: true, max: 200, help: "Krävs för tillgänglighet, t.ex. ”Studenter skålar på vårbanketten 2026”." },
       { name: "caption", label: "Bildtext", type: "text", max: 200, help: "Valfri text som visas under bilden." },
@@ -306,7 +357,7 @@ export const RESOURCES: Resource[] = [
       { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
     ],
     titleOf: (r) => String(r.question),
-    extraColumns: () => ({ updated_at: new Date().toISOString().replace("T", " ").slice(0, 19) }),
+    extraColumns: () => ({ updated_at: nowUtc() }),
   },
   {
     path: "dokument",
@@ -329,7 +380,7 @@ export const RESOURCES: Resource[] = [
         options: Object.entries(DOCUMENT_CATEGORIES).map(([value, label]) => ({ value, label })),
       },
       { name: "year", label: "År", type: "number", required: true, min: 2011, max: 2100 },
-      { name: "file_key", label: "PDF-fil", type: "text", upload: "pdf", nullable: true, help: "Max 24 MB. Utan fil står det ”Laddas upp inom kort” på webbplatsen." },
+      { name: "file_key", label: "PDF-fil", type: "text", upload: "pdf", nullable: true, purge: true, help: "Max 24 MB. Utan fil står det ”Laddas upp inom kort” på webbplatsen." },
     ],
     listColumns: [
       { label: "Titel", render: (r) => html`<a class="row-title" href="/admin/dokument/${r.id}">${String(r.title)}</a>` },
@@ -340,8 +391,87 @@ export const RESOURCES: Resource[] = [
     ],
     titleOf: (r) => String(r.title),
     publicUrl: (r) => (r.published && r.file_key ? `/dokument/fil/${r.id}` : null),
-    extraColumns: () => ({ updated_at: new Date().toISOString().replace("T", " ").slice(0, 19) }),
+    extraColumns: () => ({ updated_at: nowUtc() }),
   },
+  {
+    path: "jobb",
+    table: "jobs",
+    title: "Jobb och praktik",
+    singular: "tjänst",
+    newLabel: "Lägg upp en tjänst",
+    lead: "Praktikplatser, sommarnotarietjänster, trainee­program och jobb. Visas under Jobb och praktik och på partnerns sida. Annonsen försvinner automatiskt dagen efter sista ansökningsdag.",
+    orderBy: "(deadline IS NOT NULL AND deadline < date('now')), deadline IS NULL, deadline, id DESC",
+    slugFrom: "title",
+    publishable: true,
+    duplicable: true,
+    emptyText: "Inga tjänster ännu. Har en partner en praktikplats eller ett jobb? Lägg upp den här.",
+    fields: [
+      { name: "title", label: "Titel", type: "text", required: true, max: 150, placeholder: "T.ex. Sommarnotarie 2027" },
+      { name: "employer", label: "Arbetsgivare", type: "text", required: true, max: 120 },
+      {
+        name: "partner_id",
+        label: "Samarbetspartner",
+        type: "select",
+        nullable: true,
+        help: "Välj partnern om tjänsten är hos en av dem – då visas logotypen och annonsen syns även på partnerns sida.",
+        optionsFrom: async (db) =>
+          (await db.prepare("SELECT id, name FROM partners ORDER BY name").all<{ id: number; name: string }>()).results.map((p) => ({ value: String(p.id), label: p.name })),
+      },
+      {
+        name: "kind",
+        label: "Typ",
+        type: "select",
+        required: true,
+        options: JOB_KINDS.map((k) => ({ value: k, label: DEFAULT_SETTINGS[`jobs_kind_${k}`] })),
+      },
+      { name: "location", label: "Ort", type: "text", max: 100, placeholder: "T.ex. Stockholm eller Distans" },
+      { name: "summary", label: "Kort beskrivning", type: "textarea", rows: 2, max: 300, help: "En eller två meningar som visas i listan." },
+      { name: "body", label: "Hela annonsen", type: "textarea", rows: 12, max: 20000, help: MARKDOWN_HELP },
+      { name: "apply_url", label: "Länk till ansökan", type: "url", nullable: true, max: 500, help: "Arbetsgivarens ansökningssida. Klicken räknas i partnerstatistiken." },
+      { name: "deadline", label: "Sista ansökningsdag", type: "date", nullable: true, help: "Lämna tomt för löpande urval." },
+      { name: "publish_at", label: "Publicera på webbplatsen", type: "datetime-local", schedule: true, nullable: true, help: SCHEDULE_HELP },
+    ],
+    listColumns: [
+      { label: "Tjänst", render: (r) => html`<a class="row-title" href="/admin/jobb/${r.id}">${String(r.title)}</a>` },
+      { label: "Arbetsgivare", render: (r) => String(r.employer) },
+      { label: "Sista dag", render: (r) => (r.deadline ? html`${formatDay(String(r.deadline))}${String(r.deadline) < stockholmToday() ? html` <span class="pill pill-off">Utgången</span>` : ""}` : "Löpande") },
+      { label: "Status", render: (r) => publishPill(r, "publish_at") },
+    ],
+    titleOf: (r) => String(r.title),
+    publicUrl: (r) => (r.published && (!r.publish_at || String(r.publish_at) <= nowUtc()) ? `/karriar/${r.slug}` : null),
+    extraColumns: () => ({ updated_at: nowUtc() }),
+  },
+  {
+    path: "uppdrag",
+    table: "positions",
+    title: "Lediga uppdrag",
+    singular: "uppdrag",
+    newLabel: "Lägg till uppdrag",
+    lead: "Poster och uppgifter ni söker folk till. Visas på sidan Engagera dig, där studenter kan anmäla intresse. Anmälningarna kommer till Meddelanden.",
+    orderBy: "sort_order, id",
+    publishable: true,
+    publishLabels: ["Visas", "Dold"],
+    navActive: "/admin/styrelsen",
+    tabs: BOARD_TABS,
+    emptyText: "Inga uppdrag är utlysta. Utan uppdrag visar Engagera dig bara utskotten och intresseformuläret.",
+    fields: [
+      { name: "title", label: "Uppdrag", type: "text", required: true, max: 120, placeholder: "T.ex. Sexmästare eller Ledamot i arbetsmarknadsutskottet" },
+      { name: "committee", label: "Utskott eller grupp", type: "text", max: 80 },
+      { name: "description", label: "Beskrivning", type: "textarea", rows: 5, max: 2000, help: "Vad gör man? Vad får man ut av det? Tom rad = nytt stycke." },
+      { name: "commitment", label: "Tidsåtgång", type: "text", max: 100, placeholder: "T.ex. Ett par timmar i veckan" },
+      { name: "open_until", label: "Sök senast", type: "date", nullable: true, help: "Uppdraget döljs automatiskt efter det här datumet. Lämna tomt för tills vidare." },
+      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägre tal visas först." },
+    ],
+    listColumns: [
+      { label: "Uppdrag", render: (r) => html`<a class="row-title" href="/admin/uppdrag/${r.id}">${String(r.title)}</a>` },
+      { label: "Utskott", render: (r) => String(r.committee || "–") },
+      { label: "Sök senast", render: (r) => (r.open_until ? formatDay(String(r.open_until)) : "Tills vidare") },
+      { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
+    ],
+    titleOf: (r) => String(r.title),
+    publicUrl: (r) => (r.published ? `/engagera-dig` : null),
+    extraColumns: () => ({ updated_at: nowUtc() }),
+  }
 ];
 
 // ───────────────────────── Hjälpfunktioner ─────────────────────────
@@ -352,6 +482,9 @@ export function slugify(text: string): string {
   return (
     text
       .toLowerCase()
+      .replace(/å/g, "a")
+      .replace(/ä/g, "a")
+      .replace(/ö/g, "o")
       .normalize("NFKD")
       .replace(/[̀-ͯ]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
@@ -370,53 +503,43 @@ async function uniqueSlug(db: D1Database, table: string, base: string, exceptId?
   return `${base}-${Date.now().toString(36)}`;
 }
 
-function rowToValues(r: Resource, row: Row | null): Values {
+/** Fyll i val som hämtas från databasen (t.ex. listan med partners). */
+async function resolveFields(r: Resource, db: D1Database): Promise<AdminField[]> {
+  return Promise.all(r.fields.map(async (f) => (f.optionsFrom ? { ...f, options: await f.optionsFrom(db) } : f)));
+}
+
+function rowToValues(fields: AdminField[], r: Resource, row: Row | null): Values {
   const v: Values = {};
-  for (const f of r.fields) {
+  for (const f of fields) {
     const val = row?.[col(f)];
-    v[f.name] = val == null ? "" : f.type === "checkbox" ? (val ? "1" : "") : String(val);
+    v[f.name] = val == null ? "" : f.type === "checkbox" ? (val ? "1" : "") : f.schedule ? utcSqlToLocal(String(val)) : String(val);
   }
   if (r.publishable) v.published = row ? (row.published ? "1" : "") : "";
   return v;
 }
 
-function imageField(f: AdminField, current: string, error?: string): SafeHtml {
-  const id = `falt-${f.name}`;
-  const src = f.upload === "image" ? mediaUrl(current || null) : null;
-  return html`<div class="field field-upload${error ? " has-error" : ""}">
-    <span class="field-label" id="${id}-etikett">${f.label}${f.requiredOnCreate && !current ? html` <span class="req" aria-hidden="true">*</span>` : html` <span class="optional">(valfritt)</span>`}</span>
-    ${f.help ? html`<p class="field-help" id="${f.name}-hjalp">${f.help}</p>` : ""}
-    <div class="upload-box">
-      ${src
-        ? html`<img class="upload-preview" src="${src}" alt="Nuvarande bild" data-preview="${f.name}">`
-        : f.upload === "pdf" && current
-          ? html`<p class="upload-current">${icon("lock", "icon icon-sm")} En PDF är uppladdad.</p>`
-          : html`<img class="upload-preview" alt="" data-preview="${f.name}" hidden>`}
-      <div class="upload-controls">
-        ${uploadInput({ id, name: f.name, kind: f.upload!, labelledBy: `${id}-etikett`, describedBy: [f.help ? `${f.name}-hjalp` : "", error ? `${f.name}-fel` : ""].filter(Boolean).join(" ") })}
-        ${current ? html`<span class="field-help">Välj en ny fil för att ersätta den nuvarande.</span>` : ""}
-        ${current && !f.requiredOnCreate ? html`<label class="check-field check-small"><input type="checkbox" name="${f.name}__ta_bort" value="1"><span>Ta bort ${f.upload === "pdf" ? "filen" : "bilden"}</span></label>` : ""}
-      </div>
-    </div>
-    ${error ? html`<p class="field-error" id="${f.name}-fel">${error}</p>` : ""}
-  </div>`;
-}
-
-function editForm(r: Resource, session: Session, action: string, values: Values, errors: Errors, isNew: boolean): SafeHtml {
-  const hasUpload = r.fields.some((f) => f.upload);
+function editForm(r: Resource, fields: AdminField[], session: Session, action: string, values: Values, errors: Errors, isNew: boolean): SafeHtml {
+  const hasUpload = fields.some((f) => f.upload);
   return html`<form class="admin-form" method="post" action="${action}"${hasUpload ? html` enctype="multipart/form-data"` : ""} novalidate data-dirty-check>
     ${csrfField(session)}
-    ${errorSummary(errors, r.fields)}
+    ${errorSummary(errors, fields)}
     <div class="admin-card">
-      ${r.fields.map((f) => (f.upload ? imageField(f, values[f.name] ?? "", errors[f.name]) : renderField(f, values[f.name] ?? "", errors[f.name])))}
+      ${fields
+        .filter((f) => !f.schedule)
+        .map((f) =>
+          f.upload
+            ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload })
+            : renderField(f, values[f.name] ?? "", errors[f.name]),
+        )}
     </div>
     ${r.publishable
-      ? html`<div class="admin-card admin-card-inline">
+      ? html`<div class="admin-card admin-card-inline publish-card">
           <label class="switch">
             <input type="checkbox" name="published" value="1"${values.published ? html` checked` : ""}>
             <span class="switch-track" aria-hidden="true"></span>
             <span><strong>${r.publishLabels ? "Visa på webbplatsen" : "Publicera"}</strong><span class="field-help">${r.publishLabels ? "Avbocka för att dölja utan att ta bort." : "Avbocka för att spara som utkast som bara syns här."}</span></span>
           </label>
+          ${fields.filter((f) => f.schedule).map((f) => html`<div class="schedule-field">${renderField(f, values[f.name] ?? "", errors[f.name])}</div>`)}
         </div>`
       : ""}
     <div class="admin-form-actions">
@@ -426,13 +549,19 @@ function editForm(r: Resource, session: Session, action: string, values: Values,
   </form>`;
 }
 
+export function resourceTabs(tabs: { href: string; label: string }[] | undefined, current: string): SafeHtml | string {
+  if (!tabs) return "";
+  return html`<nav class="tabs" aria-label="Avsnitt"><ul>${tabs.map((t) => html`<li><a href="${t.href}"${t.href === current ? html` aria-current="page"` : ""}>${t.label}</a></li>`)}</ul></nav>`;
+}
+
 // ───────────────────────── Handlers ─────────────────────────
 
 export function listHandler(r: Resource) {
   return async (c: RequestContext, session: Session): Promise<Response> => {
     const { results } = await c.env.DB.prepare(`SELECT * FROM ${r.table} ORDER BY ${r.orderBy}`).all<Row>();
     const content = html`
-      ${adminHead(r.title, { lead: r.lead, actions: html`<a class="btn btn-primary" href="/admin/${r.path}/ny">+ ${r.newLabel}</a>` })}
+      ${adminHead(r.title, { lead: r.lead, actions: html`${r.listActions ?? ""}<a class="btn btn-primary" href="/admin/${r.path}/ny">+ ${r.newLabel}</a>` })}
+      ${resourceTabs(r.tabs, `/admin/${r.path}`)}
       ${results.length
         ? html`<div class="admin-card admin-card-flush">
             <table class="admin-table">
@@ -444,6 +573,7 @@ export function listHandler(r: Resource) {
                     <td class="col-actions">
                       <div class="row-actions">
                         <a class="btn btn-outline btn-sm" href="/admin/${r.path}/${row.id}">Redigera</a>
+                        ${r.duplicable ? postButton(session, `/admin/${r.path}/${row.id}/kopiera`, "Kopiera") : ""}
                         ${r.publishable
                           ? postButton(session, `/admin/${r.path}/${row.id}/publicera`, row.published ? (r.publishLabels ? "Dölj" : "Avpublicera") : r.publishLabels ? "Visa" : "Publicera")
                           : ""}
@@ -460,17 +590,25 @@ export function listHandler(r: Resource) {
           </div>`
         : html`<div class="admin-empty"><p>${r.emptyText}</p><a class="btn btn-primary" href="/admin/${r.path}/ny">+ ${r.newLabel}</a></div>`}
     `;
-    return adminLayout(c, session, { title: r.title, active: `/admin/${r.path}`, newCount: await newMessageCount(c.env.DB) }, content);
+    return adminLayout(c, session, { title: r.title, active: r.navActive ?? `/admin/${r.path}`, newCount: await newMessageCount(c.env.DB) }, content);
   };
 }
 
 export function newHandler(r: Resource) {
   return async (c: RequestContext, session: Session): Promise<Response> => {
-    const values = rowToValues(r, null);
+    const fields = await resolveFields(r, c.env.DB);
+    const values = rowToValues(fields, r, null);
     if (r.publishable) values.published = "1";
-    for (const f of r.fields) if (f.type === "number" && f.name === "sort_order") values[f.name] = "0";
+    for (const f of fields) if (f.type === "number" && f.name === "sort_order") values[f.name] = "0";
     if (r.path === "dokument") values.year = String(new Date().getFullYear());
-    return renderEdit(c, session, r, null, values, {});
+    if (r.path === "jobb") values.kind = "praktik";
+    // "Lägg upp en tjänst" från en partners sida förväljer partnern
+    const partner = c.url.searchParams.get("partner");
+    if (r.path === "jobb" && partner && fields.find((f) => f.name === "partner_id")?.options?.some((o) => o.value === partner)) {
+      values.partner_id = partner;
+      values.employer = fields.find((f) => f.name === "partner_id")!.options!.find((o) => o.value === partner)!.label;
+    }
+    return renderEdit(c, session, r, fields, null, values, {});
   };
 }
 
@@ -478,21 +616,26 @@ export function editHandler(r: Resource) {
   return async (c: RequestContext, session: Session): Promise<Response> => {
     const row = await c.env.DB.prepare(`SELECT * FROM ${r.table} WHERE id = ?`).bind(Number(c.params.id)).first<Row>();
     if (!row) return redirect(`/admin/${r.path}`, 303);
-    return renderEdit(c, session, r, row, rowToValues(r, row), {});
+    const fields = await resolveFields(r, c.env.DB);
+    return renderEdit(c, session, r, fields, row, rowToValues(fields, r, row), {});
   };
 }
 
-async function renderEdit(c: RequestContext, session: Session, r: Resource, row: Row | null, values: Values, errors: Errors, status = 200): Promise<Response> {
+async function renderEdit(c: RequestContext, session: Session, r: Resource, fields: AdminField[], row: Row | null, values: Values, errors: Errors, status = 200): Promise<Response> {
   const isNew = !row;
   const pub = row && r.publicUrl?.(row);
   const content = html`
     ${adminHead(isNew ? r.newLabel : `Redigera ${r.singular}`, {
       back: { href: `/admin/${r.path}`, label: r.title },
-      actions: pub ? html`<a class="btn btn-outline btn-sm" href="${pub}" target="_blank" rel="noopener">${icon("external", "icon icon-sm")}Visa på webbplatsen</a>` : undefined,
+      actions: row
+        ? html`${pub ? html`<a class="btn btn-outline btn-sm" href="${pub}" target="_blank" rel="noopener">${icon("external", "icon icon-sm")}Visa på webbplatsen</a>` : ""}
+            ${r.duplicable ? postButton(session, `/admin/${r.path}/${row.id}/kopiera`, "Kopiera") : ""}
+            ${r.path === "partners" ? html`<a class="btn btn-outline btn-sm" href="/admin/jobb/ny?partner=${row.id}">+ Lägg upp en tjänst</a>` : ""}`
+        : undefined,
     })}
-    ${editForm(r, session, isNew ? `/admin/${r.path}/ny` : `/admin/${r.path}/${row!.id}`, values, errors, isNew)}
+    ${editForm(r, fields, session, isNew ? `/admin/${r.path}/ny` : `/admin/${r.path}/${row!.id}`, values, errors, isNew)}
   `;
-  return adminLayout(c, session, { title: isNew ? r.newLabel : `Redigera ${r.singular}`, active: `/admin/${r.path}`, newCount: await newMessageCount(c.env.DB), narrow: true }, content, status);
+  return adminLayout(c, session, { title: isNew ? r.newLabel : `Redigera ${r.singular}`, active: r.navActive ?? `/admin/${r.path}`, newCount: await newMessageCount(c.env.DB), narrow: true }, content, status);
 }
 
 export function saveHandler(r: Resource) {
@@ -510,50 +653,49 @@ export function saveHandler(r: Resource) {
     }
     if (!checkCsrf(c, session, form)) return redirect(`/admin/${r.path}?fel=csrf`, 303);
 
-    const plain = r.fields.filter((f) => !f.upload);
+    const fields = await resolveFields(r, db);
+    const plain = fields.filter((f) => !f.upload);
     const { values, errors } = validate(plain, form);
     Object.assign(errors, r.check?.(values) ?? {});
     values.published = form.get("published") ? "1" : "";
 
     // Filer
     const fileCols: Record<string, string | null> = {};
-    const oldFiles: string[] = [];
-    const newFiles: string[] = [];
+    const released: { key: string; purge: boolean }[] = [];
     let fileSize: number | null = null;
-    for (const f of r.fields.filter((f) => f.upload)) {
+    for (const f of fields.filter((f) => f.upload)) {
       const current = existing ? ((existing[col(f)] as string | null) ?? "") : "";
       values[f.name] = current;
-      const res = await handleUpload(c.env, form.get(f.name), f.upload!, r.path);
+      const res = await handleUpload(c.env, form, f.name, f.upload!, r.path, session.user.email);
       if (!res.ok) {
         errors[f.name] = res.error;
         continue;
       }
       if (res.key) {
         fileCols[col(f)] = res.key;
-        newFiles.push(res.key);
-        if (current) oldFiles.push(current);
-        fileSize = res.size;
+        if (current && current !== res.key) released.push({ key: current, purge: !!f.purge });
+        if (!res.reused) fileSize = res.size;
         values[f.name] = res.key;
       } else if (form.get(`${f.name}__ta_bort`) && current) {
         fileCols[col(f)] = null;
-        oldFiles.push(current);
+        released.push({ key: current, purge: !!f.purge });
         values[f.name] = "";
       }
       if (f.requiredOnCreate && !values[f.name]) errors[f.name] = "Välj en fil att ladda upp.";
     }
 
     if (Object.keys(errors).length) {
-      // Städa bort filer som laddats upp i ett misslyckat försök
-      for (const k of newFiles) await deleteFile(c.env, k);
-      for (const f of r.fields.filter((f) => f.upload)) values[f.name] = existing ? String(existing[col(f)] ?? "") : "";
-      return renderEdit(c, session, r, existing, values, errors, 422);
+      // Nyuppladdade filer ligger kvar i bildbanken – inget går förlorat om man rättar felet och sparar igen.
+      for (const f of fields.filter((f) => f.upload)) values[f.name] = existing ? String(existing[col(f)] ?? "") : "";
+      return renderEdit(c, session, r, fields, existing, values, errors, 422);
     }
 
     const data: Record<string, unknown> = {};
     for (const f of plain) {
       const v = values[f.name] ?? "";
       if (f.type === "checkbox") data[col(f)] = v ? 1 : 0;
-      else if (f.type === "number") data[col(f)] = v === "" ? (f.nullable ? null : 0) : parseInt(v, 10);
+      else if (f.schedule) data[col(f)] = localToUtcSql(v);
+      else if (f.type === "number" || (f.type === "select" && f.name.endsWith("_id"))) data[col(f)] = v === "" ? (f.nullable ? null : 0) : parseInt(v, 10);
       else data[col(f)] = v === "" && f.nullable ? null : v;
     }
     Object.assign(data, fileCols);
@@ -573,8 +715,9 @@ export function saveHandler(r: Resource) {
       newId = res.meta.last_row_id;
       await audit(c.env, session, "skapade", r.singular, newId, values[r.slugFrom ?? r.fields[0]!.name]);
     }
-    for (const k of oldFiles) await deleteFile(c.env, k);
-    return redirect(`/admin/${r.path}?klart=${existing ? "sparat" : "skapat"}`, 303);
+    for (const f of released) if (f.purge) await purgeIfUnused(c.env, f.key);
+    const scheduled = fields.some((f) => f.schedule && data[col(f)] && String(data[col(f)]) > nowUtc()) && values.published;
+    return redirect(`/admin/${r.path}?klart=${scheduled ? "schemalagt" : existing ? "sparat" : "skapat"}`, 303);
   };
 }
 
@@ -586,7 +729,8 @@ export function deleteHandler(r: Resource) {
     const row = await c.env.DB.prepare(`SELECT * FROM ${r.table} WHERE id = ?`).bind(id).first<Row>();
     if (row) {
       await c.env.DB.prepare(`DELETE FROM ${r.table} WHERE id = ?`).bind(id).run();
-      for (const f of r.fields.filter((f) => f.upload)) await deleteFile(c.env, row[col(f)] as string | null);
+      // Personfoton, galleribilder och PDF:er raderas helt. Övriga bilder ligger kvar i bildbanken.
+      for (const f of r.fields.filter((f) => f.upload && f.purge)) await purgeIfUnused(c.env, row[col(f)] as string | null);
       await audit(c.env, session, "tog bort", r.singular, id, r.titleOf(row));
     }
     return redirect(`/admin/${r.path}?klart=raderat`, 303);
@@ -606,5 +750,27 @@ export function toggleHandler(r: Resource) {
     await c.env.DB.prepare(`UPDATE ${r.table} SET ${sets.join(", ")} WHERE id = ?`).bind(next, ...Object.values(extra), id).run();
     await audit(c.env, session, next ? "publicerade" : "avpublicerade", r.singular, id, r.titleOf(row));
     return redirect(`/admin/${r.path}?klart=${next ? "publicerat" : "avpublicerat"}`, 303);
+  };
+}
+
+/** Kopiera en post (t.ex. ett återkommande event). Kopian blir ett opublicerat utkast. */
+export function duplicateHandler(r: Resource) {
+  return async (c: RequestContext, session: Session): Promise<Response> => {
+    const form = await c.req.formData();
+    if (!checkCsrf(c, session, form)) return redirect(`/admin/${r.path}?fel=csrf`, 303);
+    const db = c.env.DB;
+    const row = await db.prepare(`SELECT * FROM ${r.table} WHERE id = ?`).bind(Number(c.params.id)).first<Row>();
+    if (!row) return redirect(`/admin/${r.path}`, 303);
+    const skip = new Set(["id", "created_at", "updated_at", "slug", "published", "published_at", "publish_at"]);
+    const data: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(row)) if (!skip.has(k)) data[k] = v;
+    const titleCol = r.slugFrom ?? "title";
+    data[titleCol] = `${String(row[titleCol] ?? "").slice(0, 140)} (kopia)`;
+    data.published = 0;
+    if (r.slugFrom) data.slug = await uniqueSlug(db, r.table, slugify(String(data[titleCol])));
+    const cols = Object.keys(data);
+    const res = await db.prepare(`INSERT INTO ${r.table} (${cols.join(", ")}) VALUES (${cols.map(() => "?").join(", ")})`).bind(...cols.map((k) => data[k])).run();
+    await audit(c.env, session, "kopierade", r.singular, res.meta.last_row_id, String(row[titleCol] ?? ""));
+    return redirect(`/admin/${r.path}/${res.meta.last_row_id}?klart=kopierat`, 303);
   };
 }

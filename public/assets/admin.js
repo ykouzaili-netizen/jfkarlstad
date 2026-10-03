@@ -119,6 +119,43 @@
     }
   }
 
+  /* Mindre version (max 800 px) till mobiler och kort. Läggs i det dolda fältet "<namn>__liten". */
+  var SMALL_SIDE = 800;
+  async function makeSmall(source, file) {
+    var w0 = source.width, h0 = source.height;
+    if (Math.max(w0, h0) <= SMALL_SIDE * 1.15) return null; // originalet är redan litet nog
+    var scale = SMALL_SIDE / Math.max(w0, h0);
+    var canvas = document.createElement("canvas");
+    canvas.width = Math.round(w0 * scale);
+    canvas.height = Math.round(h0 * scale);
+    var ctx = canvas.getContext("2d");
+    var transparent = /png|webp|gif/.test(file.type) && hasAlpha(source, w0, h0);
+    var type = webpOk ? "image/webp" : transparent ? "image/png" : "image/jpeg";
+    if (type === "image/jpeg") { ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+    var blob = await toBlob(canvas, type, type === "image/png" ? undefined : 0.8);
+    return blob && blob.size < 1024 * 1024 ? blob : null;
+  }
+
+  function companion(name, attr) { return document.querySelector("[" + attr + '="' + name + '"]'); }
+
+  function setSmall(name, blob, originalName) {
+    var input = companion(name, "data-small-for");
+    if (!input || !window.DataTransfer) return;
+    var dt = new DataTransfer();
+    if (blob) {
+      var ext = blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : "jpg";
+      dt.items.add(new File([blob], "liten-" + originalName.replace(/\.[^.]+$/, "") + "." + ext, { type: blob.type }));
+    }
+    input.files = dt.files;
+  }
+
+  function setDims(name, w, h) {
+    var input = companion(name, "data-dims-for");
+    if (input) input.value = w && h ? w + "x" + h : "";
+  }
+
   function replaceFile(input, blob, originalName) {
     var ext = blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : "jpg";
     var name = originalName.replace(/\.[^.]+$/, "") + "." + ext;
@@ -135,6 +172,10 @@
       var max = parseInt(input.getAttribute("data-max") || "0", 10) || 5 * 1024 * 1024;
       var file = input.files && input.files[0];
       setStatus(name, "");
+      setSmall(name, null, "");
+      setDims(name, 0, 0);
+      var bank = companion(name, "data-bank-for");
+      if (bank && file) bank.value = "";
       if (!file) return;
 
       if (kind === "pdf") {
@@ -162,16 +203,24 @@
         var tooBig = file.size > max;
         var tooManyPixels = Math.max(dims.w, dims.h) > RESIZE_ABOVE && file.size > RESIZE_MIN_BYTES;
         var isGif = file.type === "image/gif";
+        var finish = async function (f, w, h) {
+          setDims(name, w, h);
+          if (!isGif) {
+            try { setSmall(name, await makeSmall(source, f), f.name); } catch (e) { setSmall(name, null, ""); }
+          }
+        };
         if (!tooBig && !isHeic && (!tooManyPixels || isGif)) {
           showPreview(name, file);
+          await finish(file, dims.w, dims.h);
           return;
         }
         if (!window.DataTransfer) throw new Error("datatransfer");
         setStatus(name, "Komprimerar bilden …", "busy");
         var res = await compress(source, file, max);
         if (res.blob.size > max) throw new Error("toolarge");
-        if (!tooBig && !isHeic && res.blob.size >= file.size) { showPreview(name, file); setStatus(name, ""); return; }
+        if (!tooBig && !isHeic && res.blob.size >= file.size) { showPreview(name, file); setStatus(name, ""); await finish(file, dims.w, dims.h); return; }
         var newFile = replaceFile(input, res.blob, file.name);
+        await finish(newFile, res.w, res.h);
         showPreview(name, newFile);
         setStatus(
           name,
@@ -234,6 +283,69 @@
     });
   });
 
+  /* Skala en iframe så att en hel datorsida (1280 px) eller mobil (390 px) får plats i rutan. */
+  function fitFrame(viewport, frame, device) {
+    var W = viewport.clientWidth, H = viewport.clientHeight;
+    if (!W || !H) return;
+    var dw = device === "mobile" ? 390 : 1280;
+    var scale = Math.min(1, W / dw);
+    frame.style.width = dw + "px";
+    frame.style.height = Math.round(H / scale) + "px";
+    frame.style.transform = "scale(" + scale + ")";
+    frame.style.left = Math.max(0, Math.round((W - dw * scale) / 2)) + "px";
+  }
+
+  /* Klickbar webbplats: markera det som pekas på och visa var det ändras. Klick anropar onPick(elementet). */
+  function installEditMap(d, onPick) {
+    if (!d || !d.body || d.body.getAttribute("data-map-ready")) return;
+    d.body.setAttribute("data-map-ready", "1");
+    d.body.classList.add("is-editmap");
+    var label = d.createElement("div");
+    label.className = "em-label";
+    label.hidden = true;
+    d.body.appendChild(label);
+    var current = null;
+    // Sidan visas förminskad i rutan – gör etiketten och ramen lika stora oavsett skala.
+    function rescale() {
+      try {
+        var win = d.defaultView;
+        var s = win.frameElement.getBoundingClientRect().width / win.innerWidth || 1;
+        d.documentElement.style.setProperty("--em", String(Math.max(1, 1 / s)));
+      } catch (e) { /* ignorera */ }
+    }
+    rescale();
+    d.defaultView.addEventListener("resize", rescale);
+    function target(node) {
+      while (node && node.nodeType !== 1) node = node.parentNode;
+      return node && node.closest ? node.closest("[data-eu]") : null;
+    }
+    function show(el) {
+      if (current === el) return;
+      if (current) current.classList.remove("em-hover");
+      current = el;
+      if (!el) { label.hidden = true; return; }
+      el.classList.add("em-hover");
+      var r = el.getBoundingClientRect();
+      var win = d.defaultView;
+      label.textContent = "Ändra: " + (el.getAttribute("data-el") || "");
+      label.hidden = false;
+      var em = parseFloat(d.documentElement.style.getPropertyValue("--em")) || 1;
+      var top = r.top + win.scrollY - 30 * em;
+      if (top < win.scrollY + 4) top = r.bottom + win.scrollY + 6;
+      label.style.top = Math.max(0, top) + "px";
+      label.style.left = Math.max(4, Math.min(r.left + win.scrollX, win.scrollX + win.innerWidth - 330 * em)) + "px";
+    }
+    d.addEventListener("mouseover", function (e) { show(target(e.target)); });
+    d.addEventListener("mouseleave", function () { show(null); });
+    d.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var el = target(e.target);
+      if (el) onPick(el);
+    }, true);
+    d.addEventListener("submit", function (e) { e.preventDefault(); }, true);
+  }
+
   /* ---------- Förhandsvisning bredvid redigeringen ----------
      Formulärets osparade värden skickas till /admin/forhandsvisning och den riktiga sidan visas i en iframe.
      Inget sparas. Färger och typsnitt på Utseende uppdateras direkt utan att sidan laddas om. */
@@ -261,18 +373,6 @@
     var timer = null;
     var blobUrls = {};
 
-    // Vilken del av sidan varje fält hör till – förhandsvisningen scrollar dit när du klickar i fältet.
-    var SECTIONS = [
-      [/^hero_/, ".hero"], [/^partners_lead$/, "#partner-titel"], [/^values?_/, "#varden-titel"],
-      [/^(intro_|stat_)/, "#intro-titel"], [/^paverka_(title|text)$/, ".cta-panel"],
-      [/^(footer_text|contact_email|contact_phone|address_|instagram_url|instagram_handle|org_number|site_name|site_short_name)$/, ".site-footer"],
-      [/^(hitract_url|logo)/, ".site-header"], [/^(governance|committees|inspector)/, "#sa-styrs-jfk"],
-      [/^(honors|rewards)/, "#utmarkelser"], [/^pedagog/, "#arets-pedagog"], [/^(collab|juro|elsa)/, "#samarbeten"],
-      [/^study_/, "#studera-pa-kau"], [/^reps_/, "#kursombud"], [/^(sport_|instagram_sport)/, "#jfk-idrott"],
-      [/^gallery_/, "#bildgalleri"], [/^(package|packages_note)/, "#paket"],
-      [/^(about_|member_|students_|companies_|paverka_lead|paverka_page|contact_lead)/, "main"],
-    ];
-
     var post = document.createElement("form");
     post.method = "post";
     post.target = frame.name;
@@ -299,12 +399,14 @@
       post.textContent = "";
       add("_csrf", pane.getAttribute("data-csrf"));
       Array.prototype.forEach.call(form.elements, function (el) {
-        if (!el.name || el.disabled || el.name.charAt(0) === "_" || /__ta_bort$/.test(el.name)) return;
+        if (!el.name || el.disabled || el.name.charAt(0) === "_" || /__(ta_bort|liten|matt|bank)$/.test(el.name)) return;
         if (el.type === "file") {
           var key = el.getAttribute("data-setting") || el.name;
           var remove = form.elements[el.name + "__ta_bort"];
+          var bank = form.elements[el.name + "__bank"];
           if (remove && remove.checked) add(key, "");
           else if (el.files && el.files[0]) add(key, "__fh__" + key);
+          else if (bank && bank.value) add(key, bank.value);
           return;
         }
         if ((el.type === "checkbox" || el.type === "radio") && !el.checked) return;
@@ -347,25 +449,22 @@
       });
     }
 
-    function sectionFor(name) {
-      for (var i = 0; i < SECTIONS.length; i++) if (SECTIONS[i][0].test(name)) return SECTIONS[i][1];
-      return null;
-    }
-
+    /* Scrolla förhandsvisningen till texten som redigeras (alla texter är märkta med data-ek). */
     function scrollToField(name, smooth) {
       var d = doc();
-      var sel = sectionFor(name);
-      if (!d || !sel) return;
-      var win = frame.contentWindow;
-      if (sel === "main") { win.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" }); return; }
-      var el = d.querySelector(sel);
+      if (!d || !name) return;
+      var el = d.querySelector('[data-ek="' + name.replace(/"/g, "") + '"]');
       if (!el) return;
-      var target = el.closest("section, header, footer") || el;
-      var top = target.getBoundingClientRect().top + win.scrollY - (sel === ".site-header" ? 0 : 90);
-      win.scrollTo({ top: Math.max(0, top), behavior: smooth ? "smooth" : "auto" });
-      target.classList.remove("fh-flash");
-      void target.offsetWidth;
-      target.classList.add("fh-flash");
+      var win = frame.contentWindow;
+      var rect = el.getBoundingClientRect();
+      var inHeader = el.closest(".site-header");
+      if (!inHeader) {
+        var top = rect.top + win.scrollY - Math.max(90, (win.innerHeight - rect.height) / 3);
+        win.scrollTo({ top: Math.max(0, top), behavior: smooth ? "smooth" : "auto" });
+      }
+      el.classList.remove("fh-flash");
+      void el.offsetWidth;
+      el.classList.add("fh-flash");
     }
 
     frame.addEventListener("load", function () {
@@ -377,18 +476,17 @@
       applyTheme(d);
       if (scrollTarget) { scrollToField(scrollTarget, false); scrollTarget = null; }
       else frame.contentWindow.scrollTo(0, lastY);
+      if (pane.hasAttribute("data-edit-map")) {
+        installEditMap(d, function (el) {
+          var key = el.getAttribute("data-ek");
+          if (key && window.jfkFocusField && window.jfkFocusField(key)) return;
+          var url = el.getAttribute("data-eu");
+          if (url) window.location.href = url;
+        });
+      }
     });
 
-    function layout() {
-      var W = viewport.clientWidth, H = viewport.clientHeight;
-      if (!W || !H) return;
-      var dw = device === "mobile" ? 390 : 1280;
-      var scale = Math.min(1, W / dw);
-      frame.style.width = dw + "px";
-      frame.style.height = Math.round(H / scale) + "px";
-      frame.style.transform = "scale(" + scale + ")";
-      frame.style.left = Math.max(0, Math.round((W - dw * scale) / 2)) + "px";
-    }
+    function layout() { fitFrame(viewport, frame, device); }
     if (window.ResizeObserver) new ResizeObserver(layout).observe(viewport);
     window.addEventListener("resize", layout);
 
@@ -409,6 +507,15 @@
         refresh();
       });
     }
+    var pageLabel = pane.querySelector("[data-lp-label]");
+    function setPage(path, label) {
+      if (!path || path === page) return;
+      page = path;
+      lastY = 0;
+      if (pageLabel && label) pageLabel.textContent = label;
+      if (label) frame.title = "Förhandsvisning av " + label;
+      refresh();
+    }
 
     // Uppdatera när något ändras. Färger och typsnitt sköts direkt av Utseende-koden nedan.
     function isThemeField(t) { return t.hasAttribute("data-color") || t.hasAttribute("data-color-hex") || t.name === "font_heading"; }
@@ -418,8 +525,10 @@
     });
     form.addEventListener("change", function (e) {
       if (isThemeField(e.target)) return;
-      if (e.target.type === "file" || /__ta_bort$/.test(e.target.name)) {
-        scrollTarget = e.target.getAttribute("data-setting") || e.target.name.replace(/__ta_bort$/, "");
+      if (e.target.type === "file" || /__(ta_bort|bank)$/.test(e.target.name)) {
+        scrollTarget = e.target.getAttribute("data-setting") || e.target.name.replace(/__(ta_bort|bank)$/, "");
+        refreshSoon(150);
+      } else if (e.target.type === "checkbox" || e.target.type === "radio" || e.target.tagName === "SELECT") {
         refreshSoon(150);
       }
     });
@@ -446,8 +555,223 @@
     return {
       setTheme: function (vars) { themeVars = vars; applyTheme(doc()); },
       refresh: refresh,
+      refreshSoon: refreshSoon,
+      setPage: setPage,
+      scrollToField: scrollToField,
     };
   })();
+  window.jfkPreview = livePreview;
+
+  /* ---------- Översikt: klickbar webbplats ---------- */
+  (function () {
+    var map = document.querySelector("[data-site-map]");
+    if (!map) return;
+    var frame = map.querySelector("[data-map-frame]");
+    var viewport = map.querySelector("[data-lp-viewport]");
+    var loading = map.querySelector("[data-lp-loading]");
+    var select = map.querySelector("[data-map-page]");
+    var device = window.innerWidth < 700 ? "mobile" : "desktop";
+    function layout() { fitFrame(viewport, frame, device); }
+    map.querySelectorAll("[data-lp-device]").forEach(function (btn) {
+      btn.setAttribute("aria-pressed", String(btn.getAttribute("data-lp-device") === device));
+      btn.addEventListener("click", function () {
+        device = btn.getAttribute("data-lp-device");
+        map.querySelectorAll("[data-lp-device]").forEach(function (b) { b.setAttribute("aria-pressed", String(b === btn)); });
+        map.classList.toggle("is-mobile", device === "mobile");
+        layout();
+      });
+    });
+    map.classList.toggle("is-mobile", device === "mobile");
+    select.addEventListener("change", function () {
+      loading.hidden = false;
+      frame.src = "/admin/webbplatsen?sida=" + encodeURIComponent(select.value);
+    });
+    frame.addEventListener("load", function () {
+      loading.hidden = true;
+      var d;
+      try { d = frame.contentDocument; } catch (e) { return; }
+      installEditMap(d, function (el) { window.location.href = el.getAttribute("data-eu"); });
+    });
+    if (window.ResizeObserver) new ResizeObserver(layout).observe(viewport);
+    window.addEventListener("resize", layout);
+    layout();
+  })();
+
+  /* ---------- Texter och sidor ---------- */
+  (function () {
+    var form = document.querySelector("form[data-accordion]");
+    if (!form) return;
+    var sections = Array.prototype.slice.call(form.querySelectorAll("[data-section]"));
+    var openLink = document.querySelector("[data-open-page]");
+    var preview = window.jfkPreview;
+
+    function activate(sec) {
+      if (preview) preview.setPage(sec.getAttribute("data-preview-path"), sec.getAttribute("data-preview-label"));
+      if (openLink) openLink.href = sec.getAttribute("data-preview-path") || openLink.href;
+    }
+    // Ett avsnitt öppet åt gången håller sidan överskådlig.
+    sections.forEach(function (sec) {
+      sec.addEventListener("toggle", function () {
+        if (!sec.open) return;
+        sections.forEach(function (o) { if (o !== sec) o.open = false; });
+        activate(sec);
+        var top = sec.getBoundingClientRect().top;
+        if (top < 70) window.scrollTo({ top: window.scrollY + top - 80 });
+      });
+    });
+
+    // "Återställ originaltexten" syns bara när texten skiljer sig från originalet.
+    form.querySelectorAll("[data-reset]").forEach(function (btn) {
+      var field = form.elements[btn.getAttribute("data-reset")];
+      if (!field) return;
+      var def = btn.getAttribute("data-default");
+      var wrap = btn.closest("[data-text-field]");
+      function sync() {
+        var changed = field.value.trim() !== def.trim();
+        btn.hidden = !changed;
+        if (wrap) wrap.classList.toggle("is-changed", changed);
+      }
+      field.addEventListener("input", sync);
+      btn.addEventListener("click", function () {
+        field.value = def;
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        field.focus();
+      });
+      sync();
+    });
+
+    // Hoppa till ett fält (från förhandsvisningen eller en länk med &falt=…)
+    window.jfkFocusField = function (key) {
+      var field = form.elements[key];
+      var wrap = form.querySelector('[data-text-field="' + key + '"]');
+      if (!wrap) return false;
+      var sec = wrap.closest("[data-section]");
+      var more = wrap.closest(".more-texts");
+      if (sec && !sec.open) sec.open = true;
+      if (more) more.open = true;
+      wrap.classList.remove("is-flash");
+      void wrap.offsetWidth;
+      wrap.classList.add("is-flash");
+      wrap.scrollIntoView({ block: "center", behavior: "smooth" });
+      var input = field && field.focus ? field : wrap.querySelector("input, textarea, select");
+      if (input) setTimeout(function () { input.focus({ preventScroll: true }); }, 250);
+      return true;
+    };
+    var target = form.querySelector(".text-field.is-target");
+    if (target) setTimeout(function () { window.jfkFocusField(target.getAttribute("data-text-field")); }, 50);
+  })();
+
+  /* ---------- Menyn: flytta, byt namn och dölj ---------- */
+  (function () {
+    var form = document.querySelector("form[data-menu-editor]");
+    if (!form) return;
+    var json = form.querySelector("[data-menu-json]");
+    var preview = window.jfkPreview;
+
+    function rowsIn(list) { return Array.prototype.filter.call(list.children, function (li) { return li.matches("[data-menu-item]"); }); }
+
+    function build() {
+      var top = form.querySelector("[data-menu-list]");
+      var items = rowsIn(top).map(function (li) {
+        var row = li.querySelector("[data-menu-row]");
+        var out = itemFrom(row);
+        var sub = li.querySelector("[data-menu-list]");
+        if (sub) out.children = rowsIn(sub).map(function (c) { return itemFrom(c.querySelector("[data-menu-row]")); });
+        return out;
+      });
+      json.value = JSON.stringify(items);
+    }
+    function itemFrom(row) {
+      var id = row.querySelector("input[type=hidden]").value;
+      var label = row.querySelector("[data-menu-label]");
+      var visible = row.querySelector("[data-menu-visible]");
+      var out = { id: id };
+      if (label.value.trim() && label.value.trim() !== label.placeholder) out.label = label.value.trim();
+      if (!visible.checked) out.hidden = true;
+      return out;
+    }
+    function syncButtons() {
+      form.querySelectorAll("[data-menu-list]").forEach(function (list) {
+        var rows = rowsIn(list);
+        rows.forEach(function (li, i) {
+          var row = li.querySelector("[data-menu-row]");
+          row.querySelector('[data-move="up"]').disabled = i === 0;
+          row.querySelector('[data-move="down"]').disabled = i === rows.length - 1;
+        });
+      });
+    }
+    function changed() { build(); syncButtons(); if (preview) preview.refreshSoon(300); }
+
+    form.addEventListener("click", function (e) {
+      var btn = e.target.closest && e.target.closest("[data-move]");
+      if (!btn) return;
+      e.preventDefault();
+      var li = btn.closest("[data-menu-item]");
+      var list = li.parentNode;
+      if (btn.getAttribute("data-move") === "up" && li.previousElementSibling) list.insertBefore(li, li.previousElementSibling);
+      else if (btn.getAttribute("data-move") === "down" && li.nextElementSibling) list.insertBefore(li.nextElementSibling, li);
+      changed();
+      form.dispatchEvent(new Event("change"));
+      var again = li.querySelector('[data-menu-row] [data-move="' + btn.getAttribute("data-move") + '"]');
+      (again && !again.disabled ? again : li.querySelector("[data-menu-label]")).focus();
+    });
+    form.addEventListener("input", function (e) { if (e.target.matches("[data-menu-label]")) build(); });
+    form.addEventListener("change", function (e) {
+      if (e.target.matches && e.target.matches("[data-menu-visible]")) {
+        e.target.closest("[data-menu-row]").classList.toggle("is-hidden", !e.target.checked);
+        changed();
+      }
+    });
+    build();
+  })();
+
+  /* ---------- Bildbanken: välj en bild som redan finns ---------- */
+  (function () {
+    var dialog = document.querySelector("[data-bank-dialog]");
+    var buttons = document.querySelectorAll("[data-bank-open]");
+    if (!dialog || !buttons.length || typeof dialog.showModal !== "function") return;
+    var body = dialog.querySelector("[data-bank-body]");
+    var field = null;
+    var loaded = false;
+    buttons.forEach(function (b) {
+      b.hidden = false;
+      b.addEventListener("click", function () {
+        field = b.getAttribute("data-bank-open");
+        dialog.showModal();
+        if (loaded) return;
+        fetch("/admin/bildbank/valj", { credentials: "same-origin" })
+          .then(function (r) { if (!r.ok) throw new Error(); return r.text(); })
+          .then(function (htmlText) { body.innerHTML = htmlText; loaded = true; })
+          .catch(function () { body.textContent = "Bildbanken kunde inte laddas. Försök igen."; });
+      });
+    });
+    dialog.querySelector("[data-bank-close]").addEventListener("click", function () { dialog.close(); });
+    dialog.addEventListener("click", function (e) {
+      if (e.target === dialog) { dialog.close(); return; }
+      var pick = e.target.closest && e.target.closest("[data-bank-key]");
+      if (!pick || !field) return;
+      var hidden = document.querySelector('[data-bank-for="' + field + '"]');
+      var file = document.querySelector('[data-upload="' + field + '"]');
+      if (hidden) hidden.value = pick.getAttribute("data-bank-key");
+      if (file) file.value = "";
+      setSmall(field, null, "");
+      setDims(field, 0, 0);
+      var remove = document.querySelector('input[name="' + field + '__ta_bort"]');
+      if (remove) remove.checked = false;
+      var img = document.querySelector('[data-preview="' + field + '"]');
+      if (img) { img.src = pick.getAttribute("data-bank-src"); img.hidden = false; img.alt = "Vald bild"; }
+      var nameEl = pick.querySelector(".bank-pick-name");
+      setStatus(field, "Vald från bildbanken: " + (nameEl ? nameEl.textContent : "bild") + ". Klicka på Spara.", "ok");
+      dialog.close();
+      if (hidden) hidden.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  })();
+
+  /* Skriv ut (statistiken) */
+  document.querySelectorAll("[data-print]").forEach(function (b) {
+    b.hidden = false;
+    b.addEventListener("click", function () { window.print(); });
+  });
 
   /* ---------- Utseende: live-förhandsvisning och kontrastkontroll ---------- */
   var editor = document.querySelector("[data-theme-editor]");

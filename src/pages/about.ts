@@ -1,5 +1,5 @@
 import { html, paragraphs, type SafeHtml } from "../lib/html.js";
-import { lines, loadSettings, type Settings } from "../lib/settings.js";
+import { ec, ek, lines, loadSettings, type Settings } from "../lib/settings.js";
 import { boardQuery, honorQuery, partnerQuery, type BoardRow, type HonorRow, type PartnerRow } from "../lib/content.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
@@ -18,38 +18,38 @@ export async function aboutPage(c: RequestContext): Promise<Response> {
   const partners = partnerRes!.results as unknown as PartnerRow[];
 
   const content = html`
-    ${pageHeader({
-      kicker: "Om oss",
-      title: "Om Juridiska Föreningen i Karlstad",
-      lead: s.about_lead,
+    ${pageHeader(s, {
+      kickerKey: "about_kicker",
+      titleKey: "about_title",
+      leadKey: "about_lead",
       nav: [
-        { href: "#sa-styrs-jfk", label: "Så styrs JFK" },
-        { href: "#styrelsen", label: "Styrelsen" },
-        { href: "#utmarkelser", label: "Utmärkelser" },
-        { href: "#arets-pedagog", label: "Årets pedagog" },
-        { href: "#samarbeten", label: "Samarbeten" },
+        { href: "#sa-styrs-jfk", labelKey: "governance_title" },
+        { href: "#styrelsen", labelKey: "board_title" },
+        { href: "#utmarkelser", labelKey: "honors_title" },
+        { href: "#arets-pedagog", labelKey: "pedagog_title" },
+        { href: "#samarbeten", labelKey: "collab_title" },
       ],
     })}
 
     <section class="section section-tight-top">
       <div class="container split">
-        <div class="prose prose-lg">${paragraphs(s.about_text)}</div>
+        <div class="prose prose-lg"${ek(s, "about_text")}>${paragraphs(s.about_text)}</div>
         <aside class="aside-card">
-          <h2 class="aside-title">Dokument och protokoll</h2>
-          <p>Stadgar, styrdokument och protokoll från styrelsemöten och årsmöten finns samlade på ett ställe.</p>
-          ${arrowLink("/dokument", "Till dokumenten")}
+          <h2 class="aside-title"${ek(s, "about_docs_title")}>${s.about_docs_title}</h2>
+          <p${ek(s, "about_docs_text")}>${s.about_docs_text}</p>
+          ${arrowLink("/dokument", s.about_docs_link, "arrow-link", ek(s, "about_docs_link"))}
         </aside>
       </div>
     </section>
 
     ${governance(s)}
-    ${boardSection(board)}
+    ${boardSection(s, board)}
     ${honorsSection(s, honors)}
     ${pedagogSection(s, honors)}
     ${collabSection(s, partners)}
   `;
 
-  return htmlResponse(c, layout(c, s, { title: "Om oss", description: s.about_lead }, content));
+  return htmlResponse(c, layout(c, s, { title: s.about_kicker, description: s.about_lead }, content));
 }
 
 function governance(s: Settings): SafeHtml {
@@ -57,41 +57,41 @@ function governance(s: Settings): SafeHtml {
   return html`<section class="section section-surface" aria-labelledby="sa-styrs-jfk">
     <div class="container split">
       <div>
-        <h2 class="section-title" id="sa-styrs-jfk">Så styrs JFK</h2>
-        <div class="prose">${paragraphs(s.governance_text)}</div>
+        <h2 class="section-title" id="sa-styrs-jfk"${ek(s, "governance_title")}>${s.governance_title}</h2>
+        <div class="prose"${ek(s, "governance_text")}>${paragraphs(s.governance_text)}</div>
       </div>
       <div class="stack">
         ${committees.length
-          ? html`<div class="info-card">
-              <h3 class="info-title">Utskotten</h3>
+          ? html`<div class="info-card"${ek(s, "committees")}>
+              <h3 class="info-title">${s.committees_title}</h3>
               <ul class="pill-list">${committees.map((cm) => html`<li>${cm}</li>`)}</ul>
             </div>`
           : ""}
         <div class="info-card">
-          <h3 class="info-title">Inspektorn</h3>
-          <div class="prose">${paragraphs(s.inspector_text)}</div>
+          <h3 class="info-title"${ek(s, "inspector_title")}>${s.inspector_title}</h3>
+          <div class="prose"${ek(s, "inspector_text")}>${paragraphs(s.inspector_text)}</div>
         </div>
       </div>
     </div>
   </section>`;
 }
 
-function boardSection(board: BoardRow[]): SafeHtml {
+function boardSection(s: Settings, board: BoardRow[]): SafeHtml {
   return html`<section class="section" aria-labelledby="styrelsen">
     <div class="container">
       <div class="section-head">
         <div>
-          <h2 class="section-title" id="styrelsen">Styrelsen</h2>
-          <p class="section-lead">Har du en fråga till någon i styrelsen? Mejla direkt – vi svarar så snart vi kan.</p>
+          <h2 class="section-title" id="styrelsen"${ek(s, "board_title")}>${s.board_title}</h2>
+          <p class="section-lead"${ek(s, "board_lead")}>${s.board_lead}</p>
         </div>
       </div>
-      ${board.length ? html`<ul class="person-grid">${board.map(personCard)}</ul>` : emptyState("Styrelsen presenteras snart.")}
+      ${board.length ? html`<ul class="person-grid">${board.map((p) => personCard(s, p))}</ul>` : emptyState(s.board_empty, ek(s, "board_empty"))}
     </div>
   </section>`;
 }
 
-function honorCard(h: HonorRow): SafeHtml {
-  return html`<li class="honor-card">
+function honorCard(s: Settings, h: HonorRow): SafeHtml {
+  return html`<li class="honor-card"${ec(s, `/admin/utmarkelser/${h.id}`, `Utmärkelser › ${h.name}`)}>
     ${avatar(h.name, h.photo_key, "md")}
     <div>
       ${h.year ? html`<p class="honor-year">${h.year}</p>` : ""}
@@ -106,18 +106,20 @@ function honorsSection(s: Settings, honors: HonorRow[]): SafeHtml {
   const awards = honors.filter((h) => h.kind === "utmarkelse");
   return html`<section class="section section-surface" aria-labelledby="utmarkelser">
     <div class="container">
-      <h2 class="section-title" id="utmarkelser">Hedersmedlemmar och utmärkelser</h2>
+      <h2 class="section-title" id="utmarkelser"${ek(s, "honors_title")}>${s.honors_title}</h2>
       <div class="split split-top">
-        <div class="prose">${paragraphs(s.honors_text)}</div>
+        <div class="prose"${ek(s, "honors_text")}>${paragraphs(s.honors_text)}</div>
         <div class="info-card info-card-accent">
-          <h3 class="info-title">Belöningssystemet</h3>
-          <div class="prose">${paragraphs(s.rewards_text)}</div>
+          <h3 class="info-title"${ek(s, "rewards_title")}>${s.rewards_title}</h3>
+          <div class="prose"${ek(s, "rewards_text")}>${paragraphs(s.rewards_text)}</div>
         </div>
       </div>
-      <h3 class="subsection-title">Hedersmedlemmar</h3>
-      ${members.length ? html`<ul class="honor-grid">${members.map(honorCard)}</ul>` : emptyState("Hedersmedlemmarna presenteras här inom kort.")}
+      <h3 class="subsection-title"${ek(s, "honors_members_title")}>${s.honors_members_title}</h3>
+      ${members.length
+        ? html`<ul class="honor-grid">${members.map((h) => honorCard(s, h))}</ul>`
+        : emptyState(s.honors_members_empty, ek(s, "honors_members_empty"))}
       ${awards.length
-        ? html`<h3 class="subsection-title">Utdelade utmärkelser</h3><ul class="honor-grid">${awards.map(honorCard)}</ul>`
+        ? html`<h3 class="subsection-title"${ek(s, "honors_awards_title")}>${s.honors_awards_title}</h3><ul class="honor-grid">${awards.map((h) => honorCard(s, h))}</ul>`
         : ""}
     </div>
   </section>`;
@@ -129,11 +131,11 @@ function pedagogSection(s: Settings, honors: HonorRow[]): SafeHtml {
     <div class="container">
       <div class="section-head">
         <div>
-          <h2 class="section-title" id="arets-pedagog">Årets pedagog</h2>
-          <p class="section-lead">${s.pedagog_text}</p>
+          <h2 class="section-title" id="arets-pedagog"${ek(s, "pedagog_title")}>${s.pedagog_title}</h2>
+          <p class="section-lead"${ek(s, "pedagog_text")}>${s.pedagog_text}</p>
         </div>
       </div>
-      ${winners.length ? html`<ul class="honor-grid">${winners.map(honorCard)}</ul>` : emptyState("Pristagarna presenteras här inom kort.")}
+      ${winners.length ? html`<ul class="honor-grid">${winners.map((h) => honorCard(s, h))}</ul>` : emptyState(s.pedagog_empty, ek(s, "pedagog_empty"))}
     </div>
   </section>`;
 }
@@ -143,25 +145,25 @@ function collabSection(s: Settings, partners: PartnerRow[]): SafeHtml {
     <div class="container">
       <div class="section-head">
         <div>
-          <h2 class="section-title" id="samarbeten">Samarbeten</h2>
-          <p class="section-lead">${s.collab_text}</p>
+          <h2 class="section-title" id="samarbeten"${ek(s, "collab_title")}>${s.collab_title}</h2>
+          <p class="section-lead"${ek(s, "collab_text")}>${s.collab_text}</p>
         </div>
-        ${arrowLink("/partners", "Alla samarbetspartners", "arrow-link section-link")}
+        ${arrowLink("/partners", s.collab_link, "arrow-link section-link", ek(s, "collab_link"))}
       </div>
       <div class="two-col">
         <article class="info-card">
-          <p class="partner-kicker">Nationellt</p>
-          <h3 class="info-title">JURO</h3>
-          <p>${s.juro_text}</p>
+          <p class="partner-kicker"${ek(s, "juro_kicker")}>${s.juro_kicker}</p>
+          <h3 class="info-title"${ek(s, "juro_title")}>${s.juro_title}</h3>
+          <p${ek(s, "juro_text")}>${s.juro_text}</p>
         </article>
         <article class="info-card">
-          <p class="partner-kicker">Internationellt</p>
-          <h3 class="info-title">ELSA Karlstad</h3>
-          <p>${s.elsa_text}</p>
+          <p class="partner-kicker"${ek(s, "elsa_kicker")}>${s.elsa_kicker}</p>
+          <h3 class="info-title"${ek(s, "elsa_title")}>${s.elsa_title}</h3>
+          <p${ek(s, "elsa_text")}>${s.elsa_text}</p>
         </article>
       </div>
       ${partners.length
-        ? html`<ul class="logo-row">${partners.map((p) => html`<li><a href="/partners/${p.slug}">${partnerLogo(p, "sm")}</a></li>`)}</ul>`
+        ? html`<ul class="logo-row">${partners.map((p) => html`<li${ec(s, `/admin/partners/${p.id}`, `Partner › ${p.name}`)}><a href="/partners/${p.slug}">${partnerLogo(p, "sm")}</a></li>`)}</ul>`
         : ""}
     </div>
   </section>`;

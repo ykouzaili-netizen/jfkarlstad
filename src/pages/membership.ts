@@ -1,5 +1,5 @@
 import { html } from "../lib/html.js";
-import { lines, loadSettings } from "../lib/settings.js";
+import { ek, lines, loadSettings } from "../lib/settings.js";
 import { faqQuery, rows, type FaqRow } from "../lib/content.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
@@ -12,32 +12,34 @@ export async function membershipPage(c: RequestContext): Promise<Response> {
   const [s, faq] = await Promise.all([loadSettings(db, c.preview), rows<FaqRow>(faqQuery.byCategory(db, "Medlemskap"))]);
 
   const steps = [
-    { title: "Klicka på ”Bli medlem”", text: "Du kommer till JFK:s sida hos Hitract, där medlemskapet hanteras." },
-    { title: "Registrera dig och betala", text: "Fyll i dina uppgifter och betala medlemsavgiften direkt i Hitract." },
-    { title: "Välkommen in!", text: "Nu kan du köpa biljetter till medlemsevenemang och ta del av alla förmåner." },
-  ];
+    ["member_step_1_title", "member_step_1_text"],
+    ["member_step_2_title", "member_step_2_text"],
+    ["member_step_3_title", "member_step_3_text"],
+  ] as const;
 
   const content = html`
-    ${pageHeader({
-      kicker: "Medlemskap",
-      title: "Bli medlem i JFK",
-      lead: s.member_lead,
-      actions: html`${joinButton(s, { className: "btn btn-primary btn-lg" })}${s.member_price ? html`<p class="price-note">${s.member_price}</p>` : ""}`,
+    ${pageHeader(s, {
+      kickerKey: "member_kicker",
+      titleKey: "member_title",
+      leadKey: "member_lead",
+      actions: html`${joinButton(s, { className: "btn btn-primary btn-lg" })}${s.member_price ? html`<p class="price-note"${ek(s, "member_price")}>${s.member_price}</p>` : ""}`,
     })}
 
     <section class="section section-tight-top">
       <div class="container split split-top">
         <div>
-          <h2 class="section-title">Det här får du som medlem</h2>
-          ${checkList(lines(s.member_benefits))}
+          <h2 class="section-title"${ek(s, "member_benefits_title")}>${s.member_benefits_title}</h2>
+          ${checkList(lines(s.member_benefits), ek(s, "member_benefits"))}
         </div>
         <div class="info-card">
-          <h2 class="info-title">Så går det till</h2>
+          <h2 class="info-title"${ek(s, "member_steps_title")}>${s.member_steps_title}</h2>
           <ol class="step-list">
-            ${steps.map((st, i) => html`<li><span class="step-num" aria-hidden="true">${i + 1}</span><div><h3 class="step-title">${st.title}</h3><p>${st.text}</p></div></li>`)}
+            ${steps.map(
+              ([t, x], i) => html`<li><span class="step-num" aria-hidden="true">${i + 1}</span><div><h3 class="step-title"${ek(s, t)}>${s[t]}</h3><p${ek(s, x)}>${s[x]}</p></div></li>`,
+            )}
           </ol>
           ${joinButton(s, { className: "btn btn-primary btn-block" })}
-          <p class="fine-print">Medlemskapet hanteras helt av Hitract. Vi sparar inga medlemsuppgifter på den här webbplatsen.</p>
+          ${s.member_fineprint ? html`<p class="fine-print"${ek(s, "member_fineprint")}>${s.member_fineprint}</p>` : ""}
         </div>
       </div>
     </section>
@@ -45,12 +47,12 @@ export async function membershipPage(c: RequestContext): Promise<Response> {
     ${faq.length
       ? html`<section class="section section-surface" aria-labelledby="medlem-faq">
           <div class="container narrow">
-            <h2 class="section-title" id="medlem-faq">Vanliga frågor om medlemskap</h2>
-            ${faqList(faq)}
-            <p class="after-list">${arrowLink("/faq", "Fler vanliga frågor")}</p>
+            <h2 class="section-title" id="medlem-faq"${ek(s, "member_faq_title")}>${s.member_faq_title}</h2>
+            ${faqList(s, faq)}
+            <p class="after-list">${arrowLink("/faq", s.member_faq_link, "arrow-link", ek(s, "member_faq_link"))}</p>
           </div>
         </section>`
       : ""}
   `;
-  return htmlResponse(c, layout(c, s, { title: "Bli medlem", description: s.member_lead }, content));
+  return htmlResponse(c, layout(c, s, { title: s.member_title, description: s.member_lead }, content));
 }

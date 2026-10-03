@@ -1,19 +1,24 @@
 import { html, type SafeHtml } from "../lib/html.js";
 import type { BoardRow } from "../lib/content.js";
+import { ec, ek, type SettingKey, type Settings } from "../lib/settings.js";
 import { icon } from "./icons.js";
-import { mediaUrl } from "./layout.js";
+import { picture } from "./layout.js";
 
-/** Sidhuvud för undersidor: liten etikett, stor rubrik och ingress. */
-export function pageHeader(opts: { kicker?: string; title: string; lead?: string; actions?: SafeHtml; nav?: { href: string; label: string }[] }): SafeHtml {
+/** Sidhuvud för undersidor: liten etikett, stor rubrik och ingress – alla från textregistret. */
+export function pageHeader(
+  s: Settings,
+  opts: { kickerKey?: SettingKey; titleKey: SettingKey; leadKey?: SettingKey; actions?: SafeHtml; nav?: { href: string; labelKey: SettingKey }[] },
+): SafeHtml {
+  const lead = opts.leadKey ? s[opts.leadKey] : "";
   return html`<section class="page-hero">
     <div class="container">
-      ${opts.kicker ? html`<p class="page-kicker">${opts.kicker}</p>` : ""}
-      <h1 class="page-title">${opts.title}</h1>
-      ${opts.lead ? html`<p class="page-lead">${opts.lead}</p>` : ""}
+      ${opts.kickerKey ? html`<p class="page-kicker"${ek(s, opts.kickerKey)}>${s[opts.kickerKey]}</p>` : ""}
+      <h1 class="page-title"${ek(s, opts.titleKey)}>${s[opts.titleKey]}</h1>
+      ${lead ? html`<p class="page-lead"${ek(s, opts.leadKey!)}>${lead}</p>` : ""}
       ${opts.actions ? html`<div class="page-actions">${opts.actions}</div>` : ""}
       ${opts.nav?.length
         ? html`<nav class="chip-nav" aria-label="På den här sidan">
-            <ul>${opts.nav.map((n) => html`<li><a class="chip" href="${n.href}">${n.label}</a></li>`)}</ul>
+            <ul>${opts.nav.map((n) => html`<li><a class="chip" href="${n.href}">${s[n.labelKey]}</a></li>`)}</ul>
           </nav>`
         : ""}
     </div>
@@ -31,14 +36,13 @@ export function initials(name: string): string {
 }
 
 export function avatar(name: string, photoKey: string | null, size: "md" | "lg" = "lg"): SafeHtml {
-  const src = mediaUrl(photoKey);
-  return src
-    ? html`<img class="avatar avatar-${size}" src="${src}" alt="" loading="lazy" decoding="async" width="160" height="160">`
+  return photoKey
+    ? picture(photoKey, { alt: "", sizes: size === "lg" ? "88px" : "64px", className: `avatar avatar-${size}`, width: 160, height: 160 })
     : html`<span class="avatar avatar-${size} avatar-initials" aria-hidden="true">${initials(name)}</span>`;
 }
 
-export function personCard(p: BoardRow): SafeHtml {
-  return html`<li class="person-card">
+export function personCard(s: Settings, p: BoardRow): SafeHtml {
+  return html`<li class="person-card"${ec(s, `/admin/styrelsen/${p.id}`, `Styrelsen › ${p.name}`)}>
     ${avatar(p.name, p.photo_key)}
     <div class="person-body">
       <h3 class="person-name">${p.name}</h3>
@@ -48,10 +52,10 @@ export function personCard(p: BoardRow): SafeHtml {
   </li>`;
 }
 
-export function faqList(items: { question: string; answer: string }[], headingLevel: 2 | 3 = 3): SafeHtml {
+export function faqList(s: Settings, items: { id: number; question: string; answer: string }[], headingLevel: 2 | 3 = 3): SafeHtml {
   return html`<div class="faq-list">
     ${items.map(
-      (f) => html`<details class="faq-item">
+      (f) => html`<details class="faq-item" id="fraga-${f.id}"${ec(s, `/admin/faq/${f.id}`, `Vanliga frågor › ${f.question}`)}>
         <summary>${headingLevel === 2 ? html`<h2 class="faq-q">${f.question}</h2>` : html`<h3 class="faq-q">${f.question}</h3>`}<span class="faq-icon" aria-hidden="true"></span></summary>
         <div class="faq-a">${f.answer.split(/\n{2,}/).map((p) => html`<p>${p}</p>`)}</div>
       </details>`,
@@ -59,8 +63,8 @@ export function faqList(items: { question: string; answer: string }[], headingLe
   </div>`;
 }
 
-export function checkList(items: string[]): SafeHtml {
-  return html`<ul class="check-list">${items.map((i) => html`<li><span class="check" aria-hidden="true"></span>${i}</li>`)}</ul>`;
+export function checkList(items: string[], attrs?: SafeHtml): SafeHtml {
+  return html`<ul class="check-list"${attrs ?? ""}>${items.map((i) => html`<li><span class="check" aria-hidden="true"></span>${i}</li>`)}</ul>`;
 }
 
 export function breadcrumb(items: { href?: string; label: string }[]): SafeHtml {

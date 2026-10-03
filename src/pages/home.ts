@@ -1,30 +1,33 @@
 import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
-import { loadSettings, type Settings } from "../lib/settings.js";
-import { eventQuery, newsQuery, partnerQuery, type EventRow, type NewsRow, type PartnerRow } from "../lib/content.js";
-import { eventDate, stockholmNow, telHref } from "../lib/format.js";
+import { ek, loadSettings, type Settings } from "../lib/settings.js";
+import { eventQuery, jobQuery, newsQuery, partnerQuery, type EventRow, type NewsRow, type PartnerRow } from "../lib/content.js";
+import { eventDate, stockholmNow, stockholmToday, telHref } from "../lib/format.js";
+import { renderInline } from "../lib/markdown.js";
 import type { RequestContext } from "../router.js";
 import { icon, type IconName } from "../views/icons.js";
-import { joinButton, layout, mediaUrl } from "../views/layout.js";
-import { arrowLink, emptyState, eventCard, newsCard, partnerLogo, sectionHead } from "../views/components.js";
+import { joinButton, layout, mediaUrl, picture } from "../views/layout.js";
+import { arrowLink, emptyState, eventCard, newsCard, partnerCard, partnerLogo, sectionHead } from "../views/components.js";
 import { htmlResponse } from "../lib/http.js";
+import { ec } from "../lib/settings.js";
 
 export async function homePage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, [eventsRes, newsRes, partnersRes]] = await Promise.all([
+  const [s, [eventsRes, newsRes, partnersRes, jobsRes]] = await Promise.all([
     loadSettings(db, c.preview),
-    db.batch([eventQuery.upcoming(db, stockholmNow(), 3), newsQuery.latest(db, 3), partnerQuery.all(db)]),
+    db.batch([eventQuery.upcoming(db, stockholmNow(), 3), newsQuery.latest(db, 3), partnerQuery.all(db), jobQuery.openCount(db, stockholmToday())]),
   ]);
   const events = eventsRes!.results as unknown as EventRow[];
   const news = newsRes!.results as unknown as NewsRow[];
   const partners = partnersRes!.results as unknown as PartnerRow[];
+  const openJobs = ((jobsRes!.results[0] as { n?: number } | undefined)?.n ?? 0) as number;
 
   const content = html`
     ${hero(s, events[0])}
-    ${partnersSection(s, partners)}
+    ${partnersSection(s, partners, openJobs)}
     ${values(s)}
     ${intro(s)}
-    ${eventsSection(events)}
-    ${newsSection(news)}
+    ${eventsSection(s, events)}
+    ${newsSection(s, news)}
     ${paverka(s)}
     ${instagram(s)}
   `;
@@ -49,38 +52,34 @@ export async function homePage(c: RequestContext): Promise<Response> {
     sameAs: [s.instagram_url],
   };
 
-  return htmlResponse(
-    c,
-    layout(c, s, { title: s.site_name, path: "/", jsonLd: [organization] }, content),
-  );
+  return htmlResponse(c, layout(c, s, { title: s.site_name, path: "/", jsonLd: [organization] }, content));
 }
 
 function hero(s: Settings, next: EventRow | undefined): SafeHtml {
-  const img = mediaUrl(s.hero_image_key);
   const d = next ? eventDate(next.starts_at, next.ends_at) : null;
   return html`<section class="hero" aria-labelledby="hero-titel">
     <div class="container hero-grid">
       <div class="hero-copy">
-        <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span>Juridik &amp; skatterätt vid Karlstads universitet</p>
-        <h1 class="hero-title" id="hero-titel">${s.hero_title}</h1>
-        <p class="hero-lead">${s.hero_subtitle}</p>
+        ${s.hero_eyebrow ? html`<p class="eyebrow"${ek(s, "hero_eyebrow")}><span class="eyebrow-dot" aria-hidden="true"></span>${s.hero_eyebrow}</p>` : ""}
+        <h1 class="hero-title" id="hero-titel"${ek(s, "hero_title")}>${s.hero_title}</h1>
+        <p class="hero-lead"${ek(s, "hero_subtitle")}>${s.hero_subtitle}</p>
         <div class="hero-actions">
-          ${joinButton(s, { className: "btn btn-primary btn-lg", label: s.hero_button_label })}
-          ${arrowLink("/om-oss", s.hero_secondary_label, "arrow-link hero-secondary")}
+          ${joinButton(s, { className: "btn btn-primary btn-lg", labelKey: "hero_button_label" })}
+          ${arrowLink("/om-oss", s.hero_secondary_label, "arrow-link hero-secondary", ek(s, "hero_secondary_label"))}
         </div>
       </div>
-      <div class="hero-visual${img ? " has-image" : ""}">
-        ${img
-          ? html`<img class="hero-image" src="${img}" alt="${s.hero_image_alt}" width="720" height="880" fetchpriority="high">`
+      <div class="hero-visual${s.hero_image_key ? " has-image" : ""}"${ek(s, "hero_image_key")}>
+        ${s.hero_image_key
+          ? picture(s.hero_image_key, { alt: s.hero_image_alt, className: "hero-image", sizes: "(min-width: 920px) 45vw, 100vw", width: 720, height: 880, eager: true })
           : html`<div class="hero-art" aria-hidden="true"><span class="hero-art-glyph">§</span><span class="hero-art-ring"></span></div>`}
-        <div class="float-card float-card-top" aria-hidden="true">
+        <div class="float-card float-card-top" aria-hidden="true"${ek(s, "stat_2_value")}>
           <span class="float-avatars"><span></span><span></span><span></span></span>
           <span><strong>${s.stat_2_value}</strong> ${s.stat_2_label}</span>
         </div>
         ${next && d
-          ? html`<a class="float-card float-card-bottom" href="/kalender/${next.slug}">
+          ? html`<a class="float-card float-card-bottom" href="/kalender/${next.slug}"${ec(s, `/admin/event/${next.id}`, `Event › ${next.title}`)}>
               <span class="float-date"><span>${d.day}</span><span>${d.monthShort}</span></span>
-              <span class="float-text"><span class="float-label">Nästa evenemang</span><span class="float-title">${next.title}</span></span>
+              <span class="float-text"><span class="float-label"${ek(s, "hero_next_label")}>${s.hero_next_label}</span><span class="float-title">${next.title}</span></span>
             </a>`
           : ""}
       </div>
@@ -89,20 +88,20 @@ function hero(s: Settings, next: EventRow | undefined): SafeHtml {
 }
 
 function values(s: Settings): SafeHtml {
-  const items: { icon: IconName; title: string; text: string }[] = [
-    { icon: "network", title: s.value_1_title, text: s.value_1_text },
-    { icon: "briefcase", title: s.value_2_title, text: s.value_2_text },
-    { icon: "sparkle", title: s.value_3_title, text: s.value_3_text },
-  ];
+  const items = [
+    { icon: "network" as IconName, t: "value_1_title", x: "value_1_text" },
+    { icon: "briefcase" as IconName, t: "value_2_title", x: "value_2_text" },
+    { icon: "sparkle" as IconName, t: "value_3_title", x: "value_3_text" },
+  ] as const;
   return html`<section class="section" aria-labelledby="varden-titel">
     <div class="container">
-      <h2 class="section-title section-title-center" id="varden-titel">${s.values_title}</h2>
+      <h2 class="section-title section-title-center" id="varden-titel"${ek(s, "values_title")}>${s.values_title}</h2>
       <ul class="value-grid">
         ${items.map(
           (v) => html`<li class="value-card">
             <span class="value-icon">${icon(v.icon)}</span>
-            <h3 class="value-title">${v.title}</h3>
-            <p>${v.text}</p>
+            <h3 class="value-title"${ek(s, v.t)}>${s[v.t]}</h3>
+            <p${ek(s, v.x)}>${s[v.x]}</p>
           </li>`,
         )}
       </ul>
@@ -111,81 +110,70 @@ function values(s: Settings): SafeHtml {
 }
 
 function intro(s: Settings): SafeHtml {
-  const img = mediaUrl(s.intro_image_key);
+  const img = s.intro_image_key;
   const stats = [
-    [s.stat_1_value, s.stat_1_label],
-    [s.stat_2_value, s.stat_2_label],
-    [s.stat_3_value, s.stat_3_label],
-    [s.stat_4_value, s.stat_4_label],
+    ["stat_1_value", "stat_1_label"],
+    ["stat_2_value", "stat_2_label"],
+    ["stat_3_value", "stat_3_label"],
+    ["stat_4_value", "stat_4_label"],
   ] as const;
   return html`<section class="section section-surface" aria-labelledby="intro-titel">
     <div class="container intro-grid">
       <div class="intro-copy">
-        <h2 class="section-title" id="intro-titel">${s.intro_title}</h2>
-        <div class="prose">${paragraphs(s.intro_text)}</div>
-        ${arrowLink("/om-oss", "Läs mer om oss")}
+        <h2 class="section-title" id="intro-titel"${ek(s, "intro_title")}>${s.intro_title}</h2>
+        <div class="prose"${ek(s, "intro_text")}>${paragraphs(s.intro_text)}</div>
+        ${arrowLink("/om-oss", s.intro_link, "arrow-link", ek(s, "intro_link"))}
       </div>
       <div class="intro-media">
-        ${img ? html`<img class="intro-image" src="${img}" alt="${s.intro_image_alt}" loading="lazy" decoding="async" width="720" height="540">` : ""}
+        ${img ? html`<div${ek(s, "intro_image_key")}>${picture(img, { alt: s.intro_image_alt, className: "intro-image", sizes: "(min-width: 920px) 45vw, 100vw", width: 720, height: 540 })}</div>` : ""}
         <dl class="stat-grid${img ? " stat-grid-compact" : ""}">
-          ${stats.map(([value, label]) => html`<div class="stat"><dt class="stat-label">${label}</dt><dd class="stat-value">${value}</dd></div>`)}
+          ${stats.map(([v, l]) => html`<div class="stat"${ek(s, v)}><dt class="stat-label">${s[l]}</dt><dd class="stat-value">${s[v]}</dd></div>`)}
         </dl>
       </div>
     </div>
   </section>`;
 }
 
-function eventsSection(events: EventRow[]): SafeHtml {
+function eventsSection(s: Settings, events: EventRow[]): SafeHtml {
   return html`<section class="section" aria-labelledby="event-titel">
     <div class="container">
-      ${sectionHead({ title: "Kommande evenemang", id: "event-titel", link: { href: "/kalender", label: "Se hela kalendern" } })}
+      ${sectionHead(s, { titleKey: "home_events_title", id: "event-titel", link: { href: "/kalender", labelKey: "home_events_link" } })}
       ${events.length
-        ? html`<div class="card-grid">${events.map((e) => eventCard(e))}</div>`
-        : emptyState(html`Inga evenemang är inlagda just nu. Följ oss på Instagram så missar du inget.`)}
+        ? html`<div class="card-grid">${events.map((e) => eventCard(s, e))}</div>`
+        : emptyState(renderInline(s.home_events_empty), ek(s, "home_events_empty"))}
     </div>
   </section>`;
 }
 
-function newsSection(news: NewsRow[]): SafeHtml {
+function newsSection(s: Settings, news: NewsRow[]): SafeHtml {
   return html`<section class="section section-tight-top" aria-labelledby="nyheter-titel">
     <div class="container">
-      ${sectionHead({ title: "Senaste nytt", id: "nyheter-titel", link: { href: "/aktuellt", label: "Alla nyheter" } })}
-      ${news.length ? html`<div class="card-grid">${news.map((n) => newsCard(n))}</div>` : emptyState("Inga nyheter ännu.")}
+      ${sectionHead(s, { titleKey: "home_news_title", id: "nyheter-titel", link: { href: "/aktuellt", labelKey: "home_news_link" } })}
+      ${news.length ? html`<div class="card-grid">${news.map((n) => newsCard(s, n))}</div>` : emptyState(s.home_news_empty, ek(s, "home_news_empty"))}
     </div>
   </section>`;
 }
 
-function partnersSection(s: Settings, partners: PartnerRow[]): SafeHtml {
+function partnersSection(s: Settings, partners: PartnerRow[], openJobs: number): SafeHtml {
   const main = partners.filter((p) => p.tier === "huvud");
   const others = partners.filter((p) => p.tier !== "huvud");
   return html`<section class="section section-surface" aria-labelledby="partner-titel">
     <div class="container">
-      ${sectionHead({
-        title: "Våra samarbetspartners",
-        id: "partner-titel",
-        lead: s.partners_lead,
-        link: { href: "/partners", label: "Alla partners" },
-      })}
-      ${main.length
-        ? html`<ul class="partner-main">
-            ${main.map(
-              (p) => html`<li class="partner-card">
-                <span class="partner-kicker">Huvudsamarbetspartner</span>
-                <div class="partner-logo-wrap">${partnerLogo(p, "lg")}</div>
-                <p class="partner-tagline">${p.tagline}</p>
-                <a class="card-link arrow-link" href="/partners/${p.slug}">Läs mer<span class="sr-only"> om ${p.name}</span>${icon("arrowRight", "icon icon-sm")}</a>
-              </li>`,
-            )}
-          </ul>`
-        : ""}
+      ${sectionHead(s, { titleKey: "home_partners_title", id: "partner-titel", leadKey: "partners_lead", link: { href: "/partners", labelKey: "home_partners_all" } })}
+      ${main.length ? html`<ul class="partner-main">${main.map((p) => partnerCard(s, p))}</ul>` : ""}
       <div class="partner-footer">
         ${others.length
           ? html`<div class="partner-strip">
-              <h3 class="partner-strip-title">Samarbetspartners</h3>
-              <ul>${others.map((p) => html`<li><a href="/partners/${p.slug}">${partnerLogo(p, "sm")}</a></li>`)}</ul>
+              <h3 class="partner-strip-title"${ek(s, "home_partners_strip")}>${s.home_partners_strip}</h3>
+              <ul>${others.map((p) => html`<li${ec(s, `/admin/partners/${p.id}`, `Partner › ${p.name}`)}><a href="/partners/${p.slug}">${partnerLogo(p, "sm")}</a></li>`)}</ul>
             </div>`
           : ""}
-        <a class="btn btn-outline" href="/for-foretag">Bli samarbetspartner</a>
+        <div class="partner-actions">
+          ${openJobs
+            ? html`<a class="arrow-link" href="/karriar"${ek(s, "home_partners_jobs")}>${s.home_partners_jobs} <span class="count-pill">${openJobs}</span>${icon("arrowRight", "icon icon-sm")}</a>`
+            : ""}
+          <a class="btn btn-outline" href="/for-foretag"${ek(s, "partners_cta_button")}>${s.partners_cta_button}</a>
+        </div>
       </div>
     </div>
   </section>`;
@@ -197,13 +185,13 @@ function paverka(s: Settings): SafeHtml {
       <div class="cta-panel">
         <div class="cta-icon">${icon("megaphone")}</div>
         <div class="cta-copy">
-          <p class="cta-kicker">JF Påverka</p>
-          <h2 class="cta-title" id="paverka-titel">${s.paverka_title}</h2>
-          <p>${s.paverka_text}</p>
+          <p class="cta-kicker"${ek(s, "home_paverka_kicker")}>${s.home_paverka_kicker}</p>
+          <h2 class="cta-title" id="paverka-titel"${ek(s, "paverka_title")}>${s.paverka_title}</h2>
+          <p${ek(s, "paverka_text")}>${s.paverka_text}</p>
         </div>
         <div class="cta-actions">
-          <a class="btn btn-primary btn-lg" href="/jf-paverka">Gör din röst hörd</a>
-          <p class="cta-note">${icon("lock", "icon icon-sm")} Du kan vara anonym</p>
+          <a class="btn btn-primary btn-lg" href="/jf-paverka"${ek(s, "home_paverka_button")}>${s.home_paverka_button}</a>
+          ${s.home_paverka_note ? html`<p class="cta-note"${ek(s, "home_paverka_note")}>${icon("lock", "icon icon-sm")} ${s.home_paverka_note}</p>` : ""}
         </div>
       </div>
     </div>
@@ -216,10 +204,10 @@ function instagram(s: Settings): SafeHtml {
       <div class="insta-band">
         <span class="insta-icon">${icon("instagram")}</span>
         <div class="insta-copy">
-          <h2 class="insta-title" id="insta-titel">Följ oss på Instagram</h2>
-          <p>Bilder från sittningar, inspark och arbetsmarknadsdagar – och alla nyheter först.</p>
+          <h2 class="insta-title" id="insta-titel"${ek(s, "home_insta_title")}>${s.home_insta_title}</h2>
+          <p${ek(s, "home_insta_text")}>${s.home_insta_text}</p>
         </div>
-        <a class="btn btn-outline" href="${safeUrl(s.instagram_url)}" target="_blank" rel="noopener">${s.instagram_handle}${icon("external", "icon icon-sm")}<span class="sr-only"> på Instagram (öppnas i ny flik)</span></a>
+        <a class="btn btn-outline" href="${safeUrl(s.instagram_url)}" target="_blank" rel="noopener"${ek(s, "instagram_handle")}>${s.instagram_handle}${icon("external", "icon icon-sm")}<span class="sr-only"> på Instagram (öppnas i ny flik)</span></a>
       </div>
     </div>
   </section>`;
