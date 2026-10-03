@@ -14,6 +14,21 @@ export interface LocalDateParts {
   minute: number;
 }
 
+/** Månadens namn med stor bokstav: 10 → "Oktober". */
+export function monthName(month: number): string {
+  const m = MONTHS[month - 1] ?? "";
+  return m.charAt(0).toUpperCase() + m.slice(1);
+}
+
+/** ISO-veckonummer (som i svenska kalendrar) för ett datum. */
+export function isoWeek(year: number, month: number, day: number): number {
+  const d = new Date(Date.UTC(year, month - 1, day));
+  const dow = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dow);
+  const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
+  return Math.ceil(((d.getTime() - yearStart) / 86400000 + 1) / 7);
+}
+
 export function parseLocal(value: string | null | undefined): LocalDateParts | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(String(value ?? ""));
   if (!m) return null;

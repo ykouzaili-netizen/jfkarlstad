@@ -66,6 +66,9 @@ export async function saveSettings(
 // ───────────────────────── Hjälpfunktioner ─────────────────────────
 
 function toSpec(f: FieldDef): FieldSpec {
+  if (f.type === "choice") {
+    return { name: f.key, label: f.label, type: "radio", required: f.required, help: f.help, options: (f.options ?? []).map((o) => ({ ...o })) };
+  }
   const big = f.type === "markdown";
   const area = f.type === "textarea" || f.type === "lines" || f.type === "rich" || big;
   return {
@@ -204,7 +207,7 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
     const versions = versionCounts.get(f.key) ?? 0;
     const isTarget = f.key === target;
     const tools = html`<div class="field-tools">
-      ${f.type !== "image"
+      ${f.type !== "image" && f.type !== "choice"
         ? html`<button type="button" class="link-btn" hidden data-reset="${f.key}" data-default="${f.def}">${icon("history", "icon icon-sm")}Återställ originaltexten</button>`
         : ""}
       ${versions > 0 ? html`<a class="link-btn" href="/admin/texter/historik?nyckel=${f.key}">${icon("clock", "icon icon-sm")}Tidigare versioner (${versions})</a>` : ""}
@@ -365,6 +368,7 @@ export async function historyPage(c: RequestContext, session: Session): Promise<
       return src ? html`<img class="version-image" src="${src}" alt="">` : html`<span class="muted">Ingen bild</span>`;
     }
     if (isMenu) return html`<span class="muted">${value ? "Anpassad meny" : "Standardmenyn"}</span>`;
+    if (loc?.field.type === "choice") return html`<div class="version-value">${loc.field.options?.find((o) => o.value === value)?.label ?? value}</div>`;
     return value ? html`<div class="version-value">${value}</div>` : html`<span class="muted">(tom)</span>`;
   };
 

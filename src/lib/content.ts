@@ -173,6 +173,9 @@ export const eventQuery = {
     db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(nowLocal, limit),
   past: (db: D1Database, nowLocal: string, limit: number) =>
     db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} < ? ORDER BY starts_at DESC LIMIT ?`).bind(nowLocal, limit),
+  /** Evenemang som pågår någon gång mellan två tidpunkter (månadsvyn). `toLocal` är exklusiv. */
+  between: (db: D1Database, fromLocal: string, toLocal: string) =>
+    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND starts_at < ? AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT 300`).bind(toLocal, fromLocal),
   /** För kalenderprenumerationen: från ett datum och framåt. */
   since: (db: D1Database, fromLocal: string) =>
     db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT 300`).bind(fromLocal),

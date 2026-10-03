@@ -8,10 +8,10 @@ import { membershipPage } from "./pages/membership.js";
 import { studentsPage } from "./pages/students.js";
 import { companiesPage, contactPage, engagePage, paverkaPage, submitHandler, thanksPage } from "./pages/forms.js";
 import { jobDetailPage, jobsPage, outboundHandler } from "./pages/careers.js";
+import { calendarPage } from "./pages/calendar.js";
 import { searchPage } from "./pages/search.js";
 import {
   calendarFeedHandler,
-  calendarPage,
   documentFileHandler,
   documentsPage,
   eventDetailPage,

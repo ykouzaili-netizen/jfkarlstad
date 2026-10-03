@@ -16,9 +16,10 @@
  *   markdown  längre text med stycken, punktlistor, länkar och underrubriker
  *   url/email länk respektive e-postadress
  *   image     bild (sparas som nyckel till fillagringen)
+ *   choice    ett av några fasta val (`options`), t.ex. bildens beskärning
  */
 
-export type FieldType = "text" | "textarea" | "lines" | "rich" | "markdown" | "url" | "email" | "image";
+export type FieldType = "text" | "textarea" | "lines" | "rich" | "markdown" | "url" | "email" | "image" | "choice";
 
 export interface FieldDef<K extends string = string> {
   readonly key: K;
@@ -28,6 +29,8 @@ export interface FieldDef<K extends string = string> {
   readonly help?: string;
   readonly required?: boolean;
   readonly more?: boolean;
+  /** Valen för typen "choice". */
+  readonly options?: readonly { readonly value: string; readonly label: string; readonly hint?: string }[];
 }
 
 export interface SectionDef<F extends readonly FieldDef[] = readonly FieldDef[]> {
@@ -60,6 +63,14 @@ const md = field("markdown");
 const url = field("url");
 const email = field("email");
 const image = field("image");
+const choice = <const K extends string>(key: K, label: string, def: string, options: FieldDef["options"], o: Opts = {}): FieldDef<K> => ({
+  key,
+  label,
+  def,
+  type: "choice",
+  options,
+  ...o,
+});
 
 /** Standardinställning för knappar, etiketter och liknande småtexter. */
 const small = { more: true, required: true } as const;
@@ -88,9 +99,22 @@ export const PAGES = [
       area("hero_subtitle", "Text under rubriken", "Studentföreningen för dig som läser juristprogrammet eller masterprogrammet i skatterätt vid Karlstads universitet.", { required: true }),
       text("hero_button_label", "Text på den stora knappen", "Bli medlem", small),
       text("hero_secondary_label", "Text på länken bredvid knappen", "Läs mer om oss", small),
-      image("hero_image_key", "Bild", "", { help: "Liggande eller stående foto. Utan bild visas en grafisk paragraf-symbol." }),
+      image("hero_image_key", "Bakgrundsbild", "", {
+        help: "Fyller hela toppen av startsidan. Välj ett liggande foto med mycket stämning, gärna minst 2000 px brett – t.ex. från en sittning eller campus. Utan bild visas en mörk grafisk bakgrund.",
+      }),
       text("hero_image_alt", "Bildbeskrivning", "", { help: ALT_HELP }),
+      choice("hero_image_position", "Vilken del av bilden ska synas bäst?", "center", [
+        { value: "top", label: "Övre delen", hint: "T.ex. när ansikten är högt upp i bilden" },
+        { value: "center", label: "Mitten" },
+        { value: "bottom", label: "Nedre delen" },
+      ], { required: true, help: "Bilden beskärs olika på dator och mobil. Välj den del som är viktigast." }),
+      choice("hero_overlay", "Mörk ton över bilden", "medel", [
+        { value: "svag", label: "Svag", hint: "För mörka bilder" },
+        { value: "medel", label: "Medel" },
+        { value: "stark", label: "Stark", hint: "För ljusa bilder – gör texten lättare att läsa" },
+      ], { required: true }),
       text("hero_next_label", "Etikett på rutan med nästa evenemang", "Nästa evenemang", small),
+      text("hero_scroll", "Text vid pilen längst ned", "Scrolla vidare", small),
     ]),
     sec("partners", "Samarbetspartners", [
       text("home_partners_title", "Rubrik", "Våra samarbetspartners", { required: true }),
@@ -422,6 +446,20 @@ export const PAGES = [
       rich("cal_empty", "Text när inga evenemang finns", "Inga kommande evenemang är inlagda just nu. Följ [@jfkarlstad](https://www.instagram.com/jfkarlstad/) så missar du inget.", { more: true, help: RICH_HELP }),
       text("cal_past_title", "Rubrik för tidigare evenemang", "Tidigare evenemang", small),
     ], "Evenemangen lägger du in under Event i menyn."),
+    sec("manad", "Månadsvyn", [
+      text("cal_view_month", "Knapp: månad", "Månad", small),
+      text("cal_view_list", "Knapp: lista", "Lista", small),
+      text("cal_today", "Knapp: idag", "Idag", small),
+      text("cal_prev", "Knapp: föregående månad", "Föregående månad", small),
+      text("cal_next", "Knapp: nästa månad", "Nästa månad", small),
+      list("cal_weekdays", "Veckodagarna", "Måndag\nTisdag\nOnsdag\nTorsdag\nFredag\nLördag\nSöndag", { ...small, help: "En per rad, med måndag först." }),
+      text("cal_week", "Förkortning för vecka", "v.", small),
+      text("cal_more", "Fler evenemang samma dag", "+{antal} till", { ...small, help: "{antal} byts ut mot antalet." }),
+      text("cal_month_empty", "Text när månaden är tom", "Inga evenemang den här månaden.", small),
+      text("cal_next_event", "Länk till nästa evenemang", "Nästa evenemang: {namn}, {datum}", { ...small, help: "{namn} och {datum} byts ut automatiskt." }),
+      text("cal_legend_open", "Förklaring: öppna evenemang", "Öppet för alla", small),
+      text("cal_agenda_title", "Rubrik för listan under kalendern (mobil)", "Händelser i {månad}", { ...small, help: "{månad} byts ut mot månaden." }),
+    ], "Kalendern visar en månad i taget. Besökare bläddrar med pilarna."),
     sec("prenumerera", "Prenumerera på kalendern", [
       text("cal_sub_button", "Knapp", "Prenumerera på kalendern", small),
       text("cal_sub_title", "Rubrik", "Få JFK:s evenemang i din kalender"),

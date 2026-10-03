@@ -81,7 +81,8 @@ Det finns två roller:
 3. Har eventet en biljettsida på Hitract? Klistra in länken under **Länk till anmälan/biljetter**.
 4. Bocka i **Endast för medlemmar** om det gäller. Klicka **Skapa**.
 
-Event som har passerat flyttas automatiskt till *Tidigare evenemang* i kalendern – du behöver inte ta bort dem.
+Kalendern visar en månad i taget, som en vanlig väggkalender (med veckonummer). Event som pågår flera dagar
+syns på varje dag. Besökarna kan också välja **Lista** för att se alla kommande event och *Tidigare evenemang*.
 
 ### Byta ut styrelsen efter årsmötet
 Följ checklistan under **Styrelseskifte** – den går igenom allt (nya ledamöter, foton, konton, lösenord och
@@ -113,6 +114,10 @@ studenter kan anmäla intresse. Anmälningarna kommer till **Meddelanden**.
 3. Ser det bra ut? Klicka **Spara ändringar**. Inget syns på webbplatsen innan du sparar.
 4. **Ångra:** direkt efter sparningen finns en **Ångra**-knapp. Under varje fält finns också
    **Tidigare versioner** (de 25 senaste sparas) och **Återställ originaltexten**.
+
+**Stora bilden överst på startsidan** fyller hela skärmen. Byt den under *Texter och sidor → Startsidan →
+Toppen av sidan → Bakgrundsbild*. Välj ett liggande foto (gärna minst 2000 px brett). Med **Vilken del av bilden ska
+synas bäst?** styr du beskärningen, och med **Mörk ton över bilden** gör du texten läsbar mot ljusa foton.
 
 Bilder: välj en ny fil, eller klicka **Välj från bildbanken** för att återanvända en bild som redan finns.
 På en mobil eller liten skärm öppnar du förhandsvisningen med knappen **Visa förhandsvisning** nere till höger.

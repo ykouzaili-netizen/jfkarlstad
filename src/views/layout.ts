@@ -6,7 +6,7 @@ import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "9";
+export const ASSET_VERSION = "10";
 
 export interface PageMeta {
   title: string;
@@ -17,6 +17,8 @@ export interface PageMeta {
   ogType?: "website" | "article";
   noindex?: boolean;
   jsonLd?: object[];
+  /** Sidhuvudet ligger genomskinligt ovanpå en helskärmsbild (startsidan). */
+  overlayHeader?: boolean;
 }
 
 /** Prefix för bilder som valts i adminpanelen men inte sparats ännu (bara i förhandsvisningen). */
@@ -188,7 +190,7 @@ export function layout(c: RequestContext, s: Settings, meta: PageMeta, content: 
     // JSON i <script> – escapa "<" så att ingen sträng kan avsluta script-taggen.
     (obj) => raw(`<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, "\\u003c")}</script>`),
   );
-  const bodyClass = [c.preview ? "is-preview" : "", c.editMap ? "is-editmap" : ""].filter(Boolean).join(" ");
+  const bodyClass = [c.preview ? "is-preview" : "", c.editMap ? "is-editmap" : "", meta.overlayHeader ? "has-overlay-header" : ""].filter(Boolean).join(" ");
 
   const doc = html`<!doctype html>
 <html lang="sv">

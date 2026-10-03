@@ -52,38 +52,39 @@ export async function homePage(c: RequestContext): Promise<Response> {
     sameAs: [s.instagram_url],
   };
 
-  return htmlResponse(c, layout(c, s, { title: s.site_name, path: "/", jsonLd: [organization] }, content));
+  return htmlResponse(c, layout(c, s, { title: s.site_name, path: "/", jsonLd: [organization], overlayHeader: true }, content));
 }
 
 function hero(s: Settings, next: EventRow | undefined): SafeHtml {
   const d = next ? eventDate(next.starts_at, next.ends_at) : null;
-  return html`<section class="hero" aria-labelledby="hero-titel">
-    <div class="container hero-grid">
+  const pos = ["top", "center", "bottom"].includes(s.hero_image_position) ? s.hero_image_position : "center";
+  const tone = ["svag", "medel", "stark"].includes(s.hero_overlay) ? s.hero_overlay : "medel";
+  const img = s.hero_image_key;
+  return html`<section class="hero hero-pos-${pos} hero-tone-${tone}${img ? " has-image" : ""}" aria-labelledby="hero-titel">
+    <div class="hero-media"${ek(s, "hero_image_key")}>
+      ${img
+        ? picture(img, { alt: s.hero_image_alt, className: "hero-bg", sizes: "100vw", width: 2560, height: 1440, eager: true })
+        : html`<div class="hero-fallback" aria-hidden="true"><span class="hero-fallback-glyph">§</span></div>`}
+    </div>
+    <div class="hero-shade" aria-hidden="true"></div>
+    <div class="container hero-inner">
       <div class="hero-copy">
         ${s.hero_eyebrow ? html`<p class="eyebrow"${ek(s, "hero_eyebrow")}><span class="eyebrow-dot" aria-hidden="true"></span>${s.hero_eyebrow}</p>` : ""}
         <h1 class="hero-title" id="hero-titel"${ek(s, "hero_title")}>${s.hero_title}</h1>
         <p class="hero-lead"${ek(s, "hero_subtitle")}>${s.hero_subtitle}</p>
         <div class="hero-actions">
           ${joinButton(s, { className: "btn btn-primary btn-lg", labelKey: "hero_button_label" })}
-          ${arrowLink("/om-oss", s.hero_secondary_label, "arrow-link hero-secondary", ek(s, "hero_secondary_label"))}
+          <a class="btn btn-light btn-lg" href="/om-oss"${ek(s, "hero_secondary_label")}>${s.hero_secondary_label}</a>
         </div>
       </div>
-      <div class="hero-visual${s.hero_image_key ? " has-image" : ""}"${ek(s, "hero_image_key")}>
-        ${s.hero_image_key
-          ? picture(s.hero_image_key, { alt: s.hero_image_alt, className: "hero-image", sizes: "(min-width: 920px) 45vw, 100vw", width: 720, height: 880, eager: true })
-          : html`<div class="hero-art" aria-hidden="true"><span class="hero-art-glyph">§</span><span class="hero-art-ring"></span></div>`}
-        <div class="float-card float-card-top" aria-hidden="true"${ek(s, "stat_2_value")}>
-          <span class="float-avatars"><span></span><span></span><span></span></span>
-          <span><strong>${s.stat_2_value}</strong> ${s.stat_2_label}</span>
-        </div>
-        ${next && d
-          ? html`<a class="float-card float-card-bottom" href="/kalender/${next.slug}"${ec(s, `/admin/event/${next.id}`, `Event › ${next.title}`)}>
-              <span class="float-date"><span>${d.day}</span><span>${d.monthShort}</span></span>
-              <span class="float-text"><span class="float-label"${ek(s, "hero_next_label")}>${s.hero_next_label}</span><span class="float-title">${next.title}</span></span>
-            </a>`
-          : ""}
-      </div>
+      ${next && d
+        ? html`<a class="hero-next" href="/kalender/${next.slug}"${ec(s, `/admin/event/${next.id}`, `Event › ${next.title}`)}>
+            <span class="float-date" aria-hidden="true"><span>${d.day}</span><span>${d.monthShort}</span></span>
+            <span class="float-text"><span class="float-label"${ek(s, "hero_next_label")}>${s.hero_next_label}</span><span class="float-title">${next.title}</span><span class="sr-only">, ${d.dateLong}</span></span>
+          </a>`
+        : ""}
     </div>
+    <a class="hero-scroll" href="#partner-titel"${ek(s, "hero_scroll")}><span class="hero-scroll-label">${s.hero_scroll}</span><span class="hero-scroll-icon" aria-hidden="true">${icon("arrowDown", "icon icon-sm")}</span></a>
   </section>`;
 }
 

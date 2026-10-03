@@ -26,6 +26,18 @@ with sync_playwright() as p:
             if path in ("/karriar", "/kalender", "/sok?q=medlem", "/engagera-dig", "/"):
                 page.screenshot(path=str(OUT / f"pub-{name}-{path.strip('/').replace('?', '_') or 'start'}.png"))
         if name == "dator":
+            page.goto(BASE + "/kalender?manad=2026-08")
+            check(page.locator(".cal-grid tbody tr").count() == 6 and page.locator(".cal-ev:has-text('Inspark')").count() == 7, "månadsvyn visar ett flerdagarsevenemang på varje dag")
+            page.click(".cal-nav-btn >> nth=1")
+            check("manad=2026-09" in page.url, "pilen bläddrar till nästa månad")
+            page.goto(BASE + "/kalender?manad=skräp")
+            check(page.locator(".cal-grid").count() == 1, "ogiltig månad visar innevarande månad")
+            page.goto(BASE + "/kalender?visa=lista")
+            check(page.locator(".cal-grid").count() == 0 and page.locator(".event-card").count() >= 1, "listvyn finns kvar")
+            page.goto(BASE + "/")
+            check(page.locator("body.has-overlay-header .hero").count() == 1, "startsidan har helskärmshero med sidhuvudet ovanpå")
+            hero_h = page.evaluate("document.querySelector('.hero').getBoundingClientRect().height")
+            check(hero_h >= 860, f"heron fyller skärmen ({hero_h:.0f}px)")
             page.goto(BASE + "/kalender")
             page.click(".subscribe > summary")
             check(page.locator(".subscribe-panel").is_visible(), "panelen för kalenderprenumeration öppnas")

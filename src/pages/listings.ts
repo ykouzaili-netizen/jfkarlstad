@@ -197,55 +197,9 @@ export async function newsArticlePage(c: RequestContext): Promise<Response> {
 
 // ───────────────────────── Kalender ─────────────────────────
 
-const MONTH_NAMES = ["Januari", "Februari", "Mars", "April", "Maj", "Juni", "Juli", "Augusti", "September", "Oktober", "November", "December"];
-
-export async function calendarPage(c: RequestContext): Promise<Response> {
-  const db = c.env.DB;
-  const now = stockholmNow();
-  const [s, [upRes, pastRes]] = await Promise.all([loadSettings(db, c.preview), db.batch([eventQuery.upcoming(db, now, 100), eventQuery.past(db, now, 12)])]);
-  const upcoming = upRes!.results as unknown as EventRow[];
-  const past = pastRes!.results as unknown as EventRow[];
-
-  // Gruppera kommande evenemang per månad
-  const months = new Map<string, EventRow[]>();
-  for (const e of upcoming) {
-    const [y, m] = e.starts_at.split("-");
-    const key = `${MONTH_NAMES[+m! - 1]} ${y}`;
-    if (!months.has(key)) months.set(key, []);
-    months.get(key)!.push(e);
-  }
-
-  const content = html`
-    ${pageHeader(s, { kickerKey: "cal_kicker", titleKey: "cal_title", leadKey: "cal_lead", actions: subscribePanel(c, s) })}
-    <section class="section section-tight-top">
-      <div class="container">
-        ${upcoming.length
-          ? [...months.entries()].map(
-              ([month, evs], i) => html`<h2 class="subsection-title${i === 0 ? " first" : ""}">${month}</h2><div class="card-grid">${evs.map((e) => eventCard(s, e, 3))}</div>`,
-            )
-          : emptyState(renderInline(s.cal_empty), ek(s, "cal_empty"))}
-      </div>
-    </section>
-    ${past.length
-      ? html`<section class="section section-surface" aria-labelledby="tidigare">
-          <div class="container">
-            <h2 class="section-title" id="tidigare"${ek(s, "cal_past_title")}>${s.cal_past_title}</h2>
-            <ul class="past-list">
-              ${past.map((e) => {
-                const d = eventDate(e.starts_at, e.ends_at);
-                return html`<li${ec(s, `/admin/event/${e.id}`, `Event › ${e.title}`)}><time datetime="${d?.iso ?? ""}">${d ? `${d.day} ${d.monthShort} ${e.starts_at.slice(0, 4)}` : ""}</time><a href="/kalender/${e.slug}">${e.title}</a></li>`;
-              })}
-            </ul>
-          </div>
-        </section>`
-      : ""}`;
-
-  const jsonLd = upcoming.slice(0, 10).map((e) => eventJsonLd(site(c), s.site_name, e));
-  return htmlResponse(c, layout(c, s, { title: s.cal_title, description: s.cal_lead, jsonLd }, content));
-}
 
 /** "Prenumerera på kalendern" – fungerar utan JS tack vare <details>; JS lägger bara till kopieringsknappen. */
-function subscribePanel(c: RequestContext, s: Settings): SafeHtml {
+export function subscribePanel(c: RequestContext, s: Settings): SafeHtml {
   const feed = `${site(c)}/kalender.ics`;
   const webcal = feed.replace(/^https?:/, "webcal:");
   const google = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`;
@@ -266,7 +220,7 @@ function subscribePanel(c: RequestContext, s: Settings): SafeHtml {
   </details>`;
 }
 
-function eventJsonLd(siteUrl: string, org: string, e: EventRow): object {
+export function eventJsonLd(siteUrl: string, org: string, e: EventRow): object {
   const img = mediaUrl(e.image_key);
   return {
     "@context": "https://schema.org",
