@@ -16,6 +16,10 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   Bilder serveras via `/media/:key`, PDF:er via `/dokument/fil/:id`, båda med sandbox-CSP.
 - **Adminpanel** i `src/admin/`: `auth.ts` (PBKDF2, sessioner, CSRF), `resources.ts` (generisk CRUD för alla innehållstyper –
   lägg till en ny typ genom att beskriva den där), `pages.ts` (översikt, texter, utseende, meddelanden, användare, logg).
+- **Förhandsvisning** (`src/admin/preview.ts`): Redigera texter och Utseende har en iframe som POST:ar formulärets osparade
+  värden till `/admin/forhandsvisning`, som renderar den riktiga sidan med `c.preview` (överstyr `loadSettings`). Valda men
+  ej uppladdade bilder blir platshållare (`PREVIEW_IMAGE_PREFIX`) som `admin.js` byter mot bilden från datorn.
+  Sidor som ska kunna förhandsvisas måste anropa `loadSettings(db, c.preview)` och finnas i `PREVIEW_PAGES`.
 - **Formulär** i `src/pages/forms.ts`: validering (`src/lib/forms.ts`), honungsfälla + tidstoken + rate limiting (`src/lib/security.ts`),
   valfri Turnstile, sparas alltid i D1 först, e-post via SMTP (`src/lib/mail.ts`, `cloudflare:sockets`) är best effort.
 - **Cron** (varje timme): `src/lib/maintenance.ts` rensar sessioner, rate limits, meddelanden > 12 mån och logg > 24 mån.

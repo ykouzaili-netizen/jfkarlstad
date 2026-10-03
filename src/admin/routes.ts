@@ -21,6 +21,7 @@ import {
   userRole,
   usersPage,
 } from "./pages.js";
+import { previewHandler } from "./preview.js";
 import { RESOURCES, deleteHandler, editHandler, listHandler, newHandler, saveHandler, toggleHandler } from "./resources.js";
 
 export function registerAdminRoutes(router: Router): void {
@@ -46,6 +47,7 @@ export function registerAdminRoutes(router: Router): void {
     .get("/admin/meddelanden/:id", requireUser(messageDetail))
     .post("/admin/meddelanden/:id/status", requireUser(messageStatus))
     .post("/admin/meddelanden/:id/radera", requireUser(messageDelete))
+    .post("/admin/forhandsvisning", requireUser(previewHandler))
     .get("/admin/konto", requireUser((c, s) => accountPage(c, s)))
     .post("/admin/konto", requireUser(accountSubmit));
 

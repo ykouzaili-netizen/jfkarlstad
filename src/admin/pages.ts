@@ -25,6 +25,7 @@ import {
 } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton } from "./layout.js";
 import { handleUpload, uploadHint, uploadInput } from "./uploads.js";
+import { previewPane } from "./preview.js";
 
 const nowSql = () => new Date().toISOString().replace("T", " ").slice(0, 19);
 
@@ -111,11 +112,12 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
   const specs = group.fields.filter((f) => f.type !== "image").map(toSpec);
 
   const content = html`
-    ${adminHead("Redigera texter", { lead: "Välj en sida och ändra texterna. Ändringarna syns direkt efter att du sparat." })}
+    ${adminHead("Redigera texter", { lead: "Välj en sida och ändra texterna. Förhandsvisningen till höger visar hur det blir – inget syns på webbplatsen förrän du sparar." })}
     <nav class="tabs" aria-label="Välj sida">
       <ul>${SETTINGS_GROUPS.map((g) => html`<li><a href="/admin/texter?grupp=${g.id}"${g.id === group.id ? raw(' aria-current="page"') : ""}>${g.title}</a></li>`)}</ul>
     </nav>
-    <form class="admin-form" method="post" action="/admin/texter?grupp=${group.id}" enctype="multipart/form-data" novalidate data-dirty-check>
+    <div class="editor-with-preview">
+    <form class="admin-form" id="texter-form" method="post" action="/admin/texter?grupp=${group.id}" enctype="multipart/form-data" novalidate data-dirty-check>
       ${csrfField(session)}
       ${errorSummary(errors, specs)}
       <div class="admin-card">
@@ -126,12 +128,14 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
           return renderField(toSpec(f), value, errors[f.key]);
         })}
       </div>
-      <div class="admin-form-actions">
+      <div class="admin-form-actions sticky-actions">
         <button class="btn btn-primary btn-lg" type="submit">Spara ändringar</button>
-        <a class="btn btn-outline" href="${previewPath(group.id)}" target="_blank" rel="noopener">${icon("external", "icon icon-sm")}Visa sidan</a>
+        <a class="btn btn-outline" href="${previewPath(group.id)}" target="_blank" rel="noopener">${icon("external", "icon icon-sm")}Öppna sidan</a>
       </div>
-    </form>`;
-  return adminLayout(c, session, { title: "Redigera texter", active: "/admin/texter", newCount: await newMessageCount(c.env.DB), narrow: true }, content, status);
+    </form>
+    ${previewPane({ formId: "texter-form", page: previewPath(group.id), csrf: session.csrf })}
+    </div>`;
+  return adminLayout(c, session, { title: "Redigera texter", active: "/admin/texter", newCount: await newMessageCount(c.env.DB), wide: true }, content, status);
 }
 
 function previewPath(groupId: string): string {
@@ -247,7 +251,7 @@ export async function appearancePage(c: RequestContext, session: Session, overri
 
   const content = html`
     ${adminHead("Utseende", { lead: "Färger, rubriktypsnitt och logotyp för hela webbplatsen. Ändringarna slår igenom direkt när du sparar." })}
-    <form class="admin-form" method="post" action="/admin/utseende" enctype="multipart/form-data" novalidate data-theme-editor data-dirty-check>
+    <form class="admin-form" id="utseende-form" method="post" action="/admin/utseende" enctype="multipart/form-data" novalidate data-theme-editor data-dirty-check>
       ${csrfField(session)}
       ${Object.keys(errors).length ? html`<div class="alert alert-error" role="alert">${Object.values(errors).join(" ")}</div>` : ""}
       <div class="appearance-grid">
@@ -293,38 +297,21 @@ export async function appearancePage(c: RequestContext, session: Session, overri
               <div class="upload-controls">
                 <label class="field-label" for="falt-logo">${logo ? "Byt logotyp" : "Ladda upp logotyp"}</label>
                 <p class="field-help" id="logo-hjalp">Kvadratisk SVG eller PNG med genomskinlig bakgrund fungerar bäst. Visas i sidhuvudet och sidfoten. Stora bilder komprimeras automatiskt.</p>
-                ${uploadInput({ id: "falt-logo", name: "logo", kind: "image", describedBy: "logo-hjalp" })}
+                ${uploadInput({ id: "falt-logo", name: "logo", kind: "image", describedBy: "logo-hjalp", setting: "logo_key" })}
                 ${logo ? html`<label class="check-field check-small"><input type="checkbox" name="logo__ta_bort" value="1"><span>Ta bort logotypen (visa §-symbolen igen)</span></label>` : ""}
               </div>
             </div>
           </section>
+          <div class="admin-form-actions sticky-actions">
+            <button class="btn btn-primary btn-lg" type="submit">Spara utseende</button>
+            <button class="btn btn-outline" type="submit" name="aterstall" value="1" formnovalidate data-confirm-click="Återställa alla färger och typsnittet till standard? Logotypen påverkas inte.">Återställ till standard</button>
+          </div>
         </div>
 
-        <aside class="preview-pane" aria-label="Förhandsvisning">
-          <p class="admin-nav-title">Förhandsvisning</p>
-          <div class="theme-preview" data-preview-root>
-            <div class="tp-header"><span class="tp-mark">§</span><span class="tp-nav"><span></span><span></span><span></span></span><span class="tp-btn">Bli medlem</span></div>
-            <div class="tp-hero">
-              <p class="tp-eyebrow">Juridik &amp; skatterätt</p>
-              <p class="tp-title">Välkommen till JFK</p>
-              <p class="tp-text">Studentföreningen för juriststudenter vid Karlstads universitet.</p>
-              <span class="tp-btn tp-btn-lg">Bli medlem</span>
-            </div>
-            <div class="tp-cards">
-              <div class="tp-card"><span class="tp-date"><b>15</b>okt</span><span><b>Lunchföreläsning</b><small>Karlstads universitet</small></span></div>
-              <div class="tp-card"><span class="tp-icon"></span><span><b>Nätverk</b><small>Träffa jurister</small></span></div>
-            </div>
-            <div class="tp-footer"><span class="tp-kicker">JF Påverka</span><span>Gör din röst hörd</span></div>
-          </div>
-        </aside>
-      </div>
-
-      <div class="admin-form-actions sticky-actions">
-        <button class="btn btn-primary btn-lg" type="submit">Spara utseende</button>
-        <button class="btn btn-outline" type="submit" name="aterstall" value="1" formnovalidate data-confirm-click="Återställa alla färger och typsnittet till standard? Logotypen påverkas inte.">Återställ till standard</button>
+        ${previewPane({ formId: "utseende-form", page: "/", csrf: session.csrf, choosePage: true, liveTheme: true })}
       </div>
     </form>`;
-  return adminLayout(c, session, { title: "Utseende", active: "/admin/utseende", newCount: await newMessageCount(c.env.DB) }, content, status);
+  return adminLayout(c, session, { title: "Utseende", active: "/admin/utseende", newCount: await newMessageCount(c.env.DB), wide: true }, content, status);
 }
 
 export async function appearanceSubmit(c: RequestContext, session: Session): Promise<Response> {

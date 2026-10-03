@@ -49,14 +49,14 @@ const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/svg+xml,im
  * Filfält för uppladdning. admin.js läser data-attributen: bilder som är större än data-max
  * (eller onödigt stora i pixlar) skalas ned och komprimeras i webbläsaren innan formuläret skickas.
  */
-export function uploadInput(opts: { id: string; name: string; kind: "image" | "pdf"; labelledBy?: string; describedBy?: string }): SafeHtml {
+export function uploadInput(opts: { id: string; name: string; kind: "image" | "pdf"; labelledBy?: string; describedBy?: string; setting?: string }): SafeHtml {
   const max = opts.kind === "image" ? MAX_IMAGE_BYTES : MAX_PDF_BYTES;
   const statusId = `${opts.id}-status`;
   const describedBy = [opts.describedBy, statusId].filter(Boolean).join(" ");
   return html`<input class="upload-input" type="file" id="${opts.id}" name="${opts.name}"
       accept="${opts.kind === "pdf" ? "application/pdf,.pdf" : IMAGE_ACCEPT}"
       ${opts.labelledBy ? html`aria-labelledby="${opts.labelledBy}"` : ""} aria-describedby="${describedBy}"
-      data-upload="${opts.name}" data-kind="${opts.kind}" data-max="${max}">
+      data-upload="${opts.name}" data-kind="${opts.kind}" data-max="${max}"${opts.setting ? html` data-setting="${opts.setting}"` : ""}>
     <p class="upload-status" id="${statusId}" aria-live="polite" data-upload-status="${opts.name}"></p>`;
 }
 

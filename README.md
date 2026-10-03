@@ -87,11 +87,16 @@ Event som har passerat flyttas automatiskt till *Tidigare evenemang* i kalendern
 ### Byta bild eller text på startsidan
 1. **Redigera texter → Startsidan**.
 2. Ändra texten eller välj en ny bild under *Bild överst* / *”Vilka är JFK?” – bild*.
-3. Klicka **Spara ändringar**, och sedan **Visa sidan** för att se resultatet.
+3. Titta i **förhandsvisningen** till höger – den visar sidan med dina ändringar medan du skriver
+   och hoppar automatiskt till den del av sidan du redigerar. Växla mellan **Dator** och **Mobil**.
+4. Ser det bra ut? Klicka **Spara ändringar**. Inget syns på webbplatsen innan du sparar.
+
+På en mobil eller liten skärm öppnar du förhandsvisningen med knappen **Visa förhandsvisning** nere till höger.
 
 ### Byta logotyp eller färger *(administratör)*
 1. **Utseende**.
-2. Klicka på en färgruta eller skriv en hexkod (t.ex. `#f1cc4d`). Förhandsvisningen till höger uppdateras direkt.
+2. Klicka på en färgruta eller skriv en hexkod (t.ex. `#f1cc4d`). Förhandsvisningen till höger visar den riktiga
+   webbplatsen med de nya färgerna direkt. Välj vilken sida du vill titta på i listan ovanför förhandsvisningen.
 3. Blir texten för svårläst visas en **kontrastvarning**. Lyssna på den – många läser på mobilen ute i solen.
 4. Välj typsnitt för rubriker: **Playfair Display** (standard) eller **Cormorant Garamond**.
 5. Ladda upp logotypen (helst kvadratisk SVG eller PNG med genomskinlig bakgrund).

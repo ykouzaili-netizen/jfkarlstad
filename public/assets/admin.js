@@ -234,10 +234,224 @@
     });
   });
 
+  /* ---------- Förhandsvisning bredvid redigeringen ----------
+     Formulärets osparade värden skickas till /admin/forhandsvisning och den riktiga sidan visas i en iframe.
+     Inget sparas. Färger och typsnitt på Utseende uppdateras direkt utan att sidan laddas om. */
+  var livePreview = (function () {
+    var pane = document.querySelector("[data-live-preview]");
+    if (!pane) return null;
+    var form = document.getElementById(pane.getAttribute("data-form"));
+    var frame = pane.querySelector("[data-lp-frame]");
+    var viewport = pane.querySelector("[data-lp-viewport]");
+    var loading = pane.querySelector("[data-lp-loading]");
+    var stateEl = pane.querySelector("[data-lp-state]");
+    var pageSelect = pane.querySelector("[data-lp-page]");
+    var openBtn = document.querySelector("[data-lp-open]");
+    var page = pane.getAttribute("data-page") || "/";
+    var device = "desktop";
+    var lastY = 0;
+    // På mobil visas förhandsvisningen i mobilläge från början
+    if (window.innerWidth < 700) {
+      device = "mobile";
+      pane.classList.add("is-mobile");
+      pane.querySelectorAll("[data-lp-device]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-lp-device") === "mobile")); });
+    }
+    var scrollTarget = null;
+    var themeVars = null;
+    var timer = null;
+    var blobUrls = {};
+
+    // Vilken del av sidan varje fält hör till – förhandsvisningen scrollar dit när du klickar i fältet.
+    var SECTIONS = [
+      [/^hero_/, ".hero"], [/^partners_lead$/, "#partner-titel"], [/^values?_/, "#varden-titel"],
+      [/^(intro_|stat_)/, "#intro-titel"], [/^paverka_(title|text)$/, ".cta-panel"],
+      [/^(footer_text|contact_email|contact_phone|address_|instagram_url|instagram_handle|org_number|site_name|site_short_name)$/, ".site-footer"],
+      [/^(hitract_url|logo)/, ".site-header"], [/^(governance|committees|inspector)/, "#sa-styrs-jfk"],
+      [/^(honors|rewards)/, "#utmarkelser"], [/^pedagog/, "#arets-pedagog"], [/^(collab|juro|elsa)/, "#samarbeten"],
+      [/^study_/, "#studera-pa-kau"], [/^reps_/, "#kursombud"], [/^(sport_|instagram_sport)/, "#jfk-idrott"],
+      [/^gallery_/, "#bildgalleri"], [/^(package|packages_note)/, "#paket"],
+      [/^(about_|member_|students_|companies_|paverka_lead|paverka_page|contact_lead)/, "main"],
+    ];
+
+    var post = document.createElement("form");
+    post.method = "post";
+    post.target = frame.name;
+    post.hidden = true;
+    post.setAttribute("accept-charset", "UTF-8");
+    document.body.appendChild(post);
+
+    function add(name, value) {
+      var i = document.createElement("input");
+      i.type = "hidden"; i.name = name; i.value = value;
+      post.appendChild(i);
+    }
+
+    function fileFor(key) {
+      var inputs = form.querySelectorAll("input[type=file]");
+      for (var i = 0; i < inputs.length; i++) {
+        var k = inputs[i].getAttribute("data-setting") || inputs[i].name;
+        if (k === key) return inputs[i].files && inputs[i].files[0];
+      }
+      return null;
+    }
+
+    function collect() {
+      post.textContent = "";
+      add("_csrf", pane.getAttribute("data-csrf"));
+      Array.prototype.forEach.call(form.elements, function (el) {
+        if (!el.name || el.disabled || el.name.charAt(0) === "_" || /__ta_bort$/.test(el.name)) return;
+        if (el.type === "file") {
+          var key = el.getAttribute("data-setting") || el.name;
+          var remove = form.elements[el.name + "__ta_bort"];
+          if (remove && remove.checked) add(key, "");
+          else if (el.files && el.files[0]) add(key, "__fh__" + key);
+          return;
+        }
+        if ((el.type === "checkbox" || el.type === "radio") && !el.checked) return;
+        if (el.type === "submit" || el.type === "button") return;
+        add(el.name, el.value);
+      });
+    }
+
+    function setState(text) { if (stateEl) stateEl.textContent = text; }
+
+    function refresh() {
+      clearTimeout(timer);
+      try { lastY = frame.contentWindow.scrollY || 0; } catch (e) { lastY = 0; }
+      collect();
+      post.action = "/admin/forhandsvisning?sida=" + encodeURIComponent(page);
+      setState("Uppdaterar …");
+      post.submit();
+    }
+    function refreshSoon(delay) { clearTimeout(timer); timer = setTimeout(refresh, delay || 500); }
+
+    function doc() { try { return frame.contentDocument; } catch (e) { return null; } }
+
+    function applyTheme(d) {
+      if (!themeVars || !d) return;
+      Object.keys(themeVars).forEach(function (k) { d.documentElement.style.setProperty(k, themeVars[k]); });
+    }
+
+    function swapImages(d) {
+      d.querySelectorAll("img").forEach(function (img) {
+        var m = /fh:([A-Za-z0-9_%.-]+?)--/.exec(img.getAttribute("src") || "");
+        if (!m) return;
+        var key = decodeURIComponent(m[1]);
+        var file = fileFor(key);
+        if (!file) return;
+        if (!blobUrls[key] || blobUrls[key].file !== file) {
+          if (blobUrls[key]) URL.revokeObjectURL(blobUrls[key].url);
+          blobUrls[key] = { file: file, url: URL.createObjectURL(file) };
+        }
+        img.src = blobUrls[key].url;
+      });
+    }
+
+    function sectionFor(name) {
+      for (var i = 0; i < SECTIONS.length; i++) if (SECTIONS[i][0].test(name)) return SECTIONS[i][1];
+      return null;
+    }
+
+    function scrollToField(name, smooth) {
+      var d = doc();
+      var sel = sectionFor(name);
+      if (!d || !sel) return;
+      var win = frame.contentWindow;
+      if (sel === "main") { win.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" }); return; }
+      var el = d.querySelector(sel);
+      if (!el) return;
+      var target = el.closest("section, header, footer") || el;
+      var top = target.getBoundingClientRect().top + win.scrollY - (sel === ".site-header" ? 0 : 90);
+      win.scrollTo({ top: Math.max(0, top), behavior: smooth ? "smooth" : "auto" });
+      target.classList.remove("fh-flash");
+      void target.offsetWidth;
+      target.classList.add("fh-flash");
+    }
+
+    frame.addEventListener("load", function () {
+      var d = doc();
+      if (!d || !d.body) return;
+      loading.hidden = true;
+      setState("");
+      swapImages(d);
+      applyTheme(d);
+      if (scrollTarget) { scrollToField(scrollTarget, false); scrollTarget = null; }
+      else frame.contentWindow.scrollTo(0, lastY);
+    });
+
+    function layout() {
+      var W = viewport.clientWidth, H = viewport.clientHeight;
+      if (!W || !H) return;
+      var dw = device === "mobile" ? 390 : 1280;
+      var scale = Math.min(1, W / dw);
+      frame.style.width = dw + "px";
+      frame.style.height = Math.round(H / scale) + "px";
+      frame.style.transform = "scale(" + scale + ")";
+      frame.style.left = Math.max(0, Math.round((W - dw * scale) / 2)) + "px";
+    }
+    if (window.ResizeObserver) new ResizeObserver(layout).observe(viewport);
+    window.addEventListener("resize", layout);
+
+    pane.querySelectorAll("[data-lp-device]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        device = btn.getAttribute("data-lp-device");
+        pane.querySelectorAll("[data-lp-device]").forEach(function (b) { b.setAttribute("aria-pressed", String(b === btn)); });
+        pane.classList.toggle("is-mobile", device === "mobile");
+        layout();
+      });
+    });
+
+    if (pageSelect) {
+      pageSelect.addEventListener("change", function () {
+        page = pageSelect.value;
+        lastY = 0;
+        frame.title = "Förhandsvisning av " + pageSelect.options[pageSelect.selectedIndex].text;
+        refresh();
+      });
+    }
+
+    // Uppdatera när något ändras. Färger och typsnitt sköts direkt av Utseende-koden nedan.
+    function isThemeField(t) { return t.hasAttribute("data-color") || t.hasAttribute("data-color-hex") || t.name === "font_heading"; }
+    form.addEventListener("input", function (e) {
+      if (isThemeField(e.target) || e.target.type === "file") return;
+      refreshSoon(e.target.tagName === "TEXTAREA" ? 700 : 450);
+    });
+    form.addEventListener("change", function (e) {
+      if (isThemeField(e.target)) return;
+      if (e.target.type === "file" || /__ta_bort$/.test(e.target.name)) {
+        scrollTarget = e.target.getAttribute("data-setting") || e.target.name.replace(/__ta_bort$/, "");
+        refreshSoon(150);
+      }
+    });
+    form.addEventListener("focusin", function (e) {
+      var name = e.target.getAttribute("data-setting") || e.target.name;
+      if (name && !isThemeField(e.target)) scrollToField(name, true);
+    });
+
+    // Mobil/smal skärm: förhandsvisningen öppnas som ett eget lager
+    function setOpen(open) {
+      pane.classList.toggle("is-open", open);
+      document.documentElement.classList.toggle("lp-locked", open);
+      if (openBtn) openBtn.setAttribute("aria-expanded", String(open));
+      if (open) { layout(); pane.querySelector("[data-lp-close]").focus(); }
+      else if (openBtn) openBtn.focus();
+    }
+    if (openBtn) openBtn.addEventListener("click", function () { setOpen(true); });
+    pane.querySelector("[data-lp-close]").addEventListener("click", function () { setOpen(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && pane.classList.contains("is-open")) setOpen(false); });
+
+    layout();
+    refresh();
+
+    return {
+      setTheme: function (vars) { themeVars = vars; applyTheme(doc()); },
+      refresh: refresh,
+    };
+  })();
+
   /* ---------- Utseende: live-förhandsvisning och kontrastkontroll ---------- */
   var editor = document.querySelector("[data-theme-editor]");
   if (!editor) return;
-  var preview = document.querySelector("[data-preview-root]");
   var contrastBox = document.querySelector("[data-contrast]");
   var HEX = /^#[0-9a-f]{6}$/i;
 
@@ -263,16 +477,18 @@
       bg: val("color_background"), surface: val("color_surface"), text: val("color_text"),
       primary: val("color_primary"), accent: val("color_accent"), button: val("color_button"),
     };
-    var set = function (k, v) { preview.style.setProperty(k, v); };
-    set("--p-bg", c.bg); set("--p-surface", c.surface); set("--p-text", c.text);
-    set("--p-primary", c.primary); set("--p-on-primary", on(c.primary));
-    set("--p-accent", c.accent); set("--p-on-accent", on(c.accent));
-    set("--p-button", c.button); set("--p-on-button", on(c.button));
+    var vars = {
+      "--c-bg": c.bg, "--c-surface": c.surface, "--c-text": c.text,
+      "--c-primary": c.primary, "--c-on-primary": on(c.primary),
+      "--c-accent": c.accent, "--c-on-accent": on(c.accent),
+      "--c-button": c.button, "--c-on-button": on(c.button),
+    };
     var font = editor.querySelector("input[name=font_heading]:checked");
     if (font) {
-      set("--p-font", font.getAttribute("data-font"));
-      set("--p-scale", font.getAttribute("data-font-scale"));
+      vars["--font-display"] = font.getAttribute("data-font");
+      vars["--display-scale"] = font.getAttribute("data-font-scale");
     }
+    if (livePreview) livePreview.setTheme(vars);
 
     var checks = [
       [ratio(c.text, c.bg), 4.5, "Text på bakgrunden"],

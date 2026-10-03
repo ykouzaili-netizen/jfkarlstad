@@ -110,7 +110,7 @@ async function formBlock(c: RequestContext, id: FormId, values: Values = {}, err
 
 export async function contactPage(c: RequestContext, values?: Values, errors?: Errors, topError?: string, status = 200): Promise<Response> {
   const db = c.env.DB;
-  const [s, board] = await Promise.all([loadSettings(db), rows<BoardRow>(boardQuery.all(db))]);
+  const [s, board] = await Promise.all([loadSettings(db, c.preview), rows<BoardRow>(boardQuery.all(db))]);
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${s.address_street}, ${s.address_city}`)}`;
   const content = html`
     ${pageHeader({ kicker: "Kontakt", title: "Hör av dig till oss", lead: s.contact_lead })}
@@ -147,7 +147,7 @@ export async function contactPage(c: RequestContext, values?: Values, errors?: E
 
 export async function companiesPage(c: RequestContext, values?: Values, errors?: Errors, topError?: string, status = 200): Promise<Response> {
   const db = c.env.DB;
-  const [s, partners] = await Promise.all([loadSettings(db), rows<PartnerRow>(partnerQuery.all(db))]);
+  const [s, partners] = await Promise.all([loadSettings(db, c.preview), rows<PartnerRow>(partnerQuery.all(db))]);
   const packages = [1, 2, 3]
     .map((n) => ({ name: s[`package_${n}_name` as "package_1_name"], text: s[`package_${n}_text` as "package_1_text"] }))
     .filter((p) => p.name);
@@ -208,7 +208,7 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
 }
 
 export async function paverkaPage(c: RequestContext, values?: Values, errors?: Errors, topError?: string, status = 200): Promise<Response> {
-  const s = await loadSettings(c.env.DB);
+  const s = await loadSettings(c.env.DB, c.preview);
   const content = html`
     ${pageHeader({ kicker: "JF Påverka", title: "Gör din röst hörd", lead: s.paverka_lead })}
     <section class="section section-tight-top">
@@ -338,7 +338,7 @@ async function notifyBoard(
 
 export function thanksPage(id: FormId) {
   return async (c: RequestContext): Promise<Response> => {
-    const s: Settings = await loadSettings(c.env.DB);
+    const s: Settings = await loadSettings(c.env.DB, c.preview);
     const text: Record<FormId, { title: string; body: string }> = {
       kontakt: { title: "Tack för ditt meddelande!", body: "Vi har tagit emot det och återkommer så snart vi kan, oftast inom några dagar." },
       foretag: { title: "Tack för ert intresse!", body: "Vår arbetsmarknadsansvariga hör av sig inom några dagar för att prata vidare om ett samarbete." },

@@ -323,7 +323,11 @@ export function headingFont(s: Settings): HeadingFont {
   return s.font_heading === "cormorant" ? "cormorant" : "playfair";
 }
 
-export async function loadSettings(db: D1Database): Promise<Settings> {
+/**
+ * Läs alla inställningar. `override` används av adminpanelens förhandsvisning för att visa
+ * osparade ändringar – den skrivs aldrig till databasen.
+ */
+export async function loadSettings(db: D1Database, override?: Partial<Settings>): Promise<Settings> {
   const settings: Settings = { ...DEFAULT_SETTINGS };
   try {
     const { results } = await db.prepare("SELECT key, value FROM settings").all<{ key: string; value: string }>();
@@ -333,6 +337,11 @@ export async function loadSettings(db: D1Database): Promise<Settings> {
   } catch (err) {
     // Databasen ska aldrig kunna fälla hela sajten – standardvärden räcker för att rendera.
     console.error("Kunde inte läsa inställningar", err);
+  }
+  if (override) {
+    for (const [k, v] of Object.entries(override)) {
+      if (k in settings && typeof v === "string") settings[k as SettingKey] = v;
+    }
   }
   return settings;
 }

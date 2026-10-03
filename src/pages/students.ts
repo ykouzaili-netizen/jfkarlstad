@@ -10,7 +10,7 @@ import { pageHeader } from "../views/page.js";
 
 export async function studentsPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, [repRes, galRes]] = await Promise.all([loadSettings(db), db.batch([repQuery.all(db), galleryQuery.all(db)])]);
+  const [s, [repRes, galRes]] = await Promise.all([loadSettings(db, c.preview), db.batch([repQuery.all(db), galleryQuery.all(db)])]);
   const reps = repRes!.results as unknown as CourseRepRow[];
   const gallery = galRes!.results as unknown as GalleryRow[];
 

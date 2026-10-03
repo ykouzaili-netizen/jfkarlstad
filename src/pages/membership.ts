@@ -9,7 +9,7 @@ import { checkList, faqList, pageHeader } from "../views/page.js";
 
 export async function membershipPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, faq] = await Promise.all([loadSettings(db), rows<FaqRow>(faqQuery.byCategory(db, "Medlemskap"))]);
+  const [s, faq] = await Promise.all([loadSettings(db, c.preview), rows<FaqRow>(faqQuery.byCategory(db, "Medlemskap"))]);
 
   const steps = [
     { title: "Klicka på ”Bli medlem”", text: "Du kommer till JFK:s sida hos Hitract, där medlemskapet hanteras." },

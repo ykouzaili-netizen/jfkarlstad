@@ -17,7 +17,7 @@ interface Purpose {
 const PRIVACY_UPDATED = "3 oktober 2026";
 
 export async function privacyPage(c: RequestContext): Promise<Response> {
-  const s = await loadSettings(c.env.DB);
+  const s = await loadSettings(c.env.DB, c.preview);
   const mail = html`<a href="mailto:${s.contact_email}">${s.contact_email}</a>`;
 
   const purposes: Purpose[] = [
@@ -151,7 +151,7 @@ export async function privacyPage(c: RequestContext): Promise<Response> {
 }
 
 export async function cookiesPage(c: RequestContext): Promise<Response> {
-  const s = await loadSettings(c.env.DB);
+  const s = await loadSettings(c.env.DB, c.preview);
   const content = html`
     ${pageHeader({ kicker: "Integritet", title: "Cookie-inställningar", lead: "Den här webbplatsen använder inga kakor för spårning, statistik eller reklam. Därför behöver du inte godkänna något, och vi visar ingen cookie-banner." })}
     <section class="section section-tight-top">

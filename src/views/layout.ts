@@ -7,7 +7,7 @@ import { icon } from "./icons.js";
 import { NAV, isActive } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "6";
+export const ASSET_VERSION = "7";
 
 export interface PageMeta {
   title: string;
@@ -20,8 +20,16 @@ export interface PageMeta {
   jsonLd?: object[];
 }
 
+/** Prefix för bilder som valts i adminpanelen men inte sparats ännu (bara i förhandsvisningen). */
+export const PREVIEW_IMAGE_PREFIX = "__fh__";
+
 export function mediaUrl(key: string | null | undefined): string | null {
-  return key ? `/media/${encodeURI(key)}` : null;
+  if (!key) return null;
+  if (key.startsWith(PREVIEW_IMAGE_PREFIX)) {
+    // Genomskinlig platshållare som adminpanelens skript byter mot den valda bilden.
+    return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10'%3E%3C!--fh:${encodeURIComponent(key.slice(PREVIEW_IMAGE_PREFIX.length))}--%3E%3C/svg%3E`;
+  }
+  return `/media/${encodeURI(key)}`;
 }
 
 /** "Bli medlem"-knappen. Länkar alltid till Hitract i ny flik. */
@@ -171,7 +179,7 @@ ${meta.noindex ? raw('<meta name="robots" content="noindex, nofollow">') : ""}
 <script src="/assets/site.js?v=${ASSET_VERSION}" defer></script>
 ${ld}
 </head>
-<body>
+<body${c.preview ? raw(' class="is-preview"') : ""}>
 <a class="skip-link" href="#innehall">Hoppa till innehållet</a>
 ${header(c, s)}
 <main id="innehall" tabindex="-1">

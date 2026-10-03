@@ -11,7 +11,7 @@ import { htmlResponse } from "../lib/http.js";
 export async function homePage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const [s, [eventsRes, newsRes, partnersRes]] = await Promise.all([
-    loadSettings(db),
+    loadSettings(db, c.preview),
     db.batch([eventQuery.upcoming(db, stockholmNow(), 3), newsQuery.latest(db, 3), partnerQuery.all(db)]),
   ]);
   const events = eventsRes!.results as unknown as EventRow[];

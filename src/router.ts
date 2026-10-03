@@ -1,4 +1,5 @@
 import type { Env } from "./env.js";
+import type { Settings } from "./lib/settings.js";
 
 export interface RequestContext {
   req: Request;
@@ -8,6 +9,8 @@ export interface RequestContext {
   params: Record<string, string>;
   /** CSP-nonce för inline <style>/<script> i denna förfrågan. */
   nonce: string;
+  /** Satt bara när adminpanelen förhandsvisar osparade ändringar. */
+  preview?: Partial<Settings>;
 }
 
 export type Handler = (c: RequestContext) => Promise<Response> | Response;

@@ -10,7 +10,7 @@ import { avatar, pageHeader, personCard } from "../views/page.js";
 export async function aboutPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const [s, [boardRes, honorRes, partnerRes]] = await Promise.all([
-    loadSettings(db),
+    loadSettings(db, c.preview),
     db.batch([boardQuery.all(db), honorQuery.all(db), partnerQuery.all(db)]),
   ]);
   const board = boardRes!.results as unknown as BoardRow[];

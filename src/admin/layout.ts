@@ -34,7 +34,7 @@ export interface NavEntry {
 export async function adminLayout(
   c: RequestContext,
   session: Session | null,
-  opts: { title: string; active?: string; newCount?: number; narrow?: boolean },
+  opts: { title: string; active?: string; newCount?: number; narrow?: boolean; wide?: boolean },
   content: SafeHtml,
   status = 200,
 ): Promise<Response> {
@@ -121,7 +121,7 @@ ${session
   : ""}
 <div class="admin-shell">
   ${nav}
-  <main class="admin-main${opts.narrow ? " admin-main-narrow" : ""}" id="admin-innehall" tabindex="-1">
+  <main class="admin-main${opts.narrow ? " admin-main-narrow" : ""}${opts.wide ? " admin-main-wide" : ""}" id="admin-innehall" tabindex="-1">
     ${flash ? html`<div class="alert alert-${flash.kind}" role="status" data-flash>${flash.text}</div>` : ""}
     ${content}
   </main>

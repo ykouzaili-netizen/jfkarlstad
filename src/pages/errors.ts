@@ -6,7 +6,7 @@ import { layout } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 
 export async function notFoundPage(c: RequestContext): Promise<Response> {
-  const s = await loadSettings(c.env.DB);
+  const s = await loadSettings(c.env.DB, c.preview);
   const content = html`<section class="section error-page">
     <div class="container narrow">
       <p class="error-code" aria-hidden="true">404</p>

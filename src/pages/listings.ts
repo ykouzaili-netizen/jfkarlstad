@@ -31,7 +31,7 @@ const site = (c: RequestContext) => c.env.SITE_URL.replace(/\/$/, "");
 
 export async function partnersPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, partners] = await Promise.all([loadSettings(db), rows<PartnerRow>(partnerQuery.all(db))]);
+  const [s, partners] = await Promise.all([loadSettings(db, c.preview), rows<PartnerRow>(partnerQuery.all(db))]);
   const main = partners.filter((p) => p.tier === "huvud");
   const others = partners.filter((p) => p.tier !== "huvud");
   const card = (p: PartnerRow) => html`<li class="partner-card">
@@ -58,7 +58,7 @@ export async function partnersPage(c: RequestContext): Promise<Response> {
 
 export async function partnerDetailPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, p] = await Promise.all([loadSettings(db), partnerQuery.bySlug(db, c.params.slug ?? "").first<PartnerRow>()]);
+  const [s, p] = await Promise.all([loadSettings(db, c.preview), partnerQuery.bySlug(db, c.params.slug ?? "").first<PartnerRow>()]);
   if (!p) return notFoundPage(c);
   const content = html`
     <section class="page-hero">
@@ -98,7 +98,7 @@ export async function newsListPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const page = Math.max(1, parseInt(c.url.searchParams.get("sida") ?? "1", 10) || 1);
   const [s, [listRes, countRes]] = await Promise.all([
-    loadSettings(db),
+    loadSettings(db, c.preview),
     db.batch([newsQuery.latest(db, NEWS_PER_PAGE, (page - 1) * NEWS_PER_PAGE), newsQuery.count(db)]),
   ]);
   const news = listRes!.results as unknown as NewsRow[];
@@ -125,7 +125,7 @@ export async function newsListPage(c: RequestContext): Promise<Response> {
 
 export async function newsArticlePage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, n] = await Promise.all([loadSettings(db), newsQuery.bySlug(db, c.params.slug ?? "").first<NewsRow>()]);
+  const [s, n] = await Promise.all([loadSettings(db, c.preview), newsQuery.bySlug(db, c.params.slug ?? "").first<NewsRow>()]);
   if (!n) return notFoundPage(c);
   const img = mediaUrl(n.image_key);
   const description = truncate(n.excerpt || plainText(n.body), 155);
@@ -165,7 +165,7 @@ export async function newsArticlePage(c: RequestContext): Promise<Response> {
 export async function calendarPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const now = stockholmNow();
-  const [s, [upRes, pastRes]] = await Promise.all([loadSettings(db), db.batch([eventQuery.upcoming(db, now, 100), eventQuery.past(db, now, 12)])]);
+  const [s, [upRes, pastRes]] = await Promise.all([loadSettings(db, c.preview), db.batch([eventQuery.upcoming(db, now, 100), eventQuery.past(db, now, 12)])]);
   const upcoming = upRes!.results as unknown as EventRow[];
   const past = pastRes!.results as unknown as EventRow[];
 
@@ -234,7 +234,7 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const slug = c.params.slug ?? "";
   if (slug.endsWith(".ics")) return icsHandler(c, slug.slice(0, -4));
-  const [s, e] = await Promise.all([loadSettings(db), eventQuery.bySlug(db, slug).first<EventRow>()]);
+  const [s, e] = await Promise.all([loadSettings(db, c.preview), eventQuery.bySlug(db, slug).first<EventRow>()]);
   if (!e) return notFoundPage(c);
   const d = eventDate(e.starts_at, e.ends_at);
   const isPast = (e.ends_at ?? e.starts_at.slice(0, 10) + "T23:59") < stockholmNow();
@@ -333,7 +333,7 @@ export async function documentsPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const q = (c.url.searchParams.get("q") ?? "").trim().slice(0, 100);
   const cat = c.url.searchParams.get("kategori") ?? "";
-  const [s, docs] = await Promise.all([loadSettings(db), rows<DocumentRow>(documentQuery.all(db))]);
+  const [s, docs] = await Promise.all([loadSettings(db, c.preview), rows<DocumentRow>(documentQuery.all(db))]);
   const norm = (t: string) => t.toLowerCase();
   const filtered = docs.filter(
     (d) => (!cat || d.category === cat) && (!q || norm(`${d.title} ${DOCUMENT_CATEGORIES[d.category]} ${d.year}`).includes(norm(q))),
@@ -413,7 +413,7 @@ export async function documentFileHandler(c: RequestContext): Promise<Response> 
 
 export async function faqPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, items] = await Promise.all([loadSettings(db), rows<FaqRow>(faqQuery.all(db))]);
+  const [s, items] = await Promise.all([loadSettings(db, c.preview), rows<FaqRow>(faqQuery.all(db))]);
   const groups = new Map<string, FaqRow[]>();
   for (const f of items) {
     if (!groups.has(f.category)) groups.set(f.category, []);
