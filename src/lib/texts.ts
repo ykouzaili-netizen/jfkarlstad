@@ -458,6 +458,7 @@ export const PAGES = [
       text("cal_month_empty", "Text när månaden är tom", "Inga evenemang den här månaden.", small),
       text("cal_next_event", "Länk till nästa evenemang", "Nästa evenemang: {namn}, {datum}", { ...small, help: "{namn} och {datum} byts ut automatiskt." }),
       text("cal_legend_open", "Förklaring: öppna evenemang", "Öppet för alla", small),
+      text("cal_pop_more", "Rutan vid evenemang: länk till sidan", "Läs mer", small),
       text("cal_agenda_title", "Rubrik för listan under kalendern (mobil)", "Händelser i {månad}", { ...small, help: "{månad} byts ut mot månaden." }),
     ], "Kalendern visar en månad i taget. Besökare bläddrar med pilarna."),
     sec("prenumerera", "Prenumerera på kalendern", [

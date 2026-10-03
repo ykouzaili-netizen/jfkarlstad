@@ -164,6 +164,59 @@
   openFromHash();
   window.addEventListener("hashchange", openFromHash);
 
+  /* ---------- Kalendern: ruta med detaljer när man pekar på ett evenemang ----------
+     Bara för mus/styrplatta. Utan JS (eller på pekskärm) är evenemanget en vanlig länk till sin sida. */
+  var calGrid = document.querySelector(".cal-grid");
+  var canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  if (calGrid && canHover && !document.body.classList.contains("is-preview")) {
+    var pop = document.createElement("div");
+    pop.className = "cal-pop";
+    pop.hidden = true;
+    document.body.appendChild(pop);
+    var current = null, hideTimer = null, showTimer = null;
+
+    var place = function (chip) {
+      var r = chip.getBoundingClientRect();
+      var w = pop.offsetWidth, h = pop.offsetHeight;
+      var vw = document.documentElement.clientWidth, vh = window.innerHeight;
+      var left = Math.min(Math.max(12, r.left), vw - w - 12);
+      var top = r.bottom + 8;
+      pop.classList.toggle("is-above", top + h > vh - 12 && r.top - h - 8 > 12);
+      if (pop.classList.contains("is-above")) top = r.top - h - 8;
+      pop.style.left = (left + window.scrollX) + "px";
+      pop.style.top = (top + window.scrollY) + "px";
+    };
+    var show = function (chip) {
+      clearTimeout(hideTimer);
+      if (current === chip && !pop.hidden) return;
+      var src = document.getElementById(chip.getAttribute("data-pop"));
+      if (!src) return;
+      pop.innerHTML = src.innerHTML;
+      pop.querySelectorAll("[id]").forEach(function (el) { el.removeAttribute("id"); });
+      pop.classList.toggle("is-members", chip.classList.contains("is-members"));
+      pop.hidden = false;
+      current = chip;
+      place(chip);
+    };
+    var hide = function () { pop.hidden = true; current = null; };
+    var hideSoon = function () { clearTimeout(showTimer); clearTimeout(hideTimer); hideTimer = setTimeout(hide, 180); };
+
+    calGrid.addEventListener("mouseover", function (e) {
+      var chip = e.target.closest && e.target.closest("[data-pop]");
+      if (!chip) return;
+      clearTimeout(hideTimer);
+      clearTimeout(showTimer);
+      showTimer = setTimeout(function () { show(chip); }, pop.hidden ? 120 : 0);
+    });
+    calGrid.addEventListener("mouseout", function (e) {
+      if (e.target.closest && e.target.closest("[data-pop]")) hideSoon();
+    });
+    pop.addEventListener("mouseenter", function () { clearTimeout(hideTimer); });
+    pop.addEventListener("mouseleave", hideSoon);
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !pop.hidden) hide(); });
+    window.addEventListener("resize", hide);
+  }
+
   /* ---------- Skugga under sidhuvudet vid scroll ---------- */
   var header = document.querySelector("[data-header]");
   if (header) {
