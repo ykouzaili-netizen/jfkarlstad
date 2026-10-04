@@ -1877,31 +1877,29 @@ a.cal-num:hover { background: var(--c-hover); }
 .section-nav ul {
   list-style: none;
   display: flex;
-  gap: 4px;
+  gap: clamp(20px, 2.6vw, 34px);
   overflow-x: auto;
   scrollbar-width: none;
-  padding-block: 10px;
 }
 .section-nav ul::-webkit-scrollbar { display: none; }
 .section-nav a {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 8px 16px;
-  border-radius: 999px;
+  min-height: 56px;
+  padding: 4px 0 0;
+  border-bottom: 3px solid transparent;
   font-size: 0.9375rem;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
-  color: color-mix(in srgb, var(--c-on-primary) 78%, transparent);
-  transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+  color: color-mix(in srgb, var(--c-on-primary) 68%, transparent);
+  transition: color 0.15s var(--ease), border-color 0.15s var(--ease);
 }
-.section-nav a:hover { color: var(--c-on-primary); background: color-mix(in srgb, var(--c-on-primary) 12%, transparent); }
-.section-nav a.is-active, .section-nav a[aria-current="true"] { background: var(--c-accent); color: var(--c-on-accent); }
+.section-nav a:hover { color: var(--c-on-primary); border-bottom-color: color-mix(in srgb, var(--c-on-primary) 35%, transparent); }
+.section-nav a.is-active, .section-nav a[aria-current="true"] { color: var(--c-on-primary); border-bottom-color: var(--c-accent); }
 .section-nav .sn-icon { display: none; line-height: 0; }
-.section-nav :focus-visible { outline-color: var(--c-accent); }
-html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 76px); }
+.section-nav :focus-visible { outline-color: var(--c-accent); outline-offset: -3px; }
+html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 
 /* ---------- Om oss ---------- */
 .about-hero { padding-block: clamp(40px, 6vw, 80px) clamp(40px, 5vw, 72px); }

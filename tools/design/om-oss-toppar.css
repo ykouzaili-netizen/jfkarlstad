@@ -1,0 +1,63 @@
+/* ===== Nya toppar ===== */
+.about-hero { position: relative; }
+
+/* T4 · Helbild – ett foto över hela bredden, rubriken i vitt ovanpå, två små bilder i hörnet */
+.hv-4 .about-hero { padding: 0; min-height: min(80vh, 760px); display: flex; align-items: flex-end; color: #fff; isolation: isolate; overflow: hidden; }
+.hv-4 .about-hero-grid { display: block; width: 100%; padding-block: 140px clamp(48px, 7vw, 96px); }
+.hv-4 .about-hero-copy { max-width: 760px; }
+.hv-4 .collage { position: absolute; inset: 0; display: block; z-index: -1; aspect-ratio: auto; }
+.hv-4 .collage-tile { border-radius: 0; }
+.hv-4 .collage-tile-1 { position: absolute; inset: 0; }
+.hv-4 .collage-tile-1::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgb(0 0 0 / .82), rgb(0 0 0 / .2) 65%, rgb(0 0 0 / .35)); }
+.hv-4 .collage-tile-2, .hv-4 .collage-tile-3 { display: none; }
+.hv-4 .page-title { color: #fff; font-size: calc(clamp(2.75rem, 1.6rem + 4vw, 5.5rem) * var(--display-scale)); }
+.hv-4 .page-lead { color: rgb(255 255 255 / .9); }
+.hv-4 .btn-outline { color: #fff; border-color: rgb(255 255 255 / .75); }
+
+/* T5 · Delad yta – gul halva med texten, foto som fyller andra halvan */
+.hv-5 .about-hero { padding: 0; background: var(--c-accent); color: var(--c-on-accent); }
+.hv-5 .about-hero-grid { max-width: none; padding: 0; gap: 0; align-items: stretch; }
+@media (min-width: 920px) { .hv-5 .about-hero-grid { grid-template-columns: 1fr 1fr !important; min-height: 640px; } }
+.hv-5 .about-hero-copy { align-self: center; padding: clamp(48px, 6vw, 96px) clamp(32px, 5vw, 80px); padding-left: max(var(--gutter), calc((100vw - 1200px) / 2)); }
+.hv-5 .page-kicker::before { background: var(--c-on-accent); }
+.hv-5 .page-lead { color: var(--c-on-accent); opacity: .85; }
+.hv-5 .btn-primary { background: var(--c-primary); color: var(--c-on-primary); border-color: var(--c-primary); box-shadow: none; }
+.hv-5 .btn-outline { color: var(--c-on-accent); border-color: var(--c-on-accent); }
+.hv-5 .collage { aspect-ratio: auto; min-height: 420px; gap: 0; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 200px; }
+.hv-5 .collage-tile { border-radius: 0; }
+.hv-5 .collage-tile-1 { grid-column: 1 / 3; grid-row: 1; }
+
+/* T6 · Stor typografi – jätterubrik över hela bredden och bilder i rundade "piller" */
+.hv-6 .about-hero-grid { grid-template-columns: 1fr !important; gap: clamp(32px, 4vw, 56px); }
+.hv-6 .page-title { font-size: calc(clamp(3rem, 1rem + 6.4vw, 7.5rem) * var(--display-scale)); line-height: .95; letter-spacing: -.035em; max-width: 13ch; }
+@media (min-width: 920px) {
+  .hv-6 .about-hero-copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 48px; align-items: end; }
+  .hv-6 .page-kicker, .hv-6 .page-title { grid-column: 1 / -1; }
+  .hv-6 .page-actions { margin-top: 0; }
+}
+.hv-6 .collage { aspect-ratio: auto; height: clamp(180px, 22vw, 280px); grid-template-columns: 2.2fr 1fr 1.6fr; grid-template-rows: 1fr; gap: clamp(10px, 1.4vw, 18px); }
+.hv-6 .collage-tile { border-radius: 999px; grid-row: 1; }
+.hv-6 .collage-tile-1 { grid-column: 1; }
+.hv-6 .collage-tile-2 { grid-column: 2; }
+.hv-6 .collage-tile-3 { grid-column: 3; }
+
+/* T7 · Mosaik – mörk bakgrund, bildmosaik överst och en gul textruta som lägger sig över */
+.hv-7 .about-hero { background: var(--c-primary); color: var(--c-on-primary); padding-top: 0; }
+.hv-7 .about-hero-grid { grid-template-columns: 1fr !important; gap: 0; max-width: none; padding: 0; }
+.hv-7 .collage { order: -1; aspect-ratio: auto; height: clamp(320px, 42vw, 520px); grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; gap: 6px; }
+.hv-7 .collage-tile { border-radius: 0; }
+.hv-7 .collage-tile-1 { grid-row: 1 / 3; }
+.hv-7 .about-hero-copy { position: relative; z-index: 1; width: min(720px, calc(100% - var(--gutter) * 2)); margin: -160px 0 0 max(var(--gutter), calc((100vw - 1200px) / 2)); padding: clamp(28px, 4vw, 52px); background: var(--c-accent); color: var(--c-on-accent); border-radius: var(--radius-lg); }
+.hv-7 .page-kicker::before { background: var(--c-on-accent); }
+.hv-7 .page-lead { color: var(--c-on-accent); opacity: .85; }
+.hv-7 .btn-primary { background: var(--c-primary); color: var(--c-on-primary); border-color: var(--c-primary); box-shadow: none; }
+.hv-7 .btn-outline { color: var(--c-on-accent); border-color: var(--c-on-accent); }
+
+/* T8 · Valv – tre välvda bildfönster som pelarna i en rättssal */
+.hv-8 .about-hero { background: var(--c-surface); border-bottom: 1px solid var(--c-border); }
+.hv-8 .collage { aspect-ratio: auto; height: clamp(320px, 38vw, 500px); grid-template-columns: 1fr 1.25fr 1fr; grid-template-rows: 1fr; align-items: end; gap: clamp(10px, 1.4vw, 18px); }
+.hv-8 .collage-tile { border-radius: 999px 999px 6px 6px; grid-row: 1; }
+.hv-8 .collage-tile-2 { grid-column: 1; height: 78%; }
+.hv-8 .collage-tile-1 { grid-column: 2; height: 100%; }
+.hv-8 .collage-tile-3 { grid-column: 3; height: 66%; }
+.hv-8 .collage-tile-1 { box-shadow: 0 0 0 8px var(--c-surface), 0 0 0 10px var(--c-accent); }
