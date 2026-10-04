@@ -118,7 +118,8 @@ async function importOldList(db: D1Database): Promise<void> {
             const [name, ...rest] = l.split("|");
             const n = (name ?? "").trim();
             const d = DEFAULTS.find((x) => x.name === n);
-            return { name: n, summary: rest.join("|").trim(), body: d?.body ?? "", commitment: d?.commitment ?? "" };
+            // Rader utan beskrivning (bara namnet) får standardtexten om namnet känns igen.
+            return { name: n, summary: rest.join("|").trim() || d?.summary || "", body: d?.body ?? "", commitment: d?.commitment ?? "" };
           })
           .filter((r) => r.name)
       : DEFAULTS;
