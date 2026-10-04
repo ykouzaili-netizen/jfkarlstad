@@ -1198,6 +1198,20 @@ main:focus { outline: none; }
   background: var(--c-surface);
   border: 1px solid var(--c-border);
 }
+.person-photo { flex: none; width: 88px; height: 88px; border-radius: 50%; overflow: hidden; }
+.person-img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.person-initials {
+  display: grid; place-items: center;
+  width: 100%; height: 100%;
+  background: var(--c-accent);
+  color: var(--c-on-accent);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.75rem;
+  font-variant-numeric: lining-nums;
+}
+.person-card:nth-child(3n + 2) .person-initials { background: var(--c-primary); color: var(--c-on-primary); }
+.person-card:nth-child(3n) .person-initials { background: var(--c-bg); color: var(--c-text); box-shadow: inset 0 0 0 1px var(--c-border); }
 .avatar { border-radius: 50%; object-fit: cover; flex: none; }
 .avatar-lg { width: 88px; height: 88px; }
 .avatar-md { width: 64px; height: 64px; }

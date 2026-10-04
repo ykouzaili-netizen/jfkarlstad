@@ -41,9 +41,14 @@ export function avatar(name: string, photoKey: string | null, size: "md" | "lg" 
     : html`<span class="avatar avatar-${size} avatar-initials" aria-hidden="true">${initials(name)}</span>`;
 }
 
+/** Porträttkort för styrelsen. Utan foto visas initialerna. */
 export function personCard(s: Settings, p: BoardRow): SafeHtml {
-  return html`<li class="person-card"${ec(s, `/admin/styrelsen/${p.id}`, `Styrelsen › ${p.name}`)}>
-    ${avatar(p.name, p.photo_key)}
+  return html`<li class="person-card${p.photo_key ? " has-photo" : ""}"${ec(s, `/admin/styrelsen/${p.id}`, `Styrelsen › ${p.name}`)}>
+    <div class="person-photo">
+      ${p.photo_key
+        ? picture(p.photo_key, { alt: "", sizes: "(min-width: 1000px) 280px, (min-width: 600px) 33vw, 50vw", className: "person-img", width: 600, height: 750 })
+        : html`<span class="person-initials" aria-hidden="true">${initials(p.name)}</span>`}
+    </div>
     <div class="person-body">
       <h3 class="person-name">${p.name}</h3>
       <p class="person-role">${p.role}</p>
