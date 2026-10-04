@@ -281,11 +281,14 @@
       return Math.max(w, Math.floor(track.clientWidth / w) * w);
     }
     function atEnd() { return track.scrollLeft + track.clientWidth >= track.scrollWidth - 4; }
-    function update() {
-      if (prev) prev.disabled = track.scrollLeft <= 4;
-      if (next) next.disabled = atEnd();
+    // Bildspelet har inget slut: efter sista bilden kommer den första igen (och tvärtom).
+    function update() {}
+    function atStart() { return track.scrollLeft <= 4; }
+    function go(dir) {
+      if (dir > 0 && atEnd()) track.scrollTo({ left: 0, behavior: "smooth" });
+      else if (dir < 0 && atStart()) track.scrollTo({ left: track.scrollWidth, behavior: "smooth" });
+      else track.scrollBy({ left: dir * step(), behavior: "smooth" });
     }
-    function go(dir) { track.scrollBy({ left: dir * step(), behavior: "smooth" }); }
 
     if (prev) prev.addEventListener("click", function () { stop(); go(-1); });
     if (next) next.addEventListener("click", function () { stop(); go(1); });
@@ -327,6 +330,28 @@
     var seconds = Number(root.getAttribute("data-seconds")) || 5;
     root.style.setProperty("--insta-duration", Math.max(12, half * seconds) + "s");
     root.style.setProperty("--marquee-duration", Math.max(12, half * seconds) + "s");
+    // Minskad rörelse: bandet står still men är fortfarande en loop – raden går att skrolla oändligt åt
+    // båda hållen (de två halvorna är identiska, så vi hoppar en halva när man når en kant).
+    var viewport = root.querySelector(".insta-marquee-viewport, .marquee-viewport");
+    if (viewport && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      // Exakt avstånd mellan första inlägget och dess kopia (scrollWidth räknar inte med sista marginalen).
+      var halfWidth = function () {
+        var items = track.children, n = items.length / 2;
+        return n >= 1 ? items[n].offsetLeft - items[0].offsetLeft : track.scrollWidth / 2;
+      };
+      var wrapping = false;
+      var start = function () { viewport.scrollLeft = halfWidth(); };
+      if (document.readyState === "complete") start(); else window.addEventListener("load", start);
+      viewport.addEventListener("scroll", function () {
+        if (wrapping) return;
+        var h = halfWidth(), max = viewport.scrollWidth - viewport.clientWidth;
+        if (viewport.scrollLeft <= 1 || viewport.scrollLeft >= max - 1) {
+          wrapping = true;
+          viewport.scrollLeft += viewport.scrollLeft <= 1 ? h : -h;
+          requestAnimationFrame(function () { wrapping = false; });
+        }
+      }, { passive: true });
+    }
     var btn = root.querySelector("[data-marquee-toggle], [data-motion-toggle]");
     var label = root.querySelector("[data-marquee-label], [data-motion-label]");
     if (!btn) return;

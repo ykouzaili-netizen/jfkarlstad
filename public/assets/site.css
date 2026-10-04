@@ -1162,6 +1162,7 @@ main:focus { outline: none; }
 }
 .insta-marquee .insta-track {
   display: flex;
+  gap: 0;
   width: max-content;
   overflow: visible;
   padding: 0;
@@ -1169,6 +1170,8 @@ main:focus { outline: none; }
   animation: insta-marquee var(--insta-duration) linear infinite;
   will-change: transform;
 }
+/* Bandet flyttas exakt en halva (−50 %). Avståndet mellan inläggen ska bara komma från margin-right
+   (ingen gap), annars blir halvan några pixlar fel och bandet rycker till en gång per varv. */
 @keyframes insta-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .insta-marquee .insta-post {
   flex: 0 0 min(var(--insta-w), 68vw);
@@ -1206,7 +1209,8 @@ main:focus { outline: none; }
   /* Ingen rörelse: inläggen står still och går att skrolla i sidled, kopian döljs. */
   .insta-marquee .insta-track { animation: none !important; transform: none !important; }
   .insta-marquee-viewport { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
-  .insta-marquee .insta-post[aria-hidden="true"], .insta-pause { display: none; }
+  .insta-pause { display: none; }
+  .insta-marquee-viewport { scrollbar-width: none; }
   .insta-marquee .insta-post:hover, .insta-marquee .insta-post:focus-within { transform: none; }
 }
 
@@ -1261,7 +1265,7 @@ main:focus { outline: none; }
 /* ---------- Rullande band och bildspel (används av JFK Idrott) ----------
    .marquee: innehållet glider från höger till vänster i en loop (två lika halvor, −50 %), stannar vid hovring,
    fokus och paus. .fader: en bild i taget som tonar över. Båda står still vid minskad rörelse. */
-.marquee { --marquee-duration: 40s; position: relative; }
+.marquee { --marquee-duration: 40s; --mq-gap: 18px; position: relative; }
 .marquee-viewport {
   overflow: hidden;
   padding-block: 40px 34px;
@@ -1270,7 +1274,7 @@ main:focus { outline: none; }
   mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);
 }
 .marquee-track { display: flex; width: max-content; list-style: none; margin: 0; padding: 0; animation: insta-marquee var(--marquee-duration, var(--insta-duration)) linear infinite; will-change: transform; }
-.marquee-item { position: relative; margin-right: 18px; transition: transform 0.35s var(--ease), opacity 0.35s var(--ease), filter 0.35s var(--ease); }
+.marquee-item { position: relative; margin-right: var(--mq-gap); transition: transform 0.35s var(--ease), opacity 0.35s var(--ease), filter 0.35s var(--ease); }
 .marquee-photos .marquee-item { flex: 0 0 min(380px, 75vw); }
 .marquee-cards .marquee-item { flex: 0 0 min(300px, 78vw); }
 .marquee-viewport:hover .marquee-track,
@@ -1350,7 +1354,8 @@ main:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) {
   .marquee-track { animation: none !important; transform: none !important; }
   .marquee-viewport { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
-  .marquee-item[aria-hidden="true"], .marquee .motion-pause { display: none; }
+  .marquee .motion-pause { display: none; }
+  .marquee-viewport { scrollbar-width: none; }
   .marquee .marquee-item:hover { transform: none; }
   .fader-slide.is-active .sport-photo img { animation: none; }
 }
