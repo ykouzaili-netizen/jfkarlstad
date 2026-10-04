@@ -5,7 +5,7 @@ import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
 import { joinButton, layout } from "../views/layout.js";
 import { arrowLink } from "../views/components.js";
-import { checkList, faqList, pageHeader } from "../views/page.js";
+import { checkList, contentPhoto, faqList, pageHeader } from "../views/page.js";
 
 export async function membershipPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
@@ -20,7 +20,7 @@ export async function membershipPage(c: RequestContext): Promise<Response> {
   const content = html`
     ${pageHeader(s, {
       kickerKey: "member_kicker",
-      titleKey: "member_title",
+      hero: "member", titleKey: "member_title",
       leadKey: "member_lead",
       actions: html`${joinButton(s, { className: "btn btn-primary btn-lg" })}${s.member_price ? html`<p class="price-note"${ek(s, "member_price")}>${s.member_price}</p>` : ""}`,
     })}
@@ -31,6 +31,8 @@ export async function membershipPage(c: RequestContext): Promise<Response> {
           <h2 class="section-title"${ek(s, "member_benefits_title")}>${s.member_benefits_title}</h2>
           ${checkList(lines(s.member_benefits), ek(s, "member_benefits"))}
         </div>
+        <div class="stack">
+        ${contentPhoto(s, "member_image", "member_image_alt")}
         <div class="info-card">
           <h2 class="info-title"${ek(s, "member_steps_title")}>${s.member_steps_title}</h2>
           <ol class="step-list">
@@ -40,6 +42,7 @@ export async function membershipPage(c: RequestContext): Promise<Response> {
           </ol>
           ${joinButton(s, { className: "btn btn-primary btn-block" })}
           ${s.member_fineprint ? html`<p class="fine-print"${ek(s, "member_fineprint")}>${s.member_fineprint}</p>` : ""}
+        </div>
         </div>
       </div>
     </section>

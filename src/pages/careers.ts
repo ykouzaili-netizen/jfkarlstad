@@ -55,7 +55,7 @@ export async function jobsPage(c: RequestContext): Promise<Response> {
   const shown = kind ? jobs.filter((j) => j.kind === kind) : jobs;
 
   const content = html`
-    ${pageHeader(s, { kickerKey: "jobs_kicker", titleKey: "jobs_title", leadKey: "jobs_lead" })}
+    ${pageHeader(s, { kickerKey: "jobs_kicker", hero: "jobs", titleKey: "jobs_title", leadKey: "jobs_lead" })}
     <section class="section section-tight-top">
       <div class="container">
         ${kindsInUse.length > 1

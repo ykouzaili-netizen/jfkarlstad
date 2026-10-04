@@ -91,6 +91,35 @@ const ALT_HELP = "Beskriv vad bilden visar för den som inte kan se den, t.ex. �
 //  Sidorna
 // ───────────────────────────────────────────────────────────────────────────────
 
+/** Utseendena för toppen på undersidorna (samma som på Om oss, plus "Bara text"). */
+const HERO_STYLE_OPTIONS = [
+  { value: "enkel", label: "Bara text", hint: "Rubrik och ingress utan bilder – lugnt och tydligt" },
+  { value: "kollage", label: "Kollage", hint: "Rubriken till vänster, bilderna i ett kollage till höger" },
+  { value: "bildband", label: "Bildband", hint: "Centrerad rubrik med bilderna på rad under" },
+  { value: "fotostapel", label: "Fotostapel", hint: "Lutande foton med vit ram, som utlagda kort" },
+  { value: "helbild", label: "Helbild", hint: "Bild 1 täcker hela toppen och texten ligger ovanpå" },
+  { value: "delad", label: "Delad yta", hint: "Gul halva med texten och bilderna i den andra halvan" },
+] as const;
+
+/**
+ * Utseende och bilder för toppen på en undersida. `p` är sidans prefix, t.ex. "member" → member_hero_style,
+ * member_image_1 … Läses av `pageHeader()` i views/page.ts.
+ */
+function heroFields<const P extends string>(p: P) {
+  return [
+    choice(`${p}_hero_style` as `${P}_hero_style`, "Utseende", "standard", [
+      { value: "standard", label: "Som de andra sidorna", hint: "Följer valet under Gemensamt → Sidornas topp" },
+      ...HERO_STYLE_OPTIONS,
+    ], { required: true, help: "Utseenden med bilder kräver minst en bild nedan – annars visas bara texten." }),
+    image(`${p}_image_1` as `${P}_image_1`, "Bild 1 (huvudbild)", "", { help: "Används i alla utseenden med bilder. I Helbild täcker den hela toppen – välj gärna en lugn eller mörk bild." }),
+    text(`${p}_image_1_alt` as `${P}_image_1_alt`, "Bild 1 – bildbeskrivning", "", { more: true, help: ALT_HELP }),
+    image(`${p}_image_2` as `${P}_image_2`, "Bild 2", "", { more: true }),
+    text(`${p}_image_2_alt` as `${P}_image_2_alt`, "Bild 2 – bildbeskrivning", "", { more: true, help: ALT_HELP }),
+    image(`${p}_image_3` as `${P}_image_3`, "Bild 3", "", { more: true }),
+    text(`${p}_image_3_alt` as `${P}_image_3_alt`, "Bild 3 – bildbeskrivning", "", { more: true, help: ALT_HELP }),
+  ] as const;
+}
+
 export const PAGES = [
   page("startsida", "Startsidan", "/", [
     sec("toppen", "Toppen av sidan", [
@@ -266,10 +295,13 @@ export const PAGES = [
       text("member_title", "Rubrik", "Bli medlem i JFK", { required: true }),
       area("member_lead", "Ingress", "Som medlem får du en stark social och professionell gemenskap under hela studietiden."),
       text("member_price", "Pris", "", { help: "T.ex. ”250 kr för hela utbildningen”. Lämna tomt för att inte visa något pris." }),
+      ...heroFields("member"),
     ]),
     sec("formaner", "Förmåner", [
       text("member_benefits_title", "Rubrik", "Det här får du som medlem", { required: true }),
       list("member_benefits", "Förmåner", "Sittningar, banketter och andra sociala evenemang\nArbetsmarknadsdagar och lunchföreläsningar med byråer och myndigheter\nStudiestödjande aktiviteter och inspirerande föreläsningar\nEtt nätverk av studenter och jurister som håller långt efter examen\nMöjlighet att engagera dig i styrelsen och utskotten\nInflytande över din utbildning", { help: "En förmån per rad." }),
+      image("member_image", "Bild", "", { help: "Valfritt. Visas bredvid förmånerna – gärna glada medlemmar på ett evenemang." }),
+      text("member_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
     ]),
     sec("steg", "Så går det till", [
       text("member_steps_title", "Rubrik", "Så går det till", { required: true }),
@@ -292,6 +324,7 @@ export const PAGES = [
       text("students_kicker", "Liten etikett ovanför rubriken", "För studenter", small),
       text("students_title", "Rubrik", "Studier och studentliv", { required: true }),
       area("students_lead", "Ingress", "Allt du behöver veta om studierna, kursombuden, idrotten och livet runt omkring."),
+      ...heroFields("students"),
     ]),
     sec("studera", "Studera på KAU", [
       text("study_title", "Rubrik", "Studera på KAU", { required: true }),
@@ -301,6 +334,8 @@ export const PAGES = [
       text("study_aside_title", "Rutan om JF Påverka – rubrik", "Något i utbildningen som inte fungerar?"),
       area("study_aside_text", "Rutan om JF Påverka – text", "Lämna en synpunkt via JF Påverka – anonymt om du vill. Allt tas upp på nästa styrelsemöte."),
       text("study_aside_button", "Rutan om JF Påverka – knapp", "Till JF Påverka", small),
+      image("study_image", "Bild", "", { help: "Valfritt. Visas ovanför rutan om JF Påverka, t.ex. ett foto från campus eller en föreläsningssal." }),
+      text("study_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
     ]),
     sec("jobb", "Jobb och praktik", [
       text("students_jobs_title", "Rubrik", "Jobb och praktik", { required: true }),
@@ -320,6 +355,8 @@ export const PAGES = [
       list("sport_items", "Aktiviteter", "Halltider|Olika sporter varje söndag kl. 16.45–18.00 i universitetshallen.\nSkidresa|Varje vår åker vi på skidresa, oftast till Åre.\nTurneringar|Futsal, fotboll och innebandy mot andra föreningar.\nKAU IF|Studentidrottsföreningen med träning i flera olika idrotter.\nNordic Wellness|Gym på campus med studentpris.", { help: "En aktivitet per rad i formatet: Rubrik|Beskrivning" }),
       url("instagram_sport_url", "JFK Idrott på Instagram – länk", "https://www.instagram.com/jfk_idrott/"),
       text("instagram_sport_handle", "JFK Idrott på Instagram – visningsnamn", "@jfk_idrott"),
+      image("sport_image", "Bild", "", { help: "Valfritt. Visas som ett brett foto ovanför aktiviteterna, t.ex. från skidresan eller en turnering." }),
+      text("sport_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
     ]),
     sec("galleri", "Bildgalleri", [
       text("gallery_title", "Rubrik", "Bildgalleri", { required: true }),
@@ -334,6 +371,7 @@ export const PAGES = [
       text("jobs_kicker", "Liten etikett ovanför rubriken", "För studenter", small),
       text("jobs_title", "Rubrik", "Jobb och praktik", { required: true }),
       area("jobs_lead", "Ingress", "Lediga praktikplatser, sommarnotarietjänster, traineeprogram och jobb – främst hos våra samarbetspartners."),
+      ...heroFields("jobs"),
     ]),
     sec("lista", "Listan med tjänster", [
       text("jobs_filter_all", "Filter: alla", "Alla", small),
@@ -365,6 +403,7 @@ export const PAGES = [
       text("engage_kicker", "Liten etikett ovanför rubriken", "Om oss", small),
       text("engage_title", "Rubrik", "Engagera dig i JFK", { required: true }),
       area("engage_lead", "Ingress", "Föreningen drivs av studenter – och det finns alltid plats för fler. Ett uppdrag i JFK ger nya vänner, värdefull erfarenhet och något extra att skriva i cv:t."),
+      ...heroFields("engage"),
     ]),
     sec("uppdrag", "Lediga uppdrag", [
       text("engage_positions_title", "Rubrik", "Lediga uppdrag", { required: true }),
@@ -376,6 +415,8 @@ export const PAGES = [
     sec("utskott", "Utskotten", [
       text("engage_committees_title", "Rubrik", "Våra utskott", { required: true }),
       area("engage_committees_text", "Text", "Alla ordinarie medlemmar kan väljas in i ett utskott. Där planerar du evenemang, föreläsningar, idrott och mycket mer tillsammans med andra – och du bestämmer själv hur mycket tid du lägger."),
+      image("engage_image", "Bild", "", { help: "Valfritt. Visas bredvid utskotten, t.ex. ett utskott som planerar ett evenemang." }),
+      text("engage_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
     ], "Listan med utskott ändrar du på sidan Om oss → Utskotten."),
     sec("formular", "Formuläret", [
       text("engage_form_title", "Rubrik", "Anmäl ditt intresse", { required: true }),
@@ -402,12 +443,15 @@ export const PAGES = [
       area("companies_lead", "Ingress", "Nå framtidens jurister tidigt – på campus, på våra evenemang och i våra kanaler."),
       text("companies_cta", "Knapp", "Kontakta oss", small),
       text("companies_partners_link", "Länk till partners", "Våra nuvarande partners", small),
+      ...heroFields("companies"),
     ]),
     sec("varfor", "Varför JFK?", [
       text("companies_why_title", "Rubrik", "Varför JFK?", { required: true }),
       area("companies_text", "Text", "JFK samlar omkring 400 juriststudenter och masterstudenter i skatterätt vid Karlstads universitet. Som samarbetspartner blir ni en naturlig del av deras studietid – från första terminens inspark till sista terminens examensbankett."),
       text("companies_benefits_title", "Rutan – rubrik", "Det här får ni"),
       list("companies_benefits", "Rutan – punkter", "Synlighet på hemsidan, i sociala medier och på våra evenemang\nLunchföreläsningar och case-kvällar på campus\nPlats på vår arbetsmarknadsdag\nSittningar och nätverksträffar med studenter\nAnnonsering av praktikplatser, notarietjänster och jobb", { help: "En punkt per rad." }),
+      image("companies_image", "Bild", "", { help: "Valfritt. Visas bredvid texten, t.ex. från arbetsmarknadsdagen eller en lunchföreläsning." }),
+      text("companies_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
     ]),
     sec("paket", "Samarbetsformer", [
       text("packages_title", "Rubrik", "Samarbetsformer", { required: true }),
@@ -443,6 +487,7 @@ export const PAGES = [
     sec("lista", "Sidan med alla partners", [
       text("partners_kicker", "Liten etikett ovanför rubriken", "Partners", small),
       text("partners_title", "Rubrik", "Våra samarbetspartners", { required: true }),
+      ...heroFields("partners"),
       text("partners_main_title", "Underrubrik för huvudpartners", "Huvudsamarbetspartners", small),
       text("partners_other_title", "Underrubrik för övriga", "Samarbetspartners", small),
       text("partner_main_kicker", "Etikett på huvudpartners", "Huvudsamarbetspartner", small),
@@ -466,6 +511,7 @@ export const PAGES = [
       text("news_kicker", "Liten etikett ovanför rubriken", "Aktuellt", small),
       text("news_title", "Rubrik", "Nyheter", { required: true }),
       area("news_lead", "Ingress", "Det senaste från föreningen – evenemang, beslut och annat som är bra att veta."),
+      ...heroFields("news"),
       text("news_empty", "Text när inga nyheter finns", "Inga nyheter ännu.", { more: true }),
       text("news_newer", "Knapp: nyare", "Nyare", small),
       text("news_older", "Knapp: äldre", "Äldre", small),
@@ -481,6 +527,7 @@ export const PAGES = [
       text("cal_kicker", "Liten etikett ovanför rubriken", "Aktuellt", small),
       text("cal_title", "Rubrik", "Kalender", { required: true }),
       area("cal_lead", "Ingress", "Sittningar, föreläsningar, arbetsmarknadsdagar och mycket mer. Biljetter till medlemsevenemang köper du via Hitract."),
+      ...heroFields("cal"),
       rich("cal_empty", "Text när inga evenemang finns", "Inga kommande evenemang är inlagda just nu. Följ [@jfkarlstad](https://www.instagram.com/jfkarlstad/) så missar du inget.", { more: true, help: RICH_HELP }),
       text("cal_past_title", "Rubrik för tidigare evenemang", "Tidigare evenemang", small),
     ], "Evenemangen lägger du in under Event i menyn."),
@@ -523,6 +570,7 @@ export const PAGES = [
       text("docs_kicker", "Liten etikett ovanför rubriken", "Om oss", small),
       text("docs_title", "Rubrik", "Dokument och protokoll", { required: true }),
       area("docs_lead", "Ingress", "Stadgar, styrdokument och protokoll. Som medlem förbinder du dig att följa stadgarna och gällande styrdokument."),
+      ...heroFields("docs"),
       rich("docs_missing", "Text längst ned", "Saknar du ett protokoll? Mejla [sekreterare@jfkarlstad.se](mailto:sekreterare@jfkarlstad.se).", { help: RICH_HELP }),
     ], "Dokumenten laddar du upp under Dokument i menyn."),
     sec("sok", "Sökrutan och listan", [
@@ -548,6 +596,7 @@ export const PAGES = [
       text("faq_kicker", "Liten etikett ovanför rubriken", "Hjälp", small),
       text("faq_title", "Rubrik", "Vanliga frågor", { required: true }),
       area("faq_lead", "Ingress", "Svar på det vi oftast får frågor om. Hittar du inte svaret? Hör av dig till oss."),
+      ...heroFields("faq"),
       text("faq_empty", "Text när inga frågor finns", "Inga frågor ännu.", { more: true }),
       text("faq_cta_title", "Rutan längst ned – rubrik", "Hittade du inte svaret?"),
       area("faq_cta_text", "Rutan längst ned – text", "Skicka din fråga så svarar vi så snart vi kan."),
@@ -560,12 +609,15 @@ export const PAGES = [
       text("paverka_kicker", "Liten etikett ovanför rubriken", "JF Påverka", small),
       text("paverka_page_title", "Rubrik", "Gör din röst hörd", { required: true }),
       area("paverka_lead", "Ingress", "Gör din röst hörd i JFK. Lämna synpunkter, rapportera problem eller föreslå ett eget initiativ."),
+      ...heroFields("paverka"),
     ]),
     sec("info", "Rutorna bredvid formuläret", [
       text("paverka_how_title", "Första rutan – rubrik", "Så fungerar det"),
       area("paverka_page_text", "Första rutan – text", "Allt som skickas in tas upp på nästa styrelsemöte. Du kan välja att vara anonym – då sparar vi varken namn, e-post eller IP-adress.\n\nMed JF Initiativ kan du föreslå ett nytt projekt eller en aktivitet. Om det finns en genomförbar plan och någon som vill leda projektet hjälper styrelsen till med planering och marknadsföring, medan du och ditt team står för det dagliga arbetet."),
       text("paverka_anon_title", "Andra rutan – rubrik", "Anonymt på riktigt"),
       area("paverka_anon_text", "Andra rutan – text", "När du skickar anonymt sparas bara det du skriver i rubriken och beskrivningen. Ingen IP-adress, inget namn, ingen e-post – varken i databasen, i våra loggar eller i mejlet till styrelsen."),
+      image("paverka_image", "Bild", "", { help: "Valfritt. Visas ovanför rutorna bredvid formuläret." }),
+      text("paverka_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
     ]),
     sec("formular", "Formuläret", [
       text("pf_type", "Fält: typ av ärende", "Vad vill du lämna?", small),
@@ -596,6 +648,7 @@ export const PAGES = [
       text("contact_kicker", "Liten etikett ovanför rubriken", "Kontakt", small),
       text("contact_title", "Rubrik", "Hör av dig till oss", { required: true }),
       area("contact_lead", "Ingress", "Har du en fråga om medlemskap, evenemang eller samarbeten? Fyll i formuläret så återkommer vi så snart vi kan."),
+      ...heroFields("contact"),
     ]),
     sec("formular", "Formuläret", [
       text("contact_form_title", "Rubrik", "Skicka ett meddelande", { required: true }),
@@ -610,6 +663,8 @@ export const PAGES = [
       text("contact_details_title", "Rubrik", "Kontaktuppgifter"),
       text("contact_map", "Länk till kartan", "Visa på karta", small),
       text("contact_board_title", "Rubrik för styrelsens adresser", "Mejla styrelsen direkt"),
+      image("contact_image", "Bild", "", { help: "Valfritt. Visas ovanför kontaktuppgifterna, t.ex. ett foto av föreningsrummet eller campus." }),
+      text("contact_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
     ], "Adress, e-post och telefon ändrar du under Gemensamt → Kontaktuppgifter och länkar."),
     sec("tack", "Bekräftelsen", [
       text("contact_thanks_title", "Rubrik", "Tack för ditt meddelande!", { required: true }),
@@ -644,6 +699,12 @@ export const PAGES = [
       text("brand_line1", "Logotypens text – rad 1", "Juridiska Föreningen", small),
       text("brand_line2", "Logotypens text – rad 2", "i Karlstad", small),
       text("brand_short", "Logotypens text i mobilen", "JFK", small),
+    ]),
+    sec("sidtoppar", "Sidornas topp", [
+      choice("page_hero_default", "Utseende på alla undersidor", "kollage", HERO_STYLE_OPTIONS, {
+        required: true,
+        help: "Gäller alla sidor där Utseende är ”Som de andra sidorna”. En sida utan egna bilder visar bara texten. Om oss och startsidan har egna val.",
+      }),
     ]),
     sec("kontakt", "Kontaktuppgifter och länkar", [
       url("hitract_url", "Länk till Hitract (Bli medlem)", "https://open.hitract.se/HitClub/645", { required: true, help: "Alla ”Bli medlem”-knappar går hit och öppnas i en ny flik." }),

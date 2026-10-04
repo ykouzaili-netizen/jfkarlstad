@@ -7,7 +7,7 @@ import type { RequestContext } from "../router.js";
 import { layout, mediaUrl, picture } from "../views/layout.js";
 import { emptyState } from "../views/components.js";
 import { icon } from "../views/icons.js";
-import { pageHeader } from "../views/page.js";
+import { contentPhoto, pageHeader } from "../views/page.js";
 
 export async function studentsPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
@@ -18,7 +18,7 @@ export async function studentsPage(c: RequestContext): Promise<Response> {
   const content = html`
     ${pageHeader(s, {
       kickerKey: "students_kicker",
-      titleKey: "students_title",
+      hero: "students", titleKey: "students_title",
       leadKey: "students_lead",
       nav: [
         { href: "#studera-pa-kau", labelKey: "study_title" },
@@ -47,11 +47,14 @@ function study(s: Settings): SafeHtml {
           ? html`<p class="after-list"><a class="btn btn-outline" href="${safeUrl(s.study_link)}" target="_blank" rel="noopener"${ek(s, "study_link_label")}>${s.study_link_label}${icon("external", "icon icon-sm")}<span class="sr-only"> (öppnas i ny flik)</span></a></p>`
           : ""}
       </div>
-      <aside class="aside-card">
-        <h3 class="aside-title"${ek(s, "study_aside_title")}>${s.study_aside_title}</h3>
-        <p${ek(s, "study_aside_text")}>${s.study_aside_text}</p>
-        <a class="btn btn-primary" href="/jf-paverka"${ek(s, "study_aside_button")}>${s.study_aside_button}</a>
-      </aside>
+      <div class="stack">
+        ${contentPhoto(s, "study_image", "study_image_alt")}
+        <aside class="aside-card">
+          <h3 class="aside-title"${ek(s, "study_aside_title")}>${s.study_aside_title}</h3>
+          <p${ek(s, "study_aside_text")}>${s.study_aside_text}</p>
+          <a class="btn btn-primary" href="/jf-paverka"${ek(s, "study_aside_button")}>${s.study_aside_button}</a>
+        </aside>
+      </div>
     </div>
   </section>`;
 }
@@ -112,6 +115,7 @@ function sport(s: Settings): SafeHtml {
           ? html`<a class="btn btn-outline" href="${safeUrl(s.instagram_sport_url)}" target="_blank" rel="noopener"${ek(s, "instagram_sport_handle")}>${icon("instagram", "icon icon-sm")}${s.instagram_sport_handle}<span class="sr-only"> på Instagram (öppnas i ny flik)</span></a>`
           : ""}
       </div>
+      ${contentPhoto(s, "sport_image", "sport_image_alt", "wide")}
       <ul class="feature-grid"${ek(s, "sport_items")}>
         ${items.map((it) => html`<li class="feature-card"><h3 class="feature-title">${it.title}</h3>${it.text ? html`<p>${it.text}</p>` : ""}</li>`)}
       </ul>

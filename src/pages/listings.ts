@@ -46,7 +46,7 @@ export async function partnersPage(c: RequestContext): Promise<Response> {
   const main = partners.filter((p) => p.tier === "huvud");
   const others = partners.filter((p) => p.tier !== "huvud");
   const content = html`
-    ${pageHeader(s, { kickerKey: "partners_kicker", titleKey: "partners_title", leadKey: "partners_lead" })}
+    ${pageHeader(s, { kickerKey: "partners_kicker", hero: "partners", titleKey: "partners_title", leadKey: "partners_lead" })}
     <section class="section section-tight-top">
       <div class="container">
         ${main.length
@@ -138,7 +138,7 @@ export async function newsListPage(c: RequestContext): Promise<Response> {
   if (page > pages) return notFoundPage(c);
 
   const content = html`
-    ${pageHeader(s, { kickerKey: "news_kicker", titleKey: "news_title", leadKey: "news_lead" })}
+    ${pageHeader(s, { kickerKey: "news_kicker", hero: "news", titleKey: "news_title", leadKey: "news_lead" })}
     <section class="section section-tight-top">
       <div class="container">
         ${news.length ? html`<div class="card-grid">${news.map((n) => newsCard(s, n, 2))}</div>` : emptyState(s.news_empty, ek(s, "news_empty"))}
@@ -440,7 +440,7 @@ export async function documentsPage(c: RequestContext): Promise<Response> {
   const filtering = Boolean(q || cat);
 
   const content = html`
-    ${pageHeader(s, { kickerKey: "docs_kicker", titleKey: "docs_title", leadKey: "docs_lead" })}
+    ${pageHeader(s, { kickerKey: "docs_kicker", hero: "docs", titleKey: "docs_title", leadKey: "docs_lead" })}
     <section class="section section-tight-top">
       <div class="container">
         <form class="doc-filter" method="get" action="/dokument" role="search" data-doc-filter>
@@ -524,7 +524,7 @@ export async function faqPage(c: RequestContext): Promise<Response> {
     mainEntity: items.map((f) => ({ "@type": "Question", name: f.question, acceptedAnswer: { "@type": "Answer", text: f.answer } })),
   };
   const content = html`
-    ${pageHeader(s, { kickerKey: "faq_kicker", titleKey: "faq_title", leadKey: "faq_lead" })}
+    ${pageHeader(s, { kickerKey: "faq_kicker", hero: "faq", titleKey: "faq_title", leadKey: "faq_lead" })}
     <section class="section section-tight-top">
       <div class="container narrow">
         ${groups.size

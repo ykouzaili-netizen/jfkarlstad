@@ -11,7 +11,7 @@ import type { RequestContext } from "../router.js";
 import type { Env } from "../env.js";
 import { layout } from "../views/layout.js";
 import { icon } from "../views/icons.js";
-import { checkList, pageHeader } from "../views/page.js";
+import { checkList, contentPhoto, pageHeader } from "../views/page.js";
 import { partnerLogo } from "../views/components.js";
 
 export type FormId = "kontakt" | "foretag" | "paverka" | "engagemang";
@@ -125,7 +125,7 @@ export async function contactPage(c: RequestContext, values?: Values, errors?: E
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${s.address_street}, ${s.address_city}`)}`;
   const withMail = board.filter((b) => b.email);
   const content = html`
-    ${pageHeader(s, { kickerKey: "contact_kicker", titleKey: "contact_title", leadKey: "contact_lead" })}
+    ${pageHeader(s, { kickerKey: "contact_kicker", hero: "contact", titleKey: "contact_title", leadKey: "contact_lead" })}
     <section class="section section-tight-top">
       <div class="container form-layout">
         <div>
@@ -134,6 +134,7 @@ export async function contactPage(c: RequestContext, values?: Values, errors?: E
           ${await formBlock(c, s, "kontakt", fieldsFor("kontakt", s), values, errors, topError)}
         </div>
         <aside class="stack">
+          ${contentPhoto(s, "contact_image", "contact_image_alt")}
           <div class="info-card">
             <h2 class="info-title"${ek(s, "contact_details_title")}>${s.contact_details_title}</h2>
             <ul class="contact-list">
@@ -166,7 +167,7 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
   const content = html`
     ${pageHeader(s, {
       kickerKey: "companies_kicker",
-      titleKey: "companies_title",
+      hero: "companies", titleKey: "companies_title",
       leadKey: "companies_lead",
       actions: html`<a class="btn btn-primary btn-lg" href="#kontakta-oss"${ek(s, "companies_cta")}>${s.companies_cta}</a><a class="arrow-link" href="/partners"${ek(s, "companies_partners_link")}>${s.companies_partners_link}${icon("arrowRight", "icon icon-sm")}</a>`,
     })}
@@ -176,9 +177,12 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
           <h2 class="section-title"${ek(s, "companies_why_title")}>${s.companies_why_title}</h2>
           <div class="prose"${ek(s, "companies_text")}>${paragraphs(s.companies_text)}</div>
         </div>
-        <div class="info-card">
-          <h2 class="info-title"${ek(s, "companies_benefits_title")}>${s.companies_benefits_title}</h2>
-          ${checkList(lines(s.companies_benefits), ek(s, "companies_benefits"))}
+        <div class="stack">
+          ${contentPhoto(s, "companies_image", "companies_image_alt")}
+          <div class="info-card">
+            <h2 class="info-title"${ek(s, "companies_benefits_title")}>${s.companies_benefits_title}</h2>
+            ${checkList(lines(s.companies_benefits), ek(s, "companies_benefits"))}
+          </div>
         </div>
       </div>
     </section>
@@ -222,13 +226,14 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
 export async function paverkaPage(c: RequestContext, values?: Values, errors?: Errors, topError?: string, status = 200): Promise<Response> {
   const s = await loadSettings(c.env.DB, c.preview);
   const content = html`
-    ${pageHeader(s, { kickerKey: "paverka_kicker", titleKey: "paverka_page_title", leadKey: "paverka_lead" })}
+    ${pageHeader(s, { kickerKey: "paverka_kicker", hero: "paverka", titleKey: "paverka_page_title", leadKey: "paverka_lead" })}
     <section class="section section-tight-top">
       <div class="container form-layout">
         <div>
           ${await formBlock(c, s, "paverka", fieldsFor("paverka", s), values, errors, topError)}
         </div>
         <aside class="stack">
+          ${contentPhoto(s, "paverka_image", "paverka_image_alt")}
           <div class="info-card info-card-accent">
             <h2 class="info-title"${ek(s, "paverka_how_title")}>${s.paverka_how_title}</h2>
             <div class="prose"${ek(s, "paverka_page_text")}>${paragraphs(s.paverka_page_text)}</div>
@@ -251,7 +256,7 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
   const formValues = values ?? (chosen ? { uppdrag: chosen.title.slice(0, 120) } : {});
   const committees = committeeList(s).map((c) => c.name);
   const content = html`
-    ${pageHeader(s, { kickerKey: "engage_kicker", titleKey: "engage_title", leadKey: "engage_lead" })}
+    ${pageHeader(s, { kickerKey: "engage_kicker", hero: "engage", titleKey: "engage_title", leadKey: "engage_lead" })}
     <section class="section section-tight-top" aria-labelledby="lediga-uppdrag">
       <div class="container">
         <div class="section-head">
@@ -284,8 +289,11 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
             <div>
               <h2 class="section-title" id="utskotten"${ek(s, "engage_committees_title")}>${s.engage_committees_title}</h2>
               <div class="prose"${ek(s, "engage_committees_text")}>${paragraphs(s.engage_committees_text)}</div>
+              ${s.engage_image ? html`<ul class="pill-list pill-list-lg after-list"${ek(s, "committees")}>${committees.map((cm) => html`<li>${cm}</li>`)}</ul>` : ""}
             </div>
-            <ul class="pill-list pill-list-lg"${ek(s, "committees")}>${committees.map((cm) => html`<li>${cm}</li>`)}</ul>
+            ${s.engage_image
+              ? contentPhoto(s, "engage_image", "engage_image_alt")
+              : html`<ul class="pill-list pill-list-lg"${ek(s, "committees")}>${committees.map((cm) => html`<li>${cm}</li>`)}</ul>`}
           </div>
         </section>`
       : ""}

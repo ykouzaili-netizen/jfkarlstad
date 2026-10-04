@@ -14,6 +14,7 @@ import { searchPage } from "../pages/search.js";
 import { cookiesPage, privacyPage } from "../pages/legal.js";
 import { notFoundPage } from "../pages/errors.js";
 import { checkCsrf, type Session } from "./auth.js";
+import { isImageSetting } from "../lib/media.js";
 
 /**
  * Förhandsvisning i adminpanelen.
@@ -95,7 +96,7 @@ export async function previewHandler(c: RequestContext, session: Session): Promi
     const v = form.get(key);
     if (typeof v !== "string") continue;
     // Bilder får bara vara en befintlig nyckel, tom (borttagen) eller en platshållare för en vald bild.
-    if (key.endsWith("_key") && v && !v.startsWith(PREVIEW_IMAGE_PREFIX) && !/^[a-z0-9][a-z0-9._-]{0,200}$/i.test(v)) continue;
+    if (isImageSetting(key) && v && !v.startsWith(PREVIEW_IMAGE_PREFIX) && !/^[a-z0-9][a-z0-9._-]{0,200}$/i.test(v)) continue;
     override[key] = v.replace(/\r\n/g, "\n").trim().slice(0, MAX_VALUE);
   }
 

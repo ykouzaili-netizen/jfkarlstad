@@ -148,7 +148,7 @@ async function monthView(c: RequestContext): Promise<Response> {
   </div>`;
 
   const content = html`
-    ${pageHeader(s, { kickerKey: "cal_kicker", titleKey: "cal_title", leadKey: "cal_lead", actions: subscribePanel(c, s) })}
+    ${pageHeader(s, { kickerKey: "cal_kicker", hero: "cal", titleKey: "cal_title", leadKey: "cal_lead", actions: subscribePanel(c, s) })}
     <section class="section section-tight-top" aria-labelledby="kalender-manad">
       <div class="container">
         ${monthNav}
@@ -260,7 +260,7 @@ async function listView(c: RequestContext): Promise<Response> {
   }
 
   const content = html`
-    ${pageHeader(s, { kickerKey: "cal_kicker", titleKey: "cal_title", leadKey: "cal_lead", actions: subscribePanel(c, s) })}
+    ${pageHeader(s, { kickerKey: "cal_kicker", hero: "cal", titleKey: "cal_title", leadKey: "cal_lead", actions: subscribePanel(c, s) })}
     <section class="section section-tight-top">
       <div class="container">
         <div class="cal-toolbar cal-toolbar-list">${viewSwitch(s, "lista")}</div>

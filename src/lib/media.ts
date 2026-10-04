@@ -42,7 +42,7 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
     db.prepare("SELECT id, name AS title, photo_key AS k FROM honors WHERE photo_key IS NOT NULL AND photo_key != ''"),
     db.prepare("SELECT id, alt AS title, image_key AS k FROM gallery_images"),
     db.prepare("SELECT id, title, file_key AS k FROM documents WHERE file_key IS NOT NULL AND file_key != ''"),
-    db.prepare("SELECT key, value AS k FROM settings WHERE key LIKE '%\\_key' ESCAPE '\\' AND value != ''"),
+    db.prepare("SELECT key, value AS k FROM settings WHERE value != ''"),
   ]);
   type R = { id: number; title: string; k: string };
   const each = (res: D1Result | undefined, label: string, path: string) =>
@@ -55,6 +55,7 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
   each(gallery, "Bildgalleri", "galleri");
   each(docs, "Dokument", "dokument");
   for (const r of (settings?.results ?? []) as { key: string; k: string }[]) {
+    if (!isImageSetting(r.key)) continue;
     if (r.key === "logo_key") add(r.k, { label: "Logotypen", href: "/admin/utseende#logotyp" });
     else {
       const loc = FIELD_INDEX.get(r.key);
@@ -62,6 +63,11 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
     }
   }
   return map;
+}
+
+/** Inställningar som innehåller en bild: logotypen och alla bildfält i textregistret (oavsett namn). */
+export function isImageSetting(key: string): boolean {
+  return key === "logo_key" || key.endsWith("_key") || FIELD_INDEX.get(key)?.field.type === "image";
 }
 
 export async function isInUse(db: D1Database, key: string): Promise<boolean> {
