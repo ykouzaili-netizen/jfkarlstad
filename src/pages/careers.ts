@@ -26,7 +26,7 @@ function deadlineText(s: Settings, j: JobRow): string {
 function employerMark(j: JobRow): SafeHtml {
   const logo = mediaUrl(j.partner_logo, "sm");
   return logo
-    ? html`<span class="job-logo"><img src="${logo}" alt="" loading="lazy" decoding="async"></span>`
+    ? html`<span class="job-logo"><img src="${logo}" alt="" data-img="${j.partner_logo}" loading="lazy" decoding="async"></span>`
     : html`<span class="job-logo job-logo-initial" aria-hidden="true">${(j.employer.trim()[0] ?? "§").toUpperCase()}</span>`;
 }
 

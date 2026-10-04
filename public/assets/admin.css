@@ -570,3 +570,57 @@ a.admin-user:hover { background: var(--c-hover); }
   .print-title { display: block; margin-bottom: 12px; }
   .stat-bar { display: none; }
 }
+
+/* ---------- Justera bild (Bildbank → Justera) ---------- */
+.media-adjust { margin: 0 14px 4px; align-self: flex-start; }
+.fit-link { margin: 0; }
+.fit-link a { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.fit-tab-note { display: flex; align-items: center; gap: 6px; margin: -8px 0 20px; }
+.fit-layout { display: grid; gap: 20px; align-items: start; }
+@media (min-width: 1100px) { .fit-layout { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } }
+.fit-side { display: grid; gap: 20px; }
+.fit-canvas {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin-top: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: repeating-conic-gradient(#ecebe6 0 25%, #f7f6f2 0 50%) 0 0 / 20px 20px;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+.fit-canvas img { display: block; max-width: 100%; max-height: 70vh; pointer-events: none; }
+.fit-marker {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: rgb(241 204 77 / 0.55);
+  box-shadow: 0 0 0 1.5px rgb(0 0 0 / 0.55), 0 4px 14px rgb(0 0 0 / 0.35);
+  cursor: grab;
+  padding: 0;
+}
+.fit-marker::after { content: ""; position: absolute; inset: 12px; border-radius: 50%; background: #17171a; }
+.fit-marker:focus-visible { outline: 3px solid #17171a; outline-offset: 3px; }
+.fit-numbers { margin-top: 14px; }
+.fit-numbers summary { cursor: pointer; font-weight: 600; }
+.fit-numbers .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.fit-zoom { display: flex; align-items: center; gap: 14px; }
+.fit-zoom input { flex: 1; accent-color: #17171a; }
+.fit-zoom output { min-width: 4.5ch; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+[data-fit-zoom-field].is-disabled { opacity: 0.45; }
+.fit-previews { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 12px 0 0; padding: 0; }
+.fit-frame { overflow: hidden; border-radius: 10px; background: var(--c-bg); border: 1px solid var(--c-border); }
+.fit-frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.fit-frame-wide { aspect-ratio: 21 / 9; }
+.fit-frame-landscape { aspect-ratio: 4 / 3; }
+.fit-frame-square { aspect-ratio: 1; }
+.fit-frame-portrait { aspect-ratio: 3 / 4; width: 75%; }
+.fit-frame-label { margin: 8px 0 0; font-size: 0.8125rem; color: var(--c-muted); line-height: 1.4; }
+.fit-frame-label strong { display: block; color: var(--c-text); font-size: 0.875rem; }

@@ -1,3 +1,4 @@
+import { FIT_PREFIX, parseFit, type ImageFit } from "./imagefit.js";
 import { isHex, readableOn } from "./color.js";
 
 import { ALL_FIELDS, editUrlFor, FIELD_INDEX, type TextKey } from "./texts.js";
@@ -73,9 +74,15 @@ export async function loadSettings(db: D1Database, override?: Partial<Settings>)
   if (override) MARKED.add(settings);
   try {
     const { results } = await db.prepare("SELECT key, value FROM settings").all<{ key: string; value: string }>();
+    const fits = new Map<string, ImageFit>();
     for (const row of results) {
       if (row.key in settings) settings[row.key as SettingKey] = row.value;
+      else if (row.key.startsWith(FIT_PREFIX)) {
+        const fit = parseFit(row.value);
+        if (fit) fits.set(row.key.slice(FIT_PREFIX.length), fit);
+      }
     }
+    FITS.set(settings, fits);
   } catch (err) {
     // Databasen ska aldrig kunna fälla hela sajten – standardvärden räcker för att rendera.
     console.error("Kunde inte läsa inställningar", err);
@@ -115,6 +122,15 @@ export function themeCss(s: Settings): string {
   const button = pick("color_button");
   const font = HEADING_FONTS[headingFont(s)];
   return `:root{--c-bg:${bg};--c-surface:${surface};--c-text:${text};--c-primary:${primary};--c-on-primary:${readableOn(primary)};--c-accent:${accent};--c-on-accent:${readableOn(accent)};--c-button:${button};--c-on-button:${readableOn(button)};--font-display:${font.stack};--display-scale:${font.scale};--display-weight:${font.weight}}`;
+}
+
+// ───────────────────── Bildernas passform ─────────────────────
+
+const FITS = new WeakMap<object, Map<string, ImageFit>>();
+
+/** Justerade bilder (filnyckel → passform), inlästa av loadSettings(). */
+export function imageFits(s: Settings): ReadonlyMap<string, ImageFit> {
+  return FITS.get(s) ?? new Map();
 }
 
 // ───────────────────── Klickbar förhandsvisning ─────────────────────

@@ -1,3 +1,4 @@
+import { isFitKey } from "../lib/imagefit.js";
 import type { Env } from "../env.js";
 import { html, type SafeHtml } from "../lib/html.js";
 import { IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_PDF_BYTES, isSafeSvg, putFile, randomKey, sniffType } from "../lib/storage.js";
@@ -151,6 +152,9 @@ export function imageUploadField(opts: {
       <div class="upload-controls">
         ${uploadInput({ id, name: opts.name, kind, labelledBy: `${id}-etikett`, describedBy, setting: opts.setting })}
         <p class="field-help">${opts.current ? "Välj en ny fil för att ersätta den nuvarande. " : ""}${kind === "image" ? uploadHint("image") : uploadHint("pdf")}</p>
+        ${kind === "image" && opts.current && isFitKey(opts.current)
+          ? html`<p class="fit-link"><a href="/admin/bildbank/justera?nyckel=${encodeURIComponent(opts.current)}&amp;flik=ny" target="_blank" rel="noopener">${icon("crop", "icon icon-sm")}Justera utsnitt och storlek<span class="sr-only"> (öppnas i ny flik)</span></a></p>`
+          : ""}
         ${opts.current && opts.removable !== false
           ? html`<label class="check-field check-small"><input type="checkbox" name="${opts.name}__ta_bort" value="1"><span>Ta bort ${kind === "pdf" ? "filen" : "bilden"}</span></label>`
           : ""}

@@ -857,3 +857,76 @@
   editor.querySelectorAll("input[name=font_heading]").forEach(function (r) { r.addEventListener("change", update); });
   update();
 })();
+
+/* Justera bild: fokuspunkt (klick, dra eller piltangenter), zoom och passform med direkt förhandsvisning. */
+(function () {
+  var editor = document.querySelector("[data-fit-editor]");
+  if (!editor) return;
+  var canvas = editor.querySelector("[data-fit-canvas]");
+  var img = canvas.querySelector("img");
+  var marker = editor.querySelector("[data-fit-marker]");
+  var xIn = editor.querySelector("[data-fit-x]");
+  var yIn = editor.querySelector("[data-fit-y]");
+  var zoom = editor.querySelector("[data-fit-zoom]");
+  var zoomOut = editor.querySelector("[data-fit-zoom-out]");
+  var zoomField = editor.querySelector("[data-fit-zoom-field]");
+  var previews = editor.querySelectorAll("[data-fit-preview]");
+
+  function clamp(n) { return Math.max(0, Math.min(100, Math.round(n))); }
+  function mode() { var r = editor.querySelector("[data-fit-mode]:checked"); return r ? r.value : "fyll"; }
+
+  function render() {
+    var x = clamp(Number(xIn.value)), y = clamp(Number(yIn.value)), z = Number(zoom.value) || 1;
+    var whole = mode() === "hela";
+    // Markören ligger över själva bilden (som kan vara smalare än rutan runt den).
+    var cr = canvas.getBoundingClientRect(), ir = img.getBoundingClientRect();
+    marker.style.left = (ir.left - cr.left + (ir.width * x) / 100) + "px";
+    marker.style.top = (ir.top - cr.top + (ir.height * y) / 100) + "px";
+    marker.hidden = whole;
+    zoomOut.textContent = Math.round(z * 100) + " %";
+    zoom.disabled = whole;
+    zoomField.classList.toggle("is-disabled", whole);
+    previews.forEach(function (p) {
+      p.style.objectFit = whole ? "contain" : "cover";
+      p.style.objectPosition = whole ? "50% 50%" : x + "% " + y + "%";
+      p.style.transformOrigin = x + "% " + y + "%";
+      p.style.transform = !whole && z > 1 ? "scale(" + z + ")" : "none";
+      p.style.background = whole ? "#fff" : "";
+    });
+  }
+
+  function setFromPointer(e) {
+    var r = img.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    xIn.value = clamp(((e.clientX - r.left) / r.width) * 100);
+    yIn.value = clamp(((e.clientY - r.top) / r.height) * 100);
+    render();
+  }
+
+  var dragging = false;
+  canvas.addEventListener("pointerdown", function (e) {
+    if (mode() === "hela") return;
+    dragging = true;
+    canvas.setPointerCapture(e.pointerId);
+    setFromPointer(e);
+    e.preventDefault();
+  });
+  canvas.addEventListener("pointermove", function (e) { if (dragging) setFromPointer(e); });
+  canvas.addEventListener("pointerup", function () { dragging = false; });
+  canvas.addEventListener("pointercancel", function () { dragging = false; });
+
+  marker.addEventListener("keydown", function (e) {
+    var step = e.shiftKey ? 10 : 2;
+    var d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    xIn.value = clamp(Number(xIn.value) + d[0]);
+    yIn.value = clamp(Number(yIn.value) + d[1]);
+    render();
+  });
+
+  [xIn, yIn, zoom].forEach(function (el) { el.addEventListener("input", render); });
+  editor.querySelectorAll("[data-fit-mode]").forEach(function (r) { r.addEventListener("change", render); });
+  window.addEventListener("resize", render);
+  if (img.complete) render(); else img.addEventListener("load", render);
+})();

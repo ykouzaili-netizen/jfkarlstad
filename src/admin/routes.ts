@@ -22,7 +22,7 @@ import {
 import { previewHandler, siteMapHandler } from "./preview.js";
 import { RESOURCES, deleteHandler, duplicateHandler, editHandler, listHandler, newHandler, saveHandler, toggleHandler } from "./resources.js";
 import { historyPage, historyRestore, menuSubmit, textsPage, textsSubmit, undoSubmit } from "./texts.js";
-import { mediaDeleteSubmit, mediaLibraryPage, mediaPickerFragment, mediaUploadSubmit } from "./media-pages.js";
+import { mediaAdjustPage, mediaAdjustSubmit, mediaDeleteSubmit, mediaLibraryPage, mediaPickerFragment, mediaUploadSubmit } from "./media-pages.js";
 import { partnerStatsCsv, partnerStatsPage } from "./stats-pages.js";
 import { adminSearchPage } from "./search.js";
 import { handoverPage, handoverSubmit } from "./handover.js";
@@ -55,6 +55,8 @@ export function registerAdminRoutes(router: Router): void {
     .post("/admin/bildbank", requireUser(mediaUploadSubmit))
     .post("/admin/bildbank/radera", requireUser(mediaDeleteSubmit))
     .get("/admin/bildbank/valj", requireUser(mediaPickerFragment))
+    .get("/admin/bildbank/justera", requireUser(mediaAdjustPage))
+    .post("/admin/bildbank/justera", requireUser(mediaAdjustSubmit))
     // Före /admin/partners/:id nedan
     .get("/admin/partners/statistik", requireUser(partnerStatsPage))
     .get("/admin/partners/statistik.csv", requireUser(partnerStatsCsv))

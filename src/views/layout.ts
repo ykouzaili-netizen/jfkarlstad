@@ -1,12 +1,13 @@
 import { html, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ek, HEADING_FONTS, headingFont, isMarked, themeCss, type Settings } from "../lib/settings.js";
+import { ek, HEADING_FONTS, headingFont, imageFits, isMarked, themeCss, type Settings } from "../lib/settings.js";
+import { imageFitCss } from "../lib/imagefit.js";
 import { telHref } from "../lib/format.js";
 import type { RequestContext } from "../router.js";
 import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "16";
+export const ASSET_VERSION = "17";
 
 export interface PageMeta {
   title: string;
@@ -51,10 +52,10 @@ export function picture(
   const loading = opts.eager ? html` fetchpriority="high"` : html` loading="lazy" decoding="async"`;
   const cls = opts.className ? html` class="${opts.className}"` : "";
   if (isPlaceholder || isSvg) {
-    return html`<img${cls} src="${full}" alt="${opts.alt}" width="${opts.width}" height="${opts.height}"${loading}${opts.attrs ?? ""}>`;
+    return html`<img${cls} src="${full}" alt="${opts.alt}" width="${opts.width}" height="${opts.height}"${isPlaceholder ? "" : html` data-img="${key}"`}${loading}${opts.attrs ?? ""}>`;
   }
   const sm = mediaUrl(key, "sm")!;
-  return html`<img${cls} src="${sm}" srcset="${sm} 800w, ${full} 2560w" sizes="${opts.sizes}" alt="${opts.alt}" width="${opts.width}" height="${opts.height}"${loading}${opts.attrs ?? ""}>`;
+  return html`<img${cls} src="${sm}" srcset="${sm} 800w, ${full} 2560w" sizes="${opts.sizes}" alt="${opts.alt}" width="${opts.width}" height="${opts.height}" data-img="${key}"${loading}${opts.attrs ?? ""}>`;
 }
 
 /** "Bli medlem"-knappen. Länkar alltid till Hitract i ny flik. */
@@ -67,7 +68,7 @@ export function joinButton(s: Settings, opts: { className?: string; label?: stri
 export function logo(s: Settings, variant: "header" | "footer" = "header"): SafeHtml {
   const src = mediaUrl(s.logo_key);
   const mark = src
-    ? html`<img class="brand-logo" src="${src}" alt="" width="48" height="48"${ek(s, "logo_key")}>`
+    ? html`<img class="brand-logo" src="${src}" alt="" width="48" height="48" data-img="${s.logo_key}"${ek(s, "logo_key")}>`
     : html`<span class="brand-mark" aria-hidden="true"${ek(s, "logo_key")}>§</span>`;
   return html`<a class="brand brand-${variant}" href="/" aria-label="${s.site_name} – till startsidan">
     ${mark}
@@ -215,7 +216,7 @@ ${meta.noindex || c.preview ? raw('<meta name="robots" content="noindex, nofollo
 <link rel="preload" href="/assets/fonts/montserrat.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${HEADING_FONTS[headingFont(s)].file}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css?v=${ASSET_VERSION}">
-<style nonce="${c.nonce}">${raw(themeCss(s))}</style>
+<style nonce="${c.nonce}">${raw(themeCss(s) + imageFitCss(imageFits(s)))}</style>
 <script src="/assets/site.js?v=${ASSET_VERSION}" defer></script>
 ${ld}
 </head>

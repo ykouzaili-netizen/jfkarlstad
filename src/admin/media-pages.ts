@@ -2,6 +2,8 @@ import { html } from "../lib/html.js";
 import { redirect } from "../lib/http.js";
 import { formatDate } from "../lib/format.js";
 import { formatBytes, mediaUsage, purgeMedia, type MediaRow } from "../lib/media.js";
+import { DEFAULT_FIT, FIT_PREFIX, isDefaultFit, isFitKey, MAX_ZOOM, parseFit, serializeFit } from "../lib/imagefit.js";
+import { imageFits, loadSettings } from "../lib/settings.js";
 import type { RequestContext } from "../router.js";
 import { mediaUrl } from "../views/layout.js";
 import { icon } from "../views/icons.js";
@@ -19,7 +21,8 @@ const IMAGES = "SELECT * FROM media WHERE kind = 'image' ORDER BY created_at DES
 export async function mediaLibraryPage(c: RequestContext, session: Session, error?: string, status = 200): Promise<Response> {
   const db = c.env.DB;
   const filter = c.url.searchParams.get("visa") === "oanvanda" ? "oanvanda" : "alla";
-  const [{ results }, usage] = await Promise.all([db.prepare(IMAGES).all<MediaRow>(), mediaUsage(db)]);
+  const [{ results }, usage, settings] = await Promise.all([db.prepare(IMAGES).all<MediaRow>(), mediaUsage(db), loadSettings(db)]);
+  const fits = imageFits(settings);
   const unused = results.filter((m) => !usage.has(m.key));
   const shown = filter === "oanvanda" ? unused : results;
   const totalSize = results.reduce((n, m) => n + (m.size || 0), 0);
@@ -59,6 +62,7 @@ export async function mediaLibraryPage(c: RequestContext, session: Session, erro
                   ? html`<ul class="media-uses">${uses.slice(0, 3).map((u) => html`<li><a href="${u.href}">${u.label}</a></li>`)}${uses.length > 3 ? html`<li class="muted">… och ${uses.length - 3} till</li>` : ""}</ul>`
                   : html`<p class="media-unused">Används inte</p>`}
               </div>
+              <a class="btn btn-outline btn-sm media-adjust" href="/admin/bildbank/justera?nyckel=${encodeURIComponent(m.key)}">${icon("crop", "icon icon-sm")}Justera${fits.has(m.key) ? html`<span class="sr-only"> (justerad)</span>` : ""}</a>
               ${!uses.length
                 ? postButton(session, "/admin/bildbank/radera", "Ta bort", {
                     confirm: "Ta bort bilden för gott? Det går inte att ångra.",
@@ -119,4 +123,138 @@ export async function mediaPickerFragment(c: RequestContext): Promise<Response> 
   return new Response(body.value, {
     headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex", "X-Content-Type-Options": "nosniff" },
   });
+}
+
+// ───────────────────── Justera bild ─────────────────────
+
+/** Ramar i förhandsvisningen – de vanligaste bildytorna på webbplatsen. */
+const FRAMES = [
+  { cls: "wide", label: "Bred", hint: "Startsidans topp, Helbild och breda bildband" },
+  { cls: "landscape", label: "Liggande", hint: "Nyheter, event och bilder bredvid text" },
+  { cls: "square", label: "Kvadrat", hint: "Kollage och logotyper" },
+  { cls: "portrait", label: "Stående", hint: "Styrelsens porträtt och kollagets stora bild" },
+] as const;
+
+/** Bara adresser i adminpanelen får användas som "tillbaka" – ingen öppen omdirigering. */
+function returnPath(value: string | null): string | null {
+  return value && /^\/admin(\/[a-z0-9/-]*)?(\?[a-z0-9=&%._-]*)?$/i.test(value) ? value : null;
+}
+
+export async function mediaAdjustPage(c: RequestContext, session: Session): Promise<Response> {
+  const db = c.env.DB;
+  const key = c.url.searchParams.get("nyckel") ?? "";
+  const media = isFitKey(key) ? await db.prepare("SELECT * FROM media WHERE key = ? AND kind = 'image'").bind(key).first<MediaRow>() : null;
+  if (!media) return redirect("/admin/bildbank?fel=saknas", 303);
+  const [stored, usage] = await Promise.all([
+    db.prepare("SELECT value FROM settings WHERE key = ?").bind(FIT_PREFIX + key).first<{ value: string }>(),
+    mediaUsage(db),
+  ]);
+  const fit = parseFit(stored?.value) ?? DEFAULT_FIT;
+  const uses = usage.get(key) ?? [];
+  const back = returnPath(c.url.searchParams.get("tillbaka"));
+  const newTab = c.url.searchParams.get("flik") === "ny";
+  const full = mediaUrl(key)!;
+
+  const content = html`
+    ${adminHead("Justera bild", {
+      back: newTab ? undefined : { href: back ?? "/admin/bildbank", label: back ? "Tillbaka" : "Bildbanken" },
+      lead: "Välj vilken del av bilden som alltid ska synas, hur inzoomad den ska vara och om den ska fylla sin ruta. Ändringen gäller överallt där bilden används.",
+    })}
+    ${newTab ? html`<p class="field-help fit-tab-note">${icon("external", "icon icon-sm")} Öppnades i en ny flik. Spara och stäng sedan fliken – sidan du redigerade ligger kvar i den andra fliken.</p>` : ""}
+    <form class="fit-editor" method="post" action="/admin/bildbank/justera" data-fit-editor>
+      ${csrfField(session)}
+      <input type="hidden" name="nyckel" value="${key}">
+      ${back ? html`<input type="hidden" name="tillbaka" value="${back}">` : ""}
+      ${newTab ? html`<input type="hidden" name="flik" value="ny">` : ""}
+      <div class="fit-layout">
+        <section class="admin-card fit-source" aria-labelledby="fit-hela">
+          <h2 class="card-heading" id="fit-hela">Hela bilden</h2>
+          <p class="field-help" id="fit-hjalp">Klicka (eller dra) i bilden på det som är viktigast – t.ex. ansiktena. Den punkten hålls kvar i bild när bilden beskärs.</p>
+          <div class="fit-canvas" data-fit-canvas>
+            <img src="${full}" alt="${media.filename || "Bilden"}" draggable="false">
+            <button type="button" class="fit-marker" data-fit-marker aria-describedby="fit-hjalp" aria-label="Fokuspunkt. Flytta med piltangenterna."></button>
+          </div>
+          <details class="fit-numbers">
+            <summary>Ange fokuspunkten med siffror</summary>
+            <div class="field-row">
+              <label class="field"><span class="field-label">Från vänster (%)</span><input type="number" name="x" min="0" max="100" step="1" value="${fit.x}" data-fit-x></label>
+              <label class="field"><span class="field-label">Uppifrån (%)</span><input type="number" name="y" min="0" max="100" step="1" value="${fit.y}" data-fit-y></label>
+            </div>
+          </details>
+        </section>
+
+        <div class="fit-side">
+          <section class="admin-card" aria-labelledby="fit-installningar">
+            <h2 class="card-heading" id="fit-installningar">Passform och storlek</h2>
+            <fieldset class="field field-choices">
+              <legend class="field-label">Passform</legend>
+              <div class="choice-grid">
+                <label class="choice"><input type="radio" name="passform" value="fyll"${fit.fit === "fyll" ? html` checked` : ""} data-fit-mode><span class="choice-body"><span class="choice-label">Fyll rutan</span><span class="choice-hint">Bilden täcker hela ytan och beskärs vid kanterna vid behov.</span></span></label>
+                <label class="choice"><input type="radio" name="passform" value="hela"${fit.fit === "hela" ? html` checked` : ""} data-fit-mode><span class="choice-body"><span class="choice-label">Visa hela bilden</span><span class="choice-hint">Inget beskärs – det blir en ljus kant där bilden inte räcker. Bra för logotyper och affischer.</span></span></label>
+              </div>
+            </fieldset>
+            <div class="field" data-fit-zoom-field>
+              <label class="field-label" for="fit-zoom">Storlek (zoom)</label>
+              <div class="fit-zoom">
+                <input type="range" id="fit-zoom" name="zoom" min="1" max="${MAX_ZOOM}" step="0.05" value="${fit.zoom}" data-fit-zoom aria-describedby="fit-zoom-hjalp">
+                <output for="fit-zoom" data-fit-zoom-out>${Math.round(fit.zoom * 100)} %</output>
+              </div>
+              <p class="field-help" id="fit-zoom-hjalp">100 % visar så mycket av bilden som möjligt. Dra åt höger för att zooma in mot fokuspunkten.</p>
+            </div>
+          </section>
+
+          <section class="admin-card" aria-labelledby="fit-forhands">
+            <h2 class="card-heading" id="fit-forhands">Så här blir det</h2>
+            <ul class="fit-previews">
+              ${FRAMES.map(
+                (f) => html`<li>
+                  <div class="fit-frame fit-frame-${f.cls}"><img src="${mediaUrl(key, "sm")}" alt="" data-fit-preview></div>
+                  <p class="fit-frame-label"><strong>${f.label}</strong> ${f.hint}</p>
+                </li>`,
+              )}
+            </ul>
+          </section>
+
+          ${uses.length
+            ? html`<section class="admin-card" aria-labelledby="fit-anvands">
+                <h2 class="card-heading" id="fit-anvands">Bilden används på</h2>
+                <ul class="media-uses">${uses.map((u) => html`<li><a href="${u.href}">${u.label}</a></li>`)}</ul>
+              </section>`
+            : ""}
+        </div>
+      </div>
+      <div class="admin-form-actions sticky-actions">
+        <button class="btn btn-primary" type="submit">Spara</button>
+        <button class="btn btn-outline" type="submit" name="aterstall" value="1">Återställ till original</button>
+      </div>
+    </form>`;
+  return adminLayout(c, session, { title: "Justera bild", active: "/admin/bildbank", newCount: await newMessageCount(db), wide: true }, content);
+}
+
+export async function mediaAdjustSubmit(c: RequestContext, session: Session): Promise<Response> {
+  const form = await c.req.formData();
+  if (!checkCsrf(c, session, form)) return new Response("Ogiltig förfrågan", { status: 403 });
+  const db = c.env.DB;
+  const key = String(form.get("nyckel") ?? "");
+  const exists = isFitKey(key) && (await db.prepare("SELECT 1 FROM media WHERE key = ? AND kind = 'image'").bind(key).first());
+  if (!exists) return redirect("/admin/bildbank?fel=saknas", 303);
+  const back = returnPath(String(form.get("tillbaka") ?? ""));
+  const newTab = form.get("flik") === "ny";
+
+  const fit = parseFit([form.get("x"), form.get("y"), form.get("zoom"), form.get("passform")].map((v) => String(v ?? "")).join(","));
+  const reset = form.get("aterstall") === "1" || !fit || isDefaultFit(fit);
+  if (reset) {
+    await db.prepare("DELETE FROM settings WHERE key = ?").bind(FIT_PREFIX + key).run();
+  } else {
+    await db
+      .prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at")
+      .bind(FIT_PREFIX + key, serializeFit(fit))
+      .run();
+  }
+  await audit(c.env, session, reset ? "återställde" : "justerade", "bild", key, reset ? "Bildens passform återställd" : `Passform: ${fit!.fit === "hela" ? "visa hela" : `fyll, fokus ${fit!.x} % / ${fit!.y} %, zoom ${Math.round(fit!.zoom * 100)} %`}`);
+
+  const code = reset ? "aterstallt_bild" : "justerat";
+  if (newTab) return redirect(`/admin/bildbank/justera?nyckel=${encodeURIComponent(key)}&flik=ny&klart=${code}`, 303);
+  const target = back ?? "/admin/bildbank";
+  return redirect(`${target}${target.includes("?") ? "&" : "?"}klart=${code}`, 303);
 }

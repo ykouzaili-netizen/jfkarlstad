@@ -11,6 +11,8 @@ const FLASH: Record<string, { kind: "ok" | "error"; text: string }> = {
   sparat: { kind: "ok", text: "Ändringarna är sparade och syns direkt på webbplatsen." },
   skapat: { kind: "ok", text: "Klart! Det nya innehållet är skapat." },
   raderat: { kind: "ok", text: "Borttaget." },
+  justerat: { kind: "ok", text: "Bilden är justerad. Ändringen syns direkt överallt där bilden används." },
+  aterstallt_bild: { kind: "ok", text: "Bilden visas nu som från början." },
   publicerat: { kind: "ok", text: "Publicerat – nu syns det på webbplatsen." },
   avpublicerat: { kind: "ok", text: "Avpublicerat – det syns inte längre på webbplatsen." },
   hanterad: { kind: "ok", text: "Meddelandet är markerat som hanterat." },

@@ -65,7 +65,7 @@ export function newsCard(s: Settings, n: NewsRow, headingLevel: 2 | 3 = 3): Safe
 export function partnerLogo(p: PartnerRow, size: "lg" | "sm" = "lg"): SafeHtml {
   const src = mediaUrl(p.logo_key, "sm");
   return src
-    ? html`<img class="partner-logo partner-logo-${size}" src="${src}" alt="${p.name}" loading="lazy" decoding="async">`
+    ? html`<img class="partner-logo partner-logo-${size}" src="${src}" alt="${p.name}" data-img="${p.logo_key}" loading="lazy" decoding="async">`
     : html`<span class="partner-wordmark partner-wordmark-${size}">${p.name}</span>`;
 }
 
