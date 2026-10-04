@@ -682,3 +682,9 @@ a.admin-user:hover { background: var(--c-hover); }
 .layout-reset > div { flex: 1 1 320px; }
 .layout-reset-title { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-weight: 600; }
 .layout-reset .field-help { margin: 0; }
+
+/* Senast ändrad */
+.last-change { display: flex; align-items: center; gap: 8px; margin: -12px 0 20px; font-size: 0.875rem; color: var(--c-muted); }
+.last-change strong { color: var(--c-text); font-weight: 600; }
+.page-card-changed { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.8125rem; color: var(--c-muted); }
+.page-card-changed strong { color: var(--c-text); font-weight: 600; }

@@ -167,3 +167,16 @@ export function formatDateTimeShort(utc: string | null | undefined): string {
   const p = parseLocal(local);
   return p ? `${p.day} ${MONTHS_SHORT[p.month - 1]} ${p.year} ${pad(p.hour)}:${pad(p.minute)}` : "";
 }
+
+/** UTC i databasformat → "i dag 15:42", "i går 09:10" eller "3 okt 2026" (svensk tid). */
+export function formatWhen(utc: string | null | undefined, now = new Date()): string {
+  const local = utcSqlToLocal(utc);
+  if (!local) return "";
+  const today = stockholmToday(now);
+  const yesterday = stockholmToday(new Date(now.getTime() - 86400000));
+  const time = local.slice(11, 16);
+  if (local.startsWith(today)) return `i dag ${time}`;
+  if (local.startsWith(yesterday)) return `i går ${time}`;
+  const p = parseLocal(local);
+  return p ? `${p.day} ${MONTHS_SHORT[p.month - 1]} ${p.year}` : "";
+}

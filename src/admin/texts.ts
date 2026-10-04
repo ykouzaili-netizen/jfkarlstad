@@ -3,7 +3,7 @@ import { DEFAULT_SETTINGS, loadSettings, siteLayout, type SettingKey, type Setti
 import { PAGES, FIELD_INDEX, findPage, type FieldDef, type PageDef, type SectionDef } from "../lib/texts.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec } from "../lib/forms.js";
 import { redirect, randomToken } from "../lib/http.js";
-import { formatDateTimeShort } from "../lib/format.js";
+import { formatDateTimeShort, formatWhen } from "../lib/format.js";
 import type { RequestContext } from "../router.js";
 import { mediaUrl } from "../views/layout.js";
 import { icon } from "../views/icons.js";
@@ -127,10 +127,52 @@ function searchBox(q = ""): SafeHtml {
   </form>`;
 }
 
+// ───────────────────────── Senast ändrad ─────────────────────────
+
+export interface LastChange {
+  who: string;
+  userId: number | null;
+  when: string;
+  action: string;
+}
+
+/**
+ * Senaste ändringen per sida, ur ändringsloggen. Nyare poster har sidans id (entity_id); äldre känns igen
+ * på att sammanfattningen börjar med sidans namn. Loggen sparas i 24 månader.
+ */
+async function lastChanges(db: D1Database): Promise<Map<string, LastChange>> {
+  const map = new Map<string, LastChange>();
+  try {
+    const { results } = await db
+      .prepare(
+        `SELECT a.entity_id, a.summary, a.action, a.created_at, a.user_id, a.user_email, u.name
+         FROM audit_log a LEFT JOIN users u ON u.id = a.user_id
+         WHERE a.entity IN ('sidan', 'texten') ORDER BY a.id DESC LIMIT 500`,
+      )
+      .all<{ entity_id: string | null; summary: string | null; action: string; created_at: string; user_id: number | null; user_email: string | null; name: string | null }>();
+    for (const r of results) {
+      const page =
+        PAGES.find((p) => p.id === r.entity_id) ??
+        (r.entity_id ? undefined : PAGES.find((p) => r.summary === p.title || r.summary?.startsWith(`${p.title}:`)));
+      if (!page || map.has(page.id)) continue;
+      map.set(page.id, { who: r.name || r.user_email?.split("@")[0] || "okänd", userId: r.user_id, when: r.created_at, action: r.action });
+    }
+  } catch {
+    /* ingen logg än */
+  }
+  return map;
+}
+
+function lastChangeText(change: LastChange | undefined, session: Session): SafeHtml | string {
+  if (!change) return "";
+  const who = change.userId === session.user.id ? "dig" : change.who;
+  return html`Senast ändrad av <strong>${who}</strong> ${formatWhen(change.when)}`;
+}
+
 // ───────────────────────── Översikten: välj sida ─────────────────────────
 
 async function textsIndex(c: RequestContext, session: Session): Promise<Response> {
-  const s = await loadSettings(c.env.DB);
+  const [s, changes] = await Promise.all([loadSettings(c.env.DB), lastChanges(c.env.DB)]);
   const content = html`
     ${adminHead("Texter och sidor", { lead: "Här ändrar du alla rubriker och texter på webbplatsen. Välj en sida – eller sök efter texten du vill ändra." })}
     <div class="texts-toolbar">${searchBox()}</div>
@@ -143,6 +185,7 @@ async function textsIndex(c: RequestContext, session: Session): Promise<Response
             <span class="page-card-path">${p.id === "gemensamt" ? "Syns på alla sidor" : p.path}</span>
             <span class="page-card-sections">${p.sections.map((sec) => sec.title).slice(0, 4).join(" · ")}${p.sections.length > 4 ? " …" : ""}</span>
             <span class="page-card-meta">${siteLayout(s).hiddenPages.has(p.id) ? html`<span class="badge-hidden">${icon("eyeOff", "icon icon-sm")}Dold</span> · ` : ""}${fieldCount(p)} texter${changed ? html` · <strong>${changed} ändrade</strong>` : ""}</span>
+            ${changes.get(p.id) ? html`<span class="page-card-changed">${icon("clock", "icon icon-sm")}<span>${lastChangeText(changes.get(p.id), session)}</span></span>` : ""}
           </a>
         </li>`;
       })}
@@ -166,7 +209,8 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
   if (!page) return textsIndex(c, session);
 
   const db = c.env.DB;
-  const s = await loadSettings(db);
+  const [s, changes] = await Promise.all([loadSettings(db), lastChanges(db)]);
+  const lastChange = changes.get(page.id);
   const target = c.url.searchParams.get("falt") ?? "";
   const keys = page.sections.flatMap((sec) => (sec.fields as readonly FieldDef[]).map((f) => f.key));
   let versionCounts = new Map<string, number>();
@@ -236,6 +280,9 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
       lead: page.hint ?? (page.id === "gemensamt" ? "Texter som syns på alla sidor: föreningens namn, kontaktuppgifter, sidhuvudet, sidfoten och knappar." : `Texterna på ${page.path === "/" ? "startsidan" : `sidan ${page.path}`}. Klicka på ett avsnitt för att öppna det.`),
       actions: html`${pageNav(page.id)}`,
     })}
+    ${lastChange
+      ? html`<p class="last-change">${icon("clock", "icon icon-sm")}<span>${lastChangeText(lastChange, session)}${session.user.role === "admin" ? html` · <a href="/admin/logg">Visa ändringsloggen</a>` : ""}</span></p>`
+      : ""}
     ${undoBox}
     <div class="editor-with-preview">
       <form class="admin-form" id="texter-form" method="post" action="/admin/texter?sida=${page.id}" enctype="multipart/form-data" novalidate data-dirty-check data-accordion>
@@ -334,10 +381,10 @@ export async function textsSubmit(c: RequestContext, session: Session): Promise<
   // Utbytta bilder ligger kvar i bildbanken – de kan återanvändas och behövs för Ångra.
   const { batch, changed } = await saveSettings(c.env.DB, session, updates);
   const layoutChanged = await saveLayout(c.env.DB, layoutEntries(form, page));
-  if (layoutChanged.length) await audit(c.env, session, "ändrade uppbyggnaden av", "sidan", null, `${page.title}: ${layoutChanged.join(", ")}`);
+  if (layoutChanged.length) await audit(c.env, session, "ändrade uppbyggnaden av", "sidan", page.id, `${page.title}: ${layoutChanged.join(", ")}`);
   if (!batch) return redirect(`/admin/texter?sida=${page.id}&klart=${layoutChanged.length ? "sparat" : "oforandrat"}`, 303);
   const labels = changed.map((k) => FIELD_INDEX.get(k)?.field.label ?? k);
-  await audit(c.env, session, "ändrade texter på", "sidan", null, `${page.title}: ${labels.slice(0, 6).join(", ")}${labels.length > 6 ? ` m.fl. (${labels.length})` : ""}`);
+  await audit(c.env, session, "ändrade texter på", "sidan", page.id, `${page.title}: ${labels.slice(0, 6).join(", ")}${labels.length > 6 ? ` m.fl. (${labels.length})` : ""}`);
   return redirect(`/admin/texter?sida=${page.id}&klart=texter&andring=${batch}`, 303);
 }
 
@@ -376,7 +423,7 @@ export async function resetLayoutSubmit(c: RequestContext, session: Session): Pr
   const layout = siteLayout(await loadSettings(c.env.DB));
   const keys = [`ordning:${page.id}`, `dolt:${page.id}`, ...styledKeys(page, layout).map((k) => `stil:${k}`)];
   await c.env.DB.prepare(`DELETE FROM settings WHERE key IN (${keys.map(() => "?").join(",")})`).bind(...keys).run();
-  await audit(c.env, session, "återställde uppbyggnaden av", "sidan", null, page.title);
+  await audit(c.env, session, "återställde uppbyggnaden av", "sidan", page.id, page.title);
   return redirect(`/admin/texter?sida=${page.id}&klart=uppbyggnad_aterstalld`, 303);
 }
 
@@ -449,7 +496,7 @@ export async function undoSubmit(c: RequestContext, session: Session): Promise<R
     updates.push([v.key, await valueBefore(db, v.key, v.id)]);
   }
   const { batch: newBatch } = await saveSettings(db, session, updates);
-  if (newBatch) await audit(c.env, session, "ångrade ändringar på", "sidan", null, `${updates.length} texter`);
+  if (newBatch) await audit(c.env, session, "ångrade ändringar på", "sidan", findPage(pageId)?.id ?? null, `${updates.length} texter`);
   return redirect(`${back}${back.includes("?") ? "&" : "?"}klart=${skipped ? "angrat-delvis" : "angrat"}`, 303);
 }
 
@@ -532,7 +579,7 @@ export async function historyRestore(c: RequestContext, session: Session): Promi
     if (!exists) return redirect(`${back}&fel=bild-borta`, 303);
   }
   await saveSettings(c.env.DB, session, [[key, value]]);
-  await audit(c.env, session, "återställde en tidigare version av", "texten", null, loc ? `${loc.page.title}: ${loc.field.label}` : "Menyn");
+  await audit(c.env, session, "återställde en tidigare version av", "texten", loc?.page.id ?? null, loc ? `${loc.page.title}: ${loc.field.label}` : "Menyn");
   return redirect(`${back}&klart=aterstallt-text`, 303);
 }
 

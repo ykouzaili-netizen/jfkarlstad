@@ -215,6 +215,14 @@ with sync_playwright() as p:
     status, body, _ = get("/")
     check('data-t="hero_title"' not in body and "varden-titel" in body, "allt kan återställas")
 
+    # Senast ändrad
+    page.goto(f"{BASE}/admin/texter?sida=startsida")
+    lc = page.locator(".last-change")
+    check(lc.count() == 1 and "Senast ändrad av dig i dag" in lc.inner_text(), f"sidan visar vem som senast ändrade den ({lc.inner_text() if lc.count() else '–'})")
+    page.goto(f"{BASE}/admin/texter")
+    check("Senast ändrad av dig" in page.locator(".page-card:has-text('Startsidan')").inner_text(), "översikten visar senaste ändringen per sida")
+    check(page.locator(".page-card:has-text('Dokument') .page-card-changed").count() == 0, "orörda sidor visar ingen ändring")
+
     # Återställ sidans uppbyggnad med en knapp
     page.goto(f"{BASE}/admin/texter?sida=om-oss")
     check(page.locator(".layout-reset").count() == 0, "ingen återställningsruta när uppbyggnaden är orörd")
