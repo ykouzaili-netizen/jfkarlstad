@@ -1,5 +1,6 @@
+import { isLinkVisible } from "../lib/pagelayout.js";
 import { escapeHtml, html, raw, type SafeHtml } from "../lib/html.js";
-import { ek, loadSettings, type SettingKey, type Settings } from "../lib/settings.js";
+import { ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
 import {
   documentQuery,
   faqQuery,
@@ -143,7 +144,9 @@ export async function searchPage(c: RequestContext): Promise<Response> {
           .filter((p) => matches(ts, p.name, p.tagline, p.description))
           .map((p) => ({ title: p.name, href: `/partners/${p.slug}`, meta: p.tagline, text: snippet(ts, p.description), score: title(p.name) })),
       },
-    ].filter((g) => g.hits.length) as Group[];
+    ]
+      .map((g) => ({ ...g, hits: g.hits.filter((h) => isLinkVisible(siteLayout(s), h.href)) }))
+      .filter((g) => g.hits.length) as Group[];
     for (const g of groups) g.hits.sort(byScore);
     // Grupper med träff i rubriken först
     groups.sort((a, b) => (b.hits[0]?.score ?? 0) - (a.hits[0]?.score ?? 0));

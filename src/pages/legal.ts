@@ -1,5 +1,6 @@
+import { isLinkVisible } from "../lib/pagelayout.js";
 import { html } from "../lib/html.js";
-import { ek, loadSettings, type SettingKey, type Settings } from "../lib/settings.js";
+import { ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
 import { renderInline, renderMarkdown } from "../lib/markdown.js";
 import { fill } from "../lib/texts.js";
 import { htmlResponse, textResponse } from "../lib/http.js";
@@ -103,6 +104,7 @@ export async function cookiesPage(c: RequestContext): Promise<Response> {
 export async function sitemapXml(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const site = c.env.SITE_URL.replace(/\/$/, "");
+  const layout = siteLayout(await loadSettings(db));
   const [news, events, partners, jobs] = await db.batch([
     db.prepare("SELECT slug, COALESCE(updated_at, published_at) AS mod FROM news WHERE published = 1 AND (published_at IS NULL OR published_at <= datetime('now'))"),
     db.prepare("SELECT slug, updated_at AS mod FROM events WHERE published = 1 AND (publish_at IS NULL OR publish_at <= datetime('now'))"),
@@ -117,12 +119,13 @@ export async function sitemapXml(c: RequestContext): Promise<Response> {
     `<url><loc>${site}${path}</loc>${mod ? `<lastmod>${mod.slice(0, 10)}</lastmod>` : ""}</url>`;
   const dyn = (res: D1Result | undefined, prefix: string) =>
     ((res?.results ?? []) as { slug: string; mod?: string }[]).map((r) => entry(`${prefix}/${encodeURIComponent(r.slug)}`, r.mod));
+  const visible = (prefix: string) => isLinkVisible(layout, prefix);
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${[
-    ...staticPaths.map((p) => entry(p)),
-    ...dyn(news, "/aktuellt"),
-    ...dyn(events, "/kalender"),
-    ...dyn(partners, "/partners"),
-    ...((jobs?.results ?? []) as { slug: string; updated_at?: string }[]).map((j) => entry(`/karriar/${encodeURIComponent(j.slug)}`, j.updated_at)),
+    ...staticPaths.filter(visible).map((p) => entry(p)),
+    ...(visible("/aktuellt") ? dyn(news, "/aktuellt") : []),
+    ...(visible("/kalender") ? dyn(events, "/kalender") : []),
+    ...(visible("/partners") ? dyn(partners, "/partners") : []),
+    ...(visible("/karriar") ? ((jobs?.results ?? []) as { slug: string; updated_at?: string }[]).map((j) => entry(`/karriar/${encodeURIComponent(j.slug)}`, j.updated_at)) : []),
   ].join("\n")}\n</urlset>`;
   return textResponse(xml, "application/xml; charset=utf-8");
 }

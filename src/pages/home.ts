@@ -1,5 +1,5 @@
 import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ek, loadSettings, type Settings } from "../lib/settings.js";
+import { ek, loadSettings, type Settings, arrange } from "../lib/settings.js";
 import { eventQuery, jobQuery, newsQuery, partnerQuery, type EventRow, type NewsRow, type PartnerRow } from "../lib/content.js";
 import { eventDate, stockholmNow, stockholmToday, telHref } from "../lib/format.js";
 import { renderInline } from "../lib/markdown.js";
@@ -23,13 +23,16 @@ export async function homePage(c: RequestContext): Promise<Response> {
 
   const content = html`
     ${hero(s, events[0])}
-    ${partnersSection(s, partners, openJobs)}
-    ${values(s)}
-    ${intro(s)}
-    ${eventsSection(s, events)}
-    ${newsSection(s, news)}
-    ${paverka(s)}
-    ${instagram(s)}
+    <span id="efter-toppen" class="scroll-anchor"></span>
+    ${arrange(s, "startsida", {
+      partners: () => partnersSection(s, partners, openJobs),
+      varden: () => values(s),
+      intro: () => intro(s),
+      evenemang: () => eventsSection(s, events),
+      nyheter: (prev) => newsSection(s, news, prev === "evenemang"),
+      paverka: () => paverka(s),
+      instagram: (prev) => instagram(s, prev === "paverka"),
+    })}
   `;
 
   const site = c.env.SITE_URL.replace(/\/$/, "");
@@ -60,7 +63,9 @@ function hero(s: Settings, next: EventRow | undefined): SafeHtml {
   const pos = ["top", "center", "bottom"].includes(s.hero_image_position) ? s.hero_image_position : "center";
   const tone = ["svag", "medel", "stark"].includes(s.hero_overlay) ? s.hero_overlay : "medel";
   const img = s.hero_image_key;
-  return html`<section class="hero hero-pos-${pos} hero-tone-${tone}${img ? " has-image" : ""}" aria-labelledby="hero-titel">
+  const align = ["vanster", "mitten", "hoger"].includes(s.hero_text_align) ? s.hero_text_align : "vanster";
+  const vertical = s.hero_text_vertical === "mitten" ? "mitten" : "nere";
+  return html`<section class="hero hero-pos-${pos} hero-tone-${tone} hero-align-${align} hero-valign-${vertical}${img ? " has-image" : ""}" aria-labelledby="hero-titel">
     <div class="hero-media"${ek(s, "hero_image_key")}>
       ${img
         ? picture(img, { alt: s.hero_image_alt, className: "hero-bg", sizes: "100vw", width: 2560, height: 1440, eager: true })
@@ -84,7 +89,7 @@ function hero(s: Settings, next: EventRow | undefined): SafeHtml {
           </a>`
         : ""}
     </div>
-    <a class="hero-scroll" href="#partner-titel"${ek(s, "hero_scroll")}><span class="hero-scroll-label">${s.hero_scroll}</span><span class="hero-scroll-icon" aria-hidden="true">${icon("arrowDown", "icon icon-sm")}</span></a>
+    <a class="hero-scroll" href="#efter-toppen"${ek(s, "hero_scroll")}><span class="hero-scroll-label">${s.hero_scroll}</span><span class="hero-scroll-icon" aria-hidden="true">${icon("arrowDown", "icon icon-sm")}</span></a>
   </section>`;
 }
 
@@ -146,8 +151,9 @@ function eventsSection(s: Settings, events: EventRow[]): SafeHtml {
   </section>`;
 }
 
-function newsSection(s: Settings, news: NewsRow[]): SafeHtml {
-  return html`<section class="section section-tight-top" aria-labelledby="nyheter-titel">
+/** `tight` = direkt efter evenemangen (samma bakgrund), annars får avsnittet vanlig luft ovanför. */
+function newsSection(s: Settings, news: NewsRow[], tight: boolean): SafeHtml {
+  return html`<section class="section${tight ? " section-tight-top" : ""}" aria-labelledby="nyheter-titel">
     <div class="container">
       ${sectionHead(s, { titleKey: "home_news_title", id: "nyheter-titel", link: { href: "/aktuellt", labelKey: "home_news_link" } })}
       ${news.length ? html`<div class="card-grid">${news.map((n) => newsCard(s, n))}</div>` : emptyState(s.home_news_empty, ek(s, "home_news_empty"))}
@@ -199,8 +205,8 @@ function paverka(s: Settings): SafeHtml {
   </section>`;
 }
 
-function instagram(s: Settings): SafeHtml {
-  return html`<section class="section section-tight-top" aria-labelledby="insta-titel">
+function instagram(s: Settings, tight: boolean): SafeHtml {
+  return html`<section class="section${tight ? " section-tight-top" : ""}" aria-labelledby="insta-titel">
     <div class="container">
       <div class="insta-band">
         <span class="insta-icon">${icon("instagram")}</span>

@@ -1,5 +1,5 @@
 import { html } from "../lib/html.js";
-import { ek, lines, loadSettings } from "../lib/settings.js";
+import { arrange, ek, lines, loadSettings } from "../lib/settings.js";
 import { faqQuery, rows, type FaqRow } from "../lib/content.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
@@ -25,7 +25,9 @@ export async function membershipPage(c: RequestContext): Promise<Response> {
       actions: html`${joinButton(s, { className: "btn btn-primary btn-lg" })}${s.member_price ? html`<p class="price-note"${ek(s, "member_price")}>${s.member_price}</p>` : ""}`,
     })}
 
-    <section class="section section-tight-top">
+    ${arrange(s, "bli-medlem", {
+      formaner: (prev) => html`
+    <section class="section${prev === null ? " section-tight-top" : ""}">
       <div class="container split split-top">
         <div>
           <h2 class="section-title"${ek(s, "member_benefits_title")}>${s.member_benefits_title}</h2>
@@ -45,8 +47,8 @@ export async function membershipPage(c: RequestContext): Promise<Response> {
         </div>
         </div>
       </div>
-    </section>
-
+    </section>`,
+      faq: () => html`
     ${faq.length
       ? html`<section class="section section-surface" aria-labelledby="medlem-faq">
           <div class="container narrow">
@@ -55,7 +57,8 @@ export async function membershipPage(c: RequestContext): Promise<Response> {
             <p class="after-list">${arrowLink("/faq", s.member_faq_link, "arrow-link", ek(s, "member_faq_link"))}</p>
           </div>
         </section>`
-      : ""}
+      : ""}`,
+    })}
   `;
   return htmlResponse(c, layout(c, s, { title: s.member_title, description: s.member_lead }, content));
 }

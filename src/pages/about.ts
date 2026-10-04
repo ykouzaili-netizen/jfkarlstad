@@ -1,11 +1,12 @@
+import { blockOrder, isBlockHidden } from "../lib/pagelayout.js";
 import { html, paragraphs, type SafeHtml } from "../lib/html.js";
-import { committeeList, ec, ek, loadSettings, type SettingKey, type Settings } from "../lib/settings.js";
+import { committeeList, ec, ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
 import { boardQuery, honorQuery, partnerQuery, type BoardRow, type HonorRow, type PartnerRow } from "../lib/content.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
 import { joinButton, layout, picture } from "../views/layout.js";
 import { arrowLink, emptyState, partnerLogo } from "../views/components.js";
-import { icon } from "../views/icons.js";
+import { icon, type IconName } from "../views/icons.js";
 import { avatar, HERO_FALLBACKS, heroStyle, heroTile, personCard, photoTop, sectionNav, type HeroImage } from "../views/page.js";
 
 export async function aboutPage(c: RequestContext): Promise<Response> {
@@ -19,24 +20,25 @@ export async function aboutPage(c: RequestContext): Promise<Response> {
   const partners = partnerRes!.results as unknown as PartnerRow[];
   const committees = committeeList(s);
 
+  const sections: { id: string; anchor: string; labelKey: SettingKey; icon: IconName; render: () => SafeHtml | string }[] = [
+    { id: "om", anchor: "#om-jfk", labelKey: "about_section_title", icon: "sparkle", render: () => aboutSection(s) },
+    { id: "styrning", anchor: "#sa-styrs-jfk", labelKey: "governance_title", icon: "network", render: () => governance(s) },
+    { id: "styrelsen", anchor: "#styrelsen", labelKey: "board_title", icon: "user", render: () => boardSection(s, board) },
+    { id: "utskott", anchor: "#utskotten", labelKey: "committees_title", icon: "users", render: () => (committees.length ? committeesSection(s, committees) : "") },
+    { id: "utmarkelser", anchor: "#utmarkelser", labelKey: "honors_title", icon: "check", render: () => honorsSection(s, honors) },
+    { id: "pedagog", anchor: "#arets-pedagog", labelKey: "pedagog_title", icon: "megaphone", render: () => pedagogSection(s, honors) },
+    { id: "samarbeten", anchor: "#samarbeten", labelKey: "collab_title", icon: "briefcase", render: () => collabSection(s, partners) },
+  ];
+  // Genvägarna följer avsnittens ordning och hoppar över dolda avsnitt.
+  const order = siteLayout(s);
+  const shown = blockOrder(order, "om-oss")
+    .map((id) => sections.find((x) => x.id === id)!)
+    .filter((x) => x && !isBlockHidden(order, "om-oss", x.id) && (x.id !== "utskott" || committees.length));
+
   const content = html`
     ${hero(s)}
-    ${sectionNav(s, [
-      { href: "#om-jfk", labelKey: "about_section_title", icon: "sparkle" },
-      { href: "#sa-styrs-jfk", labelKey: "governance_title", icon: "network" },
-      { href: "#styrelsen", labelKey: "board_title", icon: "user" },
-      ...(committees.length ? [{ href: "#utskotten", labelKey: "committees_title" as SettingKey, icon: "users" as const }] : []),
-      { href: "#utmarkelser", labelKey: "honors_title", icon: "check" },
-      { href: "#arets-pedagog", labelKey: "pedagog_title", icon: "megaphone" },
-      { href: "#samarbeten", labelKey: "collab_title", icon: "briefcase" },
-    ])}
-    ${aboutSection(s)}
-    ${governance(s)}
-    ${boardSection(s, board)}
-    ${committees.length ? committeesSection(s, committees) : ""}
-    ${honorsSection(s, honors)}
-    ${pedagogSection(s, honors)}
-    ${collabSection(s, partners)}
+    ${sectionNav(s, shown.map((x) => ({ href: x.anchor, labelKey: x.labelKey, icon: x.icon })))}
+    ${shown.map((x) => x.render())}
   `;
 
   return htmlResponse(c, layout(c, s, { title: s.about_kicker, description: s.about_lead }, content));

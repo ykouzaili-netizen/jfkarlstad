@@ -1,5 +1,5 @@
 import { html, paragraphs, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { committeeList, ec, ek, lines, loadSettings, type SettingKey, type Settings } from "../lib/settings.js";
+import { committeeList, ec, ek, lines, loadSettings, type SettingKey, type Settings, arrange } from "../lib/settings.js";
 import { boardQuery, partnerQuery, positionQuery, rows, type BoardRow, type PartnerRow, type PositionRow } from "../lib/content.js";
 import { errorSummary, renderField, validate, type Errors, type FieldSpec, type FormUiTexts, type Values } from "../lib/forms.js";
 import { checkFormToken, clientIp, formToken, rateLimit, turnstileEnabled, verifyTurnstile } from "../lib/security.js";
@@ -164,6 +164,7 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
   const packages = ([1, 2, 3] as const)
     .map((n) => ({ n, nameKey: `package_${n}_name` as const, textKey: `package_${n}_text` as const }))
     .filter((p) => s[p.nameKey]);
+  const formHtml = await formBlock(c, s, "foretag", fieldsFor("foretag", s), values, errors, topError);
   const content = html`
     ${pageHeader(s, {
       kickerKey: "companies_kicker",
@@ -171,7 +172,9 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
       leadKey: "companies_lead",
       actions: html`<a class="btn btn-primary btn-lg" href="#kontakta-oss"${ek(s, "companies_cta")}>${s.companies_cta}</a><a class="arrow-link" href="/partners"${ek(s, "companies_partners_link")}>${s.companies_partners_link}${icon("arrowRight", "icon icon-sm")}</a>`,
     })}
-    <section class="section section-tight-top">
+    ${arrange(s, "for-foretag", {
+      varfor: (prev) => html`
+    <section class="section${prev === null ? " section-tight-top" : ""}">
       <div class="container split split-top">
         <div>
           <h2 class="section-title"${ek(s, "companies_why_title")}>${s.companies_why_title}</h2>
@@ -185,8 +188,8 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
           </div>
         </div>
       </div>
-    </section>
-
+    </section>`,
+      paket: () => html`
     ${packages.length
       ? html`<section class="section section-surface" aria-labelledby="paket">
           <div class="container">
@@ -205,21 +208,22 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
             <ul class="logo-row center">${partners.map((p) => html`<li${ec(s, `/admin/partners/${p.id}`, `Partner › ${p.name}`)}><a href="/partners/${p.slug}">${partnerLogo(p, "sm")}</a></li>`)}</ul>
           </div>
         </section>`
-      : ""}
-
+      : ""}`,
+      formular: () => html`
     <section class="section" aria-labelledby="kontakta-oss">
       <div class="container form-layout">
         <div>
           <h2 class="section-title" id="kontakta-oss"${ek(s, "companies_form_title")}>${s.companies_form_title}</h2>
           <p class="form-intro"${ek(s, "companies_form_intro")}>${s.companies_form_intro}</p>
-          ${await formBlock(c, s, "foretag", fieldsFor("foretag", s), values, errors, topError)}
+          ${formHtml}
         </div>
         <aside class="aside-card">
           <h3 class="aside-title"${ek(s, "companies_mail_title")}>${s.companies_mail_title}</h3>
           <p${ek(s, "companies_mail_text")}>${renderInline(s.companies_mail_text)}</p>
         </aside>
       </div>
-    </section>`;
+    </section>`,
+    })}`;
   return htmlResponse(c, layout(c, s, { title: s.companies_kicker, description: s.companies_lead }, content), status);
 }
 
@@ -255,9 +259,12 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
   const chosen = positions.find((p) => String(p.id) === c.url.searchParams.get("uppdrag"));
   const formValues = values ?? (chosen ? { uppdrag: chosen.title.slice(0, 120) } : {});
   const committees = committeeList(s).map((c) => c.name);
+  const formHtml = await formBlock(c, s, "engagemang", fieldsFor("engagemang", s, positions), formValues, errors, topError);
   const content = html`
     ${pageHeader(s, { kickerKey: "engage_kicker", hero: "engage", titleKey: "engage_title", leadKey: "engage_lead" })}
-    <section class="section section-tight-top" aria-labelledby="lediga-uppdrag">
+    ${arrange(s, "engagera-dig", {
+      uppdrag: (prev) => html`
+    <section class="section${prev === null ? " section-tight-top" : ""}" aria-labelledby="lediga-uppdrag">
       <div class="container">
         <div class="section-head">
           <div>
@@ -282,7 +289,8 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
             </ul>`
           : html`<div class="empty-state empty-state-soft"${ek(s, "engage_positions_empty")}>${paragraphs(s.engage_positions_empty)}</div>`}
       </div>
-    </section>
+    </section>`,
+      utskott: () => html`
     ${committees.length
       ? html`<section class="section section-surface" aria-labelledby="utskotten">
           <div class="container split split-top">
@@ -296,16 +304,18 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
               : html`<ul class="pill-list pill-list-lg"${ek(s, "committees")}>${committees.map((cm) => html`<li>${cm}</li>`)}</ul>`}
           </div>
         </section>`
-      : ""}
+      : ""}`,
+      formular: () => html`
     <section class="section" aria-labelledby="anmalan">
       <div class="container form-layout">
         <div>
           <h2 class="section-title" id="anmalan"${ek(s, "engage_form_title")}>${s.engage_form_title}</h2>
           <p class="form-intro"${ek(s, "engage_form_intro")}>${s.engage_form_intro}</p>
-          ${await formBlock(c, s, "engagemang", fieldsFor("engagemang", s, positions), formValues, errors, topError)}
+          ${formHtml}
         </div>
       </div>
-    </section>`;
+    </section>`,
+    })}`;
   return htmlResponse(c, layout(c, s, { title: s.engage_title, description: s.engage_lead }, content), status);
 }
 

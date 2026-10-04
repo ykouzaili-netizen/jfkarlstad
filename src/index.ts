@@ -1,3 +1,4 @@
+import { LAYOUT_PREFIX, pageIdForPath } from "./lib/pagelayout.js";
 import type { Env } from "./env.js";
 import { Router, type RequestContext } from "./router.js";
 import { randomToken, redirect, textResponse } from "./lib/http.js";
@@ -25,6 +26,18 @@ import { cookiesPage, privacyPage, sitemapXml } from "./pages/legal.js";
 import { errorPage, notFoundPage } from "./pages/errors.js";
 import { registerAdminRoutes } from "./admin/routes.js";
 import { runMaintenance } from "./lib/maintenance.js";
+
+/** Sidor som styrelsen dolt (Texter och sidor) svarar som om de inte finns. */
+async function isHiddenPage(env: Env, path: string): Promise<boolean> {
+  const pageId = pageIdForPath(path);
+  if (!pageId) return false;
+  try {
+    const row = await env.DB.prepare("SELECT value FROM settings WHERE key = ?").bind(LAYOUT_PREFIX.page + pageId).first<{ value: string }>();
+    return row?.value === "dold";
+  } catch {
+    return false;
+  }
+}
 
 const router = new Router()
   .get("/", homePage)
@@ -104,6 +117,7 @@ export default {
       const match = router.match(req.method, url.pathname);
       if (match === "method-not-allowed") return new Response("Metoden stöds inte", { status: 405, headers: { Allow: "GET, HEAD, POST" } });
       if (!match) return await notFoundPage(c);
+      if (await isHiddenPage(env, url.pathname)) return await notFoundPage(c);
       c.params = match.params;
       return await match.handler(c);
     } catch (err) {

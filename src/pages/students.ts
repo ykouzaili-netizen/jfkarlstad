@@ -1,5 +1,6 @@
+import { blockOrder, isBlockHidden } from "../lib/pagelayout.js";
 import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ec, ek, lines, loadSettings, type Settings } from "../lib/settings.js";
+import { ec, ek, lines, loadSettings, type Settings, arrange, siteLayout, type SettingKey } from "../lib/settings.js";
 import { galleryQuery, repQuery, type CourseRepRow, type GalleryRow } from "../lib/content.js";
 import { renderInline } from "../lib/markdown.js";
 import { htmlResponse } from "../lib/http.js";
@@ -15,30 +16,34 @@ export async function studentsPage(c: RequestContext): Promise<Response> {
   const reps = repRes!.results as unknown as CourseRepRow[];
   const gallery = galRes!.results as unknown as GalleryRow[];
 
+  const navItems: { id: string; href: string; labelKey: SettingKey }[] = [
+    { id: "studera", href: "#studera-pa-kau", labelKey: "study_title" },
+    { id: "jobb", href: "#jobb-och-praktik", labelKey: "students_jobs_title" },
+    { id: "kursombud", href: "#kursombud", labelKey: "reps_title" },
+    { id: "idrott", href: "#jfk-idrott", labelKey: "sport_title" },
+    { id: "galleri", href: "#bildgalleri", labelKey: "gallery_title" },
+  ];
+  const order = siteLayout(s);
+  const nav = blockOrder(order, "for-studenter")
+    .filter((id) => !isBlockHidden(order, "for-studenter", id))
+    .map((id) => navItems.find((n) => n.id === id)!)
+    .map(({ href, labelKey }) => ({ href, labelKey }));
+
   const content = html`
-    ${pageHeader(s, {
-      kickerKey: "students_kicker",
-      hero: "students", titleKey: "students_title",
-      leadKey: "students_lead",
-      nav: [
-        { href: "#studera-pa-kau", labelKey: "study_title" },
-        { href: "#jobb-och-praktik", labelKey: "students_jobs_title" },
-        { href: "#kursombud", labelKey: "reps_title" },
-        { href: "#jfk-idrott", labelKey: "sport_title" },
-        { href: "#bildgalleri", labelKey: "gallery_title" },
-      ],
+    ${pageHeader(s, { kickerKey: "students_kicker", hero: "students", titleKey: "students_title", leadKey: "students_lead", nav })}
+    ${arrange(s, "for-studenter", {
+      studera: (prev) => study(s, prev === null),
+      jobb: (prev) => jobs(s, prev === null || prev === "studera"),
+      kursombud: () => repsSection(s, reps),
+      idrott: () => sport(s),
+      galleri: () => gallerySection(s, gallery),
     })}
-    ${study(s)}
-    ${jobs(s)}
-    ${repsSection(s, reps)}
-    ${sport(s)}
-    ${gallerySection(s, gallery)}
   `;
   return htmlResponse(c, layout(c, s, { title: s.students_kicker, description: s.students_lead }, content));
 }
 
-function study(s: Settings): SafeHtml {
-  return html`<section class="section section-tight-top" aria-labelledby="studera-pa-kau">
+function study(s: Settings, tight: boolean): SafeHtml {
+  return html`<section class="section${tight ? " section-tight-top" : ""}" aria-labelledby="studera-pa-kau">
     <div class="container split">
       <div>
         <h2 class="section-title" id="studera-pa-kau"${ek(s, "study_title")}>${s.study_title}</h2>
@@ -59,8 +64,8 @@ function study(s: Settings): SafeHtml {
   </section>`;
 }
 
-function jobs(s: Settings): SafeHtml {
-  return html`<section class="section section-tight-top" aria-labelledby="jobb-och-praktik">
+function jobs(s: Settings, tight: boolean): SafeHtml {
+  return html`<section class="section${tight ? " section-tight-top" : ""}" aria-labelledby="jobb-och-praktik">
     <div class="container">
       <div class="cta-inline cta-inline-soft">
         <div>

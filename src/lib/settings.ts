@@ -1,3 +1,4 @@
+import { applyLayoutRow, arrangeBlocks, emptyLayout, type BlockRender, type SiteLayout } from "./pagelayout.js";
 import { FIT_PREFIX, parseFit, type ImageFit } from "./imagefit.js";
 import { isHex, readableOn } from "./color.js";
 
@@ -72,11 +73,14 @@ export function headingFont(s: Settings): HeadingFont {
 export async function loadSettings(db: D1Database, override?: Partial<Settings>): Promise<Settings> {
   const settings: Settings = { ...DEFAULT_SETTINGS };
   if (override) MARKED.add(settings);
+  const layout = emptyLayout();
+  LAYOUTS.set(settings, layout);
   try {
     const { results } = await db.prepare("SELECT key, value FROM settings").all<{ key: string; value: string }>();
     const fits = new Map<string, ImageFit>();
     for (const row of results) {
       if (row.key in settings) settings[row.key as SettingKey] = row.value;
+      else if (applyLayoutRow(layout, row.key, row.value)) continue;
       else if (row.key.startsWith(FIT_PREFIX)) {
         const fit = parseFit(row.value);
         if (fit) fits.set(row.key.slice(FIT_PREFIX.length), fit);
@@ -89,7 +93,10 @@ export async function loadSettings(db: D1Database, override?: Partial<Settings>)
   }
   if (override) {
     for (const [k, v] of Object.entries(override)) {
-      if (k in settings && typeof v === "string") settings[k as SettingKey] = v;
+      if (typeof v !== "string") continue;
+      if (k in settings) settings[k as SettingKey] = v;
+      // Förhandsvisningen skickar även osparad ordning, dolda avsnitt och textstilar.
+      else applyLayoutRow(layout, k, v);
     }
   }
   return settings;
@@ -127,6 +134,17 @@ export function themeCss(s: Settings): string {
 // ───────────────────── Bildernas passform ─────────────────────
 
 const FITS = new WeakMap<object, Map<string, ImageFit>>();
+const LAYOUTS = new WeakMap<object, SiteLayout>();
+
+/** Dolda sidor, avsnittens ordning och textstilar (inlästa av loadSettings()). */
+export function siteLayout(s: Settings): SiteLayout {
+  return LAYOUTS.get(s) ?? emptyLayout();
+}
+
+/** Synliga avsnitt i vald ordning – se arrangeBlocks() i pagelayout.ts. */
+export function arrange(s: Settings, pageId: string, render: Record<string, BlockRender>): (SafeHtml | string)[] {
+  return arrangeBlocks(siteLayout(s), pageId, render);
+}
 
 /** Justerade bilder (filnyckel → passform), inlästa av loadSettings(). */
 export function imageFits(s: Settings): ReadonlyMap<string, ImageFit> {
@@ -147,12 +165,14 @@ export function isMarked(s: Settings): boolean {
  * `<h2 class="x"${ek(s, "home_news_title")}>`. På den publika webbplatsen blir det ingenting.
  */
 export function ek(s: Settings, key: SettingKey): SafeHtml {
-  if (!MARKED.has(s)) return raw("");
+  // data-t bär textens egen storlek/justering (textStyleCss). På den publika sajten bara när texten har en stil.
+  const styled = siteLayout(s).styles.has(key);
+  if (!MARKED.has(s)) return raw(styled ? ` data-t="${key}"` : "");
   const loc = FIELD_INDEX.get(key);
   const url = editUrlFor(key) ?? (key === "logo_key" ? "/admin/utseende#logotyp" : null);
-  if (!url) return raw("");
+  if (!url) return raw(styled ? ` data-t="${key}"` : "");
   const label = loc ? `${loc.page.title} › ${loc.field.label}` : "Logotyp";
-  return raw(` data-ek="${key}" data-eu="${escapeAttr(url)}" data-el="${escapeAttr(label)}"`);
+  return raw(` data-t="${key}" data-ek="${key}" data-eu="${escapeAttr(url)}" data-el="${escapeAttr(label)}"`);
 }
 
 /** Märk innehåll (en nyhet, ett event …) med adressen där det redigeras. */

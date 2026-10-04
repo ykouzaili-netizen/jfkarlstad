@@ -1,5 +1,5 @@
 import { html, type SafeHtml } from "../lib/html.js";
-import { DEFAULT_SETTINGS, loadSettings, type SettingKey, type Settings } from "../lib/settings.js";
+import { DEFAULT_SETTINGS, loadSettings, siteLayout, type SettingKey, type Settings } from "../lib/settings.js";
 import { PAGES, FIELD_INDEX, findPage, type FieldDef, type PageDef, type SectionDef } from "../lib/texts.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec } from "../lib/forms.js";
 import { redirect, randomToken } from "../lib/http.js";
@@ -12,6 +12,8 @@ import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount } from "./layout.js";
 import { handleUpload, imageUploadField } from "./uploads.js";
 import { previewPane, samplePath } from "./preview.js";
+import { blockControls, editorSectionOrder, layoutEntries, pageVisibilityCard, textStyleControls } from "./layout-form.js";
+import { blockOrder, isBlockHidden, PAGE_LAYOUTS } from "../lib/pagelayout.js";
 
 /**
  * "Texter och sidor": varje text på webbplatsen, ordnad som webbplatsen – sida → avsnitt → fält.
@@ -140,7 +142,7 @@ async function textsIndex(c: RequestContext, session: Session): Promise<Response
             <span class="page-card-title">${p.title}</span>
             <span class="page-card-path">${p.id === "gemensamt" ? "Syns på alla sidor" : p.path}</span>
             <span class="page-card-sections">${p.sections.map((sec) => sec.title).slice(0, 4).join(" · ")}${p.sections.length > 4 ? " …" : ""}</span>
-            <span class="page-card-meta">${fieldCount(p)} texter${changed ? html` · <strong>${changed} ändrade</strong>` : ""}</span>
+            <span class="page-card-meta">${siteLayout(s).hiddenPages.has(p.id) ? html`<span class="badge-hidden">${icon("eyeOff", "icon icon-sm")}Dold</span> · ` : ""}${fieldCount(p)} texter${changed ? html` · <strong>${changed} ändrade</strong>` : ""}</span>
           </a>
         </li>`;
       })}
@@ -187,6 +189,9 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
   );
   const previews = await Promise.all(page.sections.map((sec) => previewFor(db, page, sec)));
   const initial = previews[openIdx] ?? { path: page.path, label: page.title };
+  const openId = page.sections[openIdx]?.id;
+  const previewOf = (sec: SectionDef) => previews[page.sections.indexOf(sec as (typeof page.sections)[number])]!;
+  const layout = siteLayout(s);
 
   // Ångra-rutan efter en sparning
   const batch = c.url.searchParams.get("andring") ?? "";
@@ -221,6 +226,7 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
     return html`<div class="text-field${isTarget ? " is-target" : ""}${value !== f.def ? " is-changed" : ""}" data-text-field="${f.key}">
       ${renderField(toSpec(f), value, errors[f.key])}
       ${tools}
+      ${textStyleControls(f, layout.styles.get(f.key))}
     </div>`;
   };
 
@@ -235,31 +241,47 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
       <form class="admin-form" id="texter-form" method="post" action="/admin/texter?sida=${page.id}" enctype="multipart/form-data" novalidate data-dirty-check data-accordion>
         ${csrfField(session)}
         ${errorSummary(errors, page.sections.flatMap((sec) => textFields(sec).map(toSpec)))}
-        ${page.sections.map((sec, i) => {
-          const fields = sec.fields as readonly FieldDef[];
-          const main = fields.filter((f) => !f.more);
-          const more = fields.filter((f) => f.more);
-          const moreOpen = more.some((f) => f.key === target || errors[f.key]);
-          const changed = fields.filter((f) => s[f.key as SettingKey] !== f.def).length;
-          return html`<details class="text-section" id="avsnitt-${sec.id}" data-section data-preview-path="${previews[i]!.path}" data-preview-label="${previews[i]!.label}"${i === openIdx ? html` open` : ""}>
-            <summary>
-              <span class="text-section-title">${sec.title}</span>
-              <span class="text-section-meta">${fields.length} ${fields.length === 1 ? "text" : "texter"}${changed ? html` · ${changed} ändrade` : ""}</span>
-              <span class="text-section-chevron" aria-hidden="true">${icon("chevronDown", "icon icon-sm")}</span>
-            </summary>
-            <div class="text-section-body">
-              ${sec.hint ? html`<p class="section-hint">${icon("sparkle", "icon icon-sm")}<span>${sec.hint}</span></p>` : ""}
-              ${main.map(fieldBlock)}
-              ${more.length
-                ? html`<details class="more-texts"${moreOpen ? html` open` : ""}>
-                    <summary><span class="more-closed">Visa fler texter (${more.length})</span><span class="more-open">Dölj extra texter</span></summary>
-                    <p class="field-help">Knappar, etiketter och texter som sällan behöver ändras.</p>
-                    ${more.map(fieldBlock)}
-                  </details>`
-                : ""}
-            </div>
-          </details>`;
+        <input type="hidden" name="__sida_id" value="${page.id}">
+        ${pageVisibilityCard(page, layout)}
+        ${editorSectionOrder(page, layout).map((group) => {
+          const sectionHtml = (sec: SectionDef, first: boolean) => {
+            const fields = sec.fields as readonly FieldDef[];
+            const main = fields.filter((f) => !f.more);
+            const more = fields.filter((f) => f.more);
+            const moreOpen = more.some((f) => f.key === target || errors[f.key]);
+            const changed = fields.filter((f) => s[f.key as SettingKey] !== f.def).length;
+            const pv = previewOf(sec);
+            const hidden = group.block !== null && isBlockHidden(layout, page.id, group.block);
+            return html`<details class="text-section" id="avsnitt-${sec.id}" data-section data-preview-path="${pv.path}" data-preview-label="${pv.label}"${sec.id === openId ? html` open` : ""}>
+              <summary>
+                <span class="text-section-title">${sec.title}</span>
+                <span class="text-section-meta">${hidden && first ? html`<span class="badge-hidden" data-hidden-badge>${icon("eyeOff", "icon icon-sm")}Dold</span> · ` : ""}${fields.length} ${fields.length === 1 ? "text" : "texter"}${changed ? html` · ${changed} ändrade` : ""}</span>
+                <span class="text-section-chevron" aria-hidden="true">${icon("chevronDown", "icon icon-sm")}</span>
+              </summary>
+              <div class="text-section-body">
+                ${group.block && first ? blockControls(page.id, group.block, layout) : ""}
+                ${sec.hint ? html`<p class="section-hint">${icon("sparkle", "icon icon-sm")}<span>${sec.hint}</span></p>` : ""}
+                ${main.map(fieldBlock)}
+                ${more.length
+                  ? html`<details class="more-texts"${moreOpen ? html` open` : ""}>
+                      <summary><span class="more-closed">Visa fler texter (${more.length})</span><span class="more-open">Dölj extra texter</span></summary>
+                      <p class="field-help">Knappar, etiketter och texter som sällan behöver ändras.</p>
+                      ${more.map(fieldBlock)}
+                    </details>`
+                  : ""}
+              </div>
+            </details>`;
+          };
+          if (!group.block) return sectionHtml(group.sections[0]!, true);
+          const hidden = isBlockHidden(layout, page.id, group.block);
+          return html`<div class="sec-group${hidden ? " is-hidden" : ""}" data-block="${group.block}">
+            <button type="button" class="sec-handle" data-drag-handle aria-label="Dra för att flytta avsnittet ${group.sections[0]!.title}" title="Dra för att flytta">${icon("grip", "icon icon-sm")}</button>
+            ${group.sections.map((sec, i) => sectionHtml(sec, i === 0))}
+          </div>`;
         })}
+        ${PAGE_LAYOUTS[page.id]?.blocks.length
+          ? html`<input type="hidden" name="__ordning" value="${blockOrder(layout, page.id).join(",")}" data-block-order>`
+          : ""}
         <div class="admin-form-actions sticky-actions">
           <button class="btn btn-primary btn-lg" type="submit">Spara ändringar</button>
           <a class="btn btn-outline" href="${initial.path}" target="_blank" rel="noopener" data-open-page>${icon("external", "icon icon-sm")}Öppna sidan</a>
@@ -300,10 +322,43 @@ export async function textsSubmit(c: RequestContext, session: Session): Promise<
 
   // Utbytta bilder ligger kvar i bildbanken – de kan återanvändas och behövs för Ångra.
   const { batch, changed } = await saveSettings(c.env.DB, session, updates);
-  if (!batch) return redirect(`/admin/texter?sida=${page.id}&klart=oforandrat`, 303);
+  const layoutChanged = await saveLayout(c.env.DB, layoutEntries(form, page));
+  if (layoutChanged.length) await audit(c.env, session, "ändrade uppbyggnaden av", "sidan", null, `${page.title}: ${layoutChanged.join(", ")}`);
+  if (!batch) return redirect(`/admin/texter?sida=${page.id}&klart=${layoutChanged.length ? "sparat" : "oforandrat"}`, 303);
   const labels = changed.map((k) => FIELD_INDEX.get(k)?.field.label ?? k);
   await audit(c.env, session, "ändrade texter på", "sidan", null, `${page.title}: ${labels.slice(0, 6).join(", ")}${labels.length > 6 ? ` m.fl. (${labels.length})` : ""}`);
   return redirect(`/admin/texter?sida=${page.id}&klart=texter&andring=${batch}`, 303);
+}
+
+/**
+ * Spara sidans uppbyggnad (synlighet, ordning, textstilar). Bara rader som ändrats skrivs.
+ * Returnerar en kort beskrivning per ändring för ändringsloggen.
+ */
+async function saveLayout(db: D1Database, entries: [string, string | null][]): Promise<string[]> {
+  if (!entries.length) return [];
+  const { results } = await db
+    .prepare(`SELECT key, value FROM settings WHERE key IN (${entries.map(() => "?").join(",")})`)
+    .bind(...entries.map(([k]) => k))
+    .all<{ key: string; value: string }>();
+  const current = new Map(results.map((r) => [r.key, r.value]));
+  const changes = entries.filter(([k, v]) => (current.get(k) ?? null) !== v);
+  if (!changes.length) return [];
+  await db.batch(
+    changes.map(([k, v]) =>
+      v === null
+        ? db.prepare("DELETE FROM settings WHERE key = ?").bind(k)
+        : db
+            .prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at")
+            .bind(k, v),
+    ),
+  );
+  return changes.map(([k, v]) => {
+    if (k.startsWith("sida:")) return v ? "sidan dold" : "sidan visas";
+    if (k.startsWith("ordning:")) return "avsnittens ordning";
+    if (k.startsWith("dolt:")) return "dolda avsnitt";
+    const field = FIELD_INDEX.get(k.slice("stil:".length))?.field.label ?? k;
+    return `stil för ${field}`;
+  });
 }
 
 // ───────────────────────── Ångra och tidigare versioner ─────────────────────────

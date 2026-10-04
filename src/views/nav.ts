@@ -1,4 +1,5 @@
-import type { Settings } from "../lib/settings.js";
+import { siteLayout, type Settings } from "../lib/settings.js";
+import { isLinkVisible } from "../lib/pagelayout.js";
 
 /**
  * Webbplatsens meny. Används av sidhuvudets meny och sidfotens sidkarta.
@@ -129,13 +130,15 @@ export function resolveMenu(s: Settings): ResolvedItem[] {
 
 /** Menyn som den visas på webbplatsen (utan dolda punkter). */
 export function visibleMenu(s: Settings): NavItem[] {
+  // Länkar till dolda sidor och dolda avsnitt (Texter och sidor) visas inte heller.
+  const layout = siteLayout(s);
   return resolveMenu(s)
-    .filter((i) => !i.hidden)
+    .filter((i) => !i.hidden && isLinkVisible(layout, i.href))
     .map((i) => ({
       id: i.id,
       label: i.label,
       href: i.href,
-      children: i.children ? i.children.filter((c) => !c.hidden).map(({ id, label, href }) => ({ id, label, href })) : undefined,
+      children: i.children ? i.children.filter((c) => !c.hidden && isLinkVisible(layout, c.href)).map(({ id, label, href }) => ({ id, label, href })) : undefined,
     }))
     .map((i) => (i.children && i.children.length === 0 ? { ...i, children: undefined } : i));
 }

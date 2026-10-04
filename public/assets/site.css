@@ -577,6 +577,21 @@ main:focus { outline: none; }
   .hero-inner { grid-template-columns: minmax(0, 1fr) auto; }
 }
 .hero-copy { max-width: 900px; }
+.scroll-anchor { display: block; height: 0; }
+
+/* Textens placering (Texter och sidor → Startsidan → Toppen av sidan) */
+.hero-valign-mitten { justify-content: center; }
+.hero-align-mitten .hero-inner { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
+.hero-align-mitten .hero-copy { display: flex; flex-direction: column; align-items: center; }
+.hero-align-mitten .hero-title,
+.hero-align-mitten .hero-lead { margin-inline: auto; }
+.hero-align-mitten .hero-actions { justify-content: center; }
+.hero-align-hoger .hero-copy { display: flex; flex-direction: column; align-items: flex-end; justify-self: end; text-align: right; }
+.hero-align-hoger .hero-actions { justify-content: flex-end; }
+@media (min-width: 1000px) {
+  .hero-align-hoger .hero-inner { grid-template-columns: auto minmax(0, 1fr); }
+  .hero-align-hoger .hero-next { order: -1; }
+}
 
 .eyebrow {
   display: inline-flex;

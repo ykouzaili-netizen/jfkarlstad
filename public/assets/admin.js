@@ -399,7 +399,9 @@
       post.textContent = "";
       add("_csrf", pane.getAttribute("data-csrf"));
       Array.prototype.forEach.call(form.elements, function (el) {
-        if (!el.name || el.disabled || el.name.charAt(0) === "_" || /__(ta_bort|liten|matt|bank)$/.test(el.name)) return;
+        // Fält som börjar med _ är interna – utom sidans uppbyggnad (ordning, dolda avsnitt, textstilar).
+        var layoutField = /^__(sida_id|ordning|visa__|stil_)/.test(el.name);
+        if (!el.name || el.disabled || (el.name.charAt(0) === "_" && !layoutField) || /__(ta_bort|liten|matt|bank)$/.test(el.name)) return;
         if (el.type === "file") {
           var key = el.getAttribute("data-setting") || el.name;
           var remove = form.elements[el.name + "__ta_bort"];
@@ -929,4 +931,136 @@
   editor.querySelectorAll("[data-fit-mode]").forEach(function (r) { r.addEventListener("change", render); });
   window.addEventListener("resize", render);
   if (img.complete) render(); else img.addEventListener("load", render);
+})();
+
+/* Texter och sidor: flytta avsnitt (dra i handtaget, piltangenter eller knapparna), visa/dölj avsnitt och sidor,
+   och textstilar. Ordningen skrivs i det dolda fältet __ordning; förhandsvisningen uppdateras via input-händelser. */
+(function () {
+  var form = document.querySelector("#texter-form");
+  if (!form) return;
+  var orderInput = form.querySelector("[data-block-order]");
+  var live = document.createElement("p");
+  live.className = "sr-only";
+  live.setAttribute("aria-live", "polite");
+  form.appendChild(live);
+
+  function groups() { return Array.prototype.slice.call(form.querySelectorAll(".sec-group[data-block]")); }
+  function sectionTitle(g) { var t = g.querySelector(".text-section-title"); return t ? t.textContent : ""; }
+
+  function saveOrder(moved) {
+    if (!orderInput) return;
+    var gs = groups();
+    orderInput.value = gs.map(function (g) { return g.getAttribute("data-block"); }).join(",");
+    if (moved) orderInput.dispatchEvent(new Event("input", { bubbles: true }));
+    if (moved) live.textContent = sectionTitle(moved) + " ligger nu på plats " + (gs.indexOf(moved) + 1) + " av " + gs.length + ".";
+    gs.forEach(function (g, i) {
+      var up = g.querySelector('[data-move="up"]'), down = g.querySelector('[data-move="down"]');
+      if (up) up.disabled = i === 0;
+      if (down) down.disabled = i === gs.length - 1;
+    });
+  }
+
+  function move(g, dir) {
+    var gs = groups(), i = gs.indexOf(g), j = i + dir;
+    if (j < 0 || j >= gs.length) return false;
+    if (dir < 0) gs[j].before(g); else gs[j].after(g);
+    g.classList.add("is-moved");
+    setTimeout(function () { g.classList.remove("is-moved"); }, 700);
+    saveOrder(g);
+    return true;
+  }
+
+  // Knapparna i avsnittet och piltangenterna på handtaget
+  form.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-move]");
+    if (!btn) return;
+    var g = btn.closest(".sec-group");
+    if (move(g, btn.getAttribute("data-move") === "up" ? -1 : 1)) btn.focus();
+  });
+  form.addEventListener("keydown", function (e) {
+    var h = e.target.closest("[data-drag-handle]");
+    if (!h || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    e.preventDefault();
+    if (move(h.closest(".sec-group"), e.key === "ArrowUp" ? -1 : 1)) h.focus();
+  });
+
+  // Dra med mus eller finger
+  var drag = null;
+  form.addEventListener("pointerdown", function (e) {
+    var h = e.target.closest("[data-drag-handle]");
+    if (!h || e.button > 0) return;
+    var g = h.closest(".sec-group");
+    drag = { g: g, h: h, startY: e.clientY, moved: false };
+    h.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  form.addEventListener("pointermove", function (e) {
+    if (!drag) return;
+    if (!drag.moved && Math.abs(e.clientY - drag.startY) < 4) return;
+    if (!drag.moved) { drag.moved = true; drag.g.classList.add("is-dragging"); form.classList.add("is-sorting"); }
+    // Byt plats när pekaren passerar mitten av grannavsnittet
+    var gs = groups(), i = gs.indexOf(drag.g);
+    var prev = gs[i - 1], next = gs[i + 1];
+    if (prev && e.clientY < prev.getBoundingClientRect().top + prev.getBoundingClientRect().height / 2) prev.before(drag.g);
+    else if (next && e.clientY > next.getBoundingClientRect().top + next.getBoundingClientRect().height / 2) next.after(drag.g);
+    // Rulla sidan när man drar nära kanten
+    if (e.clientY < 80) window.scrollBy(0, -12); else if (e.clientY > window.innerHeight - 80) window.scrollBy(0, 12);
+  });
+  function endDrag() {
+    if (!drag) return;
+    drag.g.classList.remove("is-dragging");
+    form.classList.remove("is-sorting");
+    if (drag.moved) saveOrder(drag.g);
+    drag = null;
+  }
+  form.addEventListener("pointerup", endDrag);
+  form.addEventListener("pointercancel", endDrag);
+
+  // Visa/dölj avsnitt
+  form.addEventListener("change", function (e) {
+    if (e.target.matches("[data-block-visible]")) {
+      var g = e.target.closest(".sec-group");
+      g.classList.toggle("is-hidden", !e.target.checked);
+      var meta = g.querySelector(".text-section-meta"), badge = g.querySelector("[data-hidden-badge]");
+      if (!e.target.checked && !badge && meta) {
+        badge = document.createElement("span");
+        badge.className = "badge-hidden";
+        badge.setAttribute("data-hidden-badge", "");
+        badge.textContent = "Dold";
+        meta.prepend(document.createTextNode(" · "));
+        meta.prepend(badge);
+      } else if (e.target.checked && badge) {
+        var sep = badge.nextSibling;
+        badge.remove();
+        if (sep && sep.nodeType === 3) sep.remove();
+      }
+    }
+    if (e.target.matches("[data-page-visible]")) {
+      var box = e.target.closest("[data-page-visibility]");
+      box.classList.toggle("is-hidden", !e.target.checked);
+      box.querySelector("[data-visible-hint]").textContent = e.target.checked
+        ? "Sidan visas när du sparar. Stäng av för att dölja den helt – inga texter försvinner."
+        : "Sidan döljs när du sparar. Besökare får ”Sidan finns inte”, och länkarna till den tas bort från menyn och sidfoten.";
+    }
+  });
+
+  // Textstilar: visa vald storlek och återställ
+  form.addEventListener("input", function (e) {
+    if (!e.target.matches("[data-style-size]")) return;
+    var out = e.target.parentNode.querySelector("[data-style-size-out]");
+    if (out) out.textContent = e.target.value + " %";
+  });
+  form.addEventListener("click", function (e) {
+    var r = e.target.closest("[data-style-reset]");
+    if (!r) return;
+    var box = r.closest("[data-text-style]");
+    var size = box.querySelector("[data-style-size]");
+    size.value = 100;
+    size.dispatchEvent(new Event("input", { bubbles: true }));
+    var std = box.querySelector('[data-style-align][value=""]');
+    std.checked = true;
+    std.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  saveOrder(null);
 })();

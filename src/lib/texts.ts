@@ -142,6 +142,15 @@ export const PAGES = [
         { value: "medel", label: "Medel" },
         { value: "stark", label: "Stark", hint: "För ljusa bilder – gör texten lättare att läsa" },
       ], { required: true }),
+      choice("hero_text_align", "Textens placering i sidled", "vanster", [
+        { value: "vanster", label: "Till vänster" },
+        { value: "mitten", label: "I mitten", hint: "Rubrik, text och knappar centreras" },
+        { value: "hoger", label: "Till höger" },
+      ], { required: true }),
+      choice("hero_text_vertical", "Textens placering i höjdled", "nere", [
+        { value: "nere", label: "Nere", hint: "Lämnar mer av bilden synlig" },
+        { value: "mitten", label: "I mitten av bilden" },
+      ], { required: true }),
       text("hero_next_label", "Etikett på rutan med nästa evenemang", "Nästa evenemang", small),
       text("hero_scroll", "Text vid pilen längst ned", "Scrolla vidare", small),
     ]),

@@ -624,3 +624,55 @@ a.admin-user:hover { background: var(--c-hover); }
 .fit-frame-portrait { aspect-ratio: 3 / 4; width: 75%; }
 .fit-frame-label { margin: 8px 0 0; font-size: 0.8125rem; color: var(--c-muted); line-height: 1.4; }
 .fit-frame-label strong { display: block; color: var(--c-text); font-size: 0.875rem; }
+
+/* ---------- Sidans uppbyggnad i Texter och sidor ---------- */
+.page-visibility { display: flex; margin-bottom: 16px; padding: 16px 18px; border-radius: 18px; background: var(--c-surface); border: 1px solid var(--c-border); }
+.page-visibility.is-hidden { background: #fff6e0; border-color: #e7c66b; }
+.switch-text { display: grid; gap: 2px; }
+.switch-hint { font-size: 0.8125rem; color: var(--c-muted); line-height: 1.45; }
+
+.sec-group { position: relative; }
+.sec-group > .text-section > summary { padding-left: 56px; }
+.sec-handle {
+  position: absolute; z-index: 2; top: 13px; left: 10px;
+  display: grid; place-items: center;
+  width: 36px; height: 36px; padding: 0;
+  border: 0; border-radius: 10px; background: transparent; color: var(--c-muted);
+  cursor: grab; touch-action: none;
+}
+.sec-handle:hover { background: var(--c-hover); color: var(--c-text); }
+.sec-handle:focus-visible { outline: 3px solid var(--c-text); outline-offset: 1px; }
+.sec-handle:active { cursor: grabbing; }
+.sec-group.is-hidden > .text-section:first-of-type > summary .text-section-title { color: var(--c-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.sec-group.is-dragging { z-index: 5; }
+.sec-group.is-dragging > .text-section { box-shadow: 0 18px 40px -16px rgb(0 0 0 / 0.35); border-color: var(--c-text); transform: scale(1.01); }
+.is-sorting { user-select: none; }
+.is-sorting .sec-group:not(.is-dragging) { transition: transform 0.15s var(--ease); }
+.sec-group.is-moved > .text-section { animation: field-flash 1s var(--ease); }
+.badge-hidden { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: #fff0c2; color: #6b4e00; font-weight: 600; }
+.block-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; background: var(--c-bg); }
+.block-move { display: inline-flex; gap: 8px; }
+.block-move .btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Storlek och placering för en text */
+.text-style { margin-top: 6px; }
+.text-style > summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.8125rem; font-weight: 600; color: var(--c-muted); list-style: none; }
+.text-style > summary::-webkit-details-marker { display: none; }
+.text-style > summary:hover { color: var(--c-text); }
+.text-style-badge { margin-left: 4px; padding: 1px 8px; border-radius: 999px; background: #fff0c2; color: #6b4e00; }
+.text-style-body { display: grid; gap: 12px; margin-top: 10px; padding: 14px; border-radius: 12px; background: var(--c-bg); }
+.text-style-size { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; font-size: 0.875rem; font-weight: 600; }
+.text-style-size input { accent-color: #17171a; }
+.text-style-size output { min-width: 4.5ch; text-align: right; font-variant-numeric: tabular-nums; }
+.text-style-align { margin: 0; padding: 0; border: 0; }
+.text-style-align legend { margin-bottom: 6px; font-size: 0.875rem; font-weight: 600; }
+.segmented { display: inline-flex; flex-wrap: wrap; padding: 3px; border-radius: 999px; background: var(--c-surface); border: 1px solid var(--c-border); }
+.segmented label { position: relative; }
+.segmented input { position: absolute; opacity: 0; inset: 0; }
+.segmented span { display: block; padding: 6px 14px; border-radius: 999px; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
+.segmented input:checked + span { background: #17171a; color: #fff; }
+.segmented input:focus-visible + span { outline: 3px solid #17171a; outline-offset: 2px; }
+.text-style .link-btn { justify-self: start; }
+@media (max-width: 560px) {
+  .block-controls { flex-direction: column; align-items: flex-start; }
+}

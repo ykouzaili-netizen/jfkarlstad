@@ -15,6 +15,8 @@ import { cookiesPage, privacyPage } from "../pages/legal.js";
 import { notFoundPage } from "../pages/errors.js";
 import { checkCsrf, type Session } from "./auth.js";
 import { isImageSetting } from "../lib/media.js";
+import { findPage } from "../lib/texts.js";
+import { layoutEntries } from "./layout-form.js";
 
 /**
  * Förhandsvisning i adminpanelen.
@@ -98,6 +100,12 @@ export async function previewHandler(c: RequestContext, session: Session): Promi
     // Bilder får bara vara en befintlig nyckel, tom (borttagen) eller en platshållare för en vald bild.
     if (isImageSetting(key) && v && !v.startsWith(PREVIEW_IMAGE_PREFIX) && !/^[a-z0-9][a-z0-9._-]{0,200}$/i.test(v)) continue;
     override[key] = v.replace(/\r\n/g, "\n").trim().slice(0, MAX_VALUE);
+  }
+
+  // Osparad uppbyggnad från Texter och sidor: ordning, dolda avsnitt och textstilar.
+  const editedPage = findPage(String(form.get("__sida_id") ?? ""));
+  if (editedPage) {
+    for (const [k, v] of layoutEntries(form, editedPage)) (override as Record<string, string>)[k] = v ?? "";
   }
 
   const editMap = c.url.searchParams.get("karta") === "1";
