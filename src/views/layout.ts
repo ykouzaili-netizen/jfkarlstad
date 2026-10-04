@@ -30,6 +30,14 @@ export const PREVIEW_IMAGE_PREFIX = "__fh__";
  * Adress till en uppladdad bild. `sm` = den mindre versionen (max 800 px) som skapas vid uppladdning;
  * finns den inte (äldre bilder, SVG) svarar servern med originalet.
  */
+/** Flikens ikon: den uppladdade logotypen (Utseende → Logotyp), annars §-ikonen. */
+function favicon(s: Settings): SafeHtml {
+  const src = s.logo_key && !s.logo_key.startsWith(PREVIEW_IMAGE_PREFIX) ? mediaUrl(s.logo_key) : null;
+  return src
+    ? html`<link rel="icon" href="${src}"><link rel="apple-touch-icon" href="${src}">`
+    : html`<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">`;
+}
+
 export function mediaUrl(key: string | null | undefined, size: "full" | "sm" = "full"): string | null {
   if (!key) return null;
   if (key.startsWith(PREVIEW_IMAGE_PREFIX)) {
@@ -212,7 +220,7 @@ ${meta.noindex || c.preview ? raw('<meta name="robots" content="noindex, nofollo
 <meta property="og:image" content="${ogImage}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="${s.color_background}">
-<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+${favicon(s)}
 <link rel="alternate" type="text/calendar" title="${s.site_short_name} – kalender" href="/kalender.ics">
 <link rel="preload" href="/assets/fonts/montserrat.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${HEADING_FONTS[headingFont(s)].file}" as="font" type="font/woff2" crossorigin>

@@ -249,7 +249,7 @@ export async function appearancePage(c: RequestContext, session: Session, overri
               ${logo ? html`<img class="upload-preview upload-preview-logo" src="${logo}" alt="Nuvarande logotyp" data-preview="logo">` : html`<span class="brand-mark brand-mark-lg" aria-hidden="true">§</span><img class="upload-preview upload-preview-logo" alt="" data-preview="logo" hidden>`}
               <div class="upload-controls">
                 <label class="field-label" for="falt-logo">${logo ? "Byt logotyp" : "Ladda upp logotyp"}</label>
-                <p class="field-help" id="logo-hjalp">Kvadratisk SVG eller PNG med genomskinlig bakgrund fungerar bäst. Visas i sidhuvudet och sidfoten. Stora bilder komprimeras automatiskt.</p>
+                <p class="field-help" id="logo-hjalp">Kvadratisk SVG eller PNG med genomskinlig bakgrund fungerar bäst. Visas i sidhuvudet, i sidfoten och som ikon i webbläsarens flik. Stora bilder komprimeras automatiskt.</p>
                 ${uploadInput({ id: "falt-logo", name: "logo", kind: "image", describedBy: "logo-hjalp", setting: "logo_key" })}
                 ${logo ? html`<label class="check-field check-small"><input type="checkbox" name="logo__ta_bort" value="1"><span>Ta bort logotypen (visa §-symbolen igen)</span></label>` : ""}
               </div>

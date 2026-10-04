@@ -78,6 +78,11 @@ const router = new Router()
   .get("/robots.txt", (c) =>
     textResponse(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /ut/\nDisallow: /sok?\n\nSitemap: ${c.env.SITE_URL.replace(/\/$/, "")}/sitemap.xml\n`, "text/plain; charset=utf-8"),
   )
+  // Webbläsare och sökmotorer frågar ibland efter /favicon.ico direkt – skicka dem till logotypen.
+  .get("/favicon.ico", async (c) => {
+    const row = await c.env.DB.prepare("SELECT value FROM settings WHERE key = 'logo_key'").first<{ value: string }>().catch(() => null);
+    return redirect(row?.value ? `/media/${encodeURI(row.value)}` : "/assets/favicon.svg");
+  })
   .get("/media/:key", mediaHandler);
 
 registerAdminRoutes(router);
