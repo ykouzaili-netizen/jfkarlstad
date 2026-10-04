@@ -13,7 +13,7 @@ import { adminHead, adminLayout, csrfField, newMessageCount } from "./layout.js"
 import { handleUpload, imageUploadField } from "./uploads.js";
 import { previewPane, samplePath } from "./preview.js";
 import { blockControls, editorSectionOrder, layoutEntries, pageVisibilityCard, textStyleControls } from "./layout-form.js";
-import { blockOrder, isBlockHidden, PAGE_LAYOUTS } from "../lib/pagelayout.js";
+import { blockOrder, isBlockHidden, PAGE_LAYOUTS, type SiteLayout } from "../lib/pagelayout.js";
 
 /**
  * "Texter och sidor": varje text på webbplatsen, ordnad som webbplatsen – sida → avsnitt → fält.
@@ -286,6 +286,17 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
           <button class="btn btn-primary btn-lg" type="submit">Spara ändringar</button>
           <a class="btn btn-outline" href="${initial.path}" target="_blank" rel="noopener" data-open-page>${icon("external", "icon icon-sm")}Öppna sidan</a>
         </div>
+        <!-- Efter Spara-knappen, så att Enter i ett fält alltid sparar och aldrig återställer. -->
+        ${hasLayoutChanges(page, layout)
+          ? html`<div class="layout-reset">
+              <div>
+                <p class="layout-reset-title">${icon("history", "icon icon-sm")}Sidans uppbyggnad är ändrad</p>
+                <p class="field-help">${layoutSummary(page, layout)}. Du kan återställa ordningen, visa alla avsnitt igen och ta bort alla egna textstorlekar och justeringar på en gång. Texterna och bilderna påverkas inte.</p>
+              </div>
+              <button class="btn btn-outline btn-sm" type="submit" formaction="/admin/texter/aterstall-uppbyggnad?sida=${page.id}" formnovalidate
+                data-confirm-click="Återställa uppbyggnaden av ${page.title}? Ordningen, dolda avsnitt och alla egna textstorlekar och justeringar på sidan återställs. Osparade textändringar i formuläret sparas inte.">Återställ sidans uppbyggnad</button>
+            </div>`
+          : ""}
       </form>
       ${previewPane({ formId: "texter-form", page: initial.path, pageLabel: initial.label, csrf: session.csrf, editMap: true })}
     </div>`;
@@ -328,6 +339,45 @@ export async function textsSubmit(c: RequestContext, session: Session): Promise<
   const labels = changed.map((k) => FIELD_INDEX.get(k)?.field.label ?? k);
   await audit(c.env, session, "ändrade texter på", "sidan", null, `${page.title}: ${labels.slice(0, 6).join(", ")}${labels.length > 6 ? ` m.fl. (${labels.length})` : ""}`);
   return redirect(`/admin/texter?sida=${page.id}&klart=texter&andring=${batch}`, 303);
+}
+
+/** Sidans egna textstilar (nycklar i registret som har en sparad stil). */
+function styledKeys(page: PageDef, layout: SiteLayout): string[] {
+  return page.sections.flatMap((sec) => (sec.fields as readonly FieldDef[]).map((f) => f.key)).filter((k) => layout.styles.has(k));
+}
+
+function hasLayoutChanges(page: PageDef, layout: SiteLayout): boolean {
+  return layout.order.has(page.id) || (layout.hiddenBlocks.get(page.id)?.size ?? 0) > 0 || styledKeys(page, layout).length > 0;
+}
+
+/** T.ex. "Ny ordning, 1 dolt avsnitt och 3 texter med egen stil". */
+function layoutSummary(page: PageDef, layout: SiteLayout): string {
+  const parts: string[] = [];
+  if (layout.order.has(page.id)) parts.push("ny ordning");
+  const hidden = layout.hiddenBlocks.get(page.id)?.size ?? 0;
+  if (hidden) parts.push(`${hidden} ${hidden === 1 ? "dolt avsnitt" : "dolda avsnitt"}`);
+  const styled = styledKeys(page, layout).length;
+  if (styled) parts.push(`${styled} ${styled === 1 ? "text" : "texter"} med egen stil`);
+  const text = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} och ${parts.at(-1)}` : parts[0] ?? "";
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** "Återställ sidans uppbyggnad": ordning, dolda avsnitt och textstilar. Sidans synlighet och texterna rörs inte. */
+export async function resetLayoutSubmit(c: RequestContext, session: Session): Promise<Response> {
+  let form: FormData;
+  try {
+    form = await c.req.formData();
+  } catch {
+    return redirect("/admin/texter", 303);
+  }
+  const page = findPage(c.url.searchParams.get("sida"));
+  if (!page) return redirect("/admin/texter", 303);
+  if (!checkCsrf(c, session, form)) return redirect(`/admin/texter?sida=${page.id}&fel=csrf`, 303);
+  const layout = siteLayout(await loadSettings(c.env.DB));
+  const keys = [`ordning:${page.id}`, `dolt:${page.id}`, ...styledKeys(page, layout).map((k) => `stil:${k}`)];
+  await c.env.DB.prepare(`DELETE FROM settings WHERE key IN (${keys.map(() => "?").join(",")})`).bind(...keys).run();
+  await audit(c.env, session, "återställde uppbyggnaden av", "sidan", null, page.title);
+  return redirect(`/admin/texter?sida=${page.id}&klart=uppbyggnad_aterstalld`, 303);
 }
 
 /**

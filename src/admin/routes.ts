@@ -21,7 +21,7 @@ import {
 } from "./pages.js";
 import { previewHandler, siteMapHandler } from "./preview.js";
 import { RESOURCES, deleteHandler, duplicateHandler, editHandler, listHandler, newHandler, saveHandler, toggleHandler } from "./resources.js";
-import { historyPage, historyRestore, menuSubmit, textsPage, textsSubmit, undoSubmit } from "./texts.js";
+import { historyPage, historyRestore, menuSubmit, textsPage, textsSubmit, undoSubmit, resetLayoutSubmit } from "./texts.js";
 import { mediaAdjustPage, mediaAdjustSubmit, mediaDeleteSubmit, mediaLibraryPage, mediaPickerFragment, mediaUploadSubmit } from "./media-pages.js";
 import { partnerStatsCsv, partnerStatsPage } from "./stats-pages.js";
 import { adminSearchPage } from "./search.js";
@@ -46,6 +46,7 @@ export function registerAdminRoutes(router: Router): void {
     .get("/admin/texter", requireUser((c, s) => textsPage(c, s)))
     .post("/admin/texter", requireUser(textsSubmit))
     .post("/admin/texter/angra", requireUser(undoSubmit))
+    .post("/admin/texter/aterstall-uppbyggnad", requireUser(resetLayoutSubmit))
     .get("/admin/texter/historik", requireUser(historyPage))
     .post("/admin/texter/historik", requireUser(historyRestore))
     .post("/admin/texter/meny", requireUser(menuSubmit))

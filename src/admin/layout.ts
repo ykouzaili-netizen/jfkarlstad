@@ -11,6 +11,7 @@ const FLASH: Record<string, { kind: "ok" | "error"; text: string }> = {
   sparat: { kind: "ok", text: "Ändringarna är sparade och syns direkt på webbplatsen." },
   skapat: { kind: "ok", text: "Klart! Det nya innehållet är skapat." },
   raderat: { kind: "ok", text: "Borttaget." },
+  uppbyggnad_aterstalld: { kind: "ok", text: "Sidans uppbyggnad är återställd: ordinarie ordning, alla avsnitt synliga och standardstorlek på alla texter." },
   justerat: { kind: "ok", text: "Bilden är justerad. Ändringen syns direkt överallt där bilden används." },
   aterstallt_bild: { kind: "ok", text: "Bilden visas nu som från början." },
   publicerat: { kind: "ok", text: "Publicerat – nu syns det på webbplatsen." },

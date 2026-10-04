@@ -676,3 +676,9 @@ a.admin-user:hover { background: var(--c-hover); }
 @media (max-width: 560px) {
   .block-controls { flex-direction: column; align-items: flex-start; }
 }
+
+/* Återställ sidans uppbyggnad */
+.layout-reset { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; margin: 16px 0 0; padding: 16px 18px; border-radius: 18px; border: 1px dashed color-mix(in srgb, var(--c-text) 28%, transparent); background: var(--c-surface); }
+.layout-reset > div { flex: 1 1 320px; }
+.layout-reset-title { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-weight: 600; }
+.layout-reset .field-help { margin: 0; }
