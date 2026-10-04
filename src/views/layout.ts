@@ -31,7 +31,7 @@ export const PREVIEW_IMAGE_PREFIX = "__fh__";
  * finns den inte (äldre bilder, SVG) svarar servern med originalet.
  */
 /** Flikens ikon: den uppladdade logotypen (Utseende → Logotyp), annars §-ikonen. */
-function favicon(s: Settings): SafeHtml {
+export function favicon(s: Settings): SafeHtml {
   const src = s.logo_key && !s.logo_key.startsWith(PREVIEW_IMAGE_PREFIX) ? mediaUrl(s.logo_key) : null;
   return src
     ? html`<link rel="icon" href="${src}"><link rel="apple-touch-icon" href="${src}">`

@@ -2,7 +2,7 @@ import { html, raw, type SafeHtml } from "../lib/html.js";
 import { loadSettings } from "../lib/settings.js";
 import { securityHeaders } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
-import { ASSET_VERSION } from "../views/layout.js";
+import { ASSET_VERSION, favicon } from "../views/layout.js";
 import { icon, type IconName } from "../views/icons.js";
 import { ROLE_LABELS, type Session } from "./auth.js";
 
@@ -125,7 +125,7 @@ export async function adminLayout(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>${opts.title} | Adminpanel – ${s.site_short_name}</title>
-<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+${favicon(s)}
 <link rel="stylesheet" href="/assets/site.css?v=${ASSET_VERSION}">
 <link rel="stylesheet" href="/assets/admin.css?v=${ASSET_VERSION}">
 <script src="/assets/admin.js?v=${ASSET_VERSION}" defer></script>
