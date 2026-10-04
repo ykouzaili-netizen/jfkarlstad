@@ -217,6 +217,37 @@
     window.addEventListener("resize", hide);
   }
 
+  /* ---------- Sektionsmenyn: markera avsnittet man läser ---------- */
+  var sectionNav = document.querySelector("[data-section-nav]");
+  if (sectionNav && "IntersectionObserver" in window) {
+    var navLinks = Array.prototype.slice.call(sectionNav.querySelectorAll("a[href^='#']"));
+    var targets = navLinks.map(function (a) { return document.getElementById(a.getAttribute("href").slice(1)); });
+    var setActive = function (id) {
+      navLinks.forEach(function (a) {
+        var on = a.getAttribute("href") === "#" + id;
+        a.classList.toggle("is-active", on);
+        if (on) {
+          a.setAttribute("aria-current", "true");
+          var list = a.closest("ul");
+          if (list && list.scrollWidth > list.clientWidth) list.scrollTo({ left: a.offsetLeft - 16, behavior: "smooth" });
+        } else a.removeAttribute("aria-current");
+      });
+    };
+    // Varje länk hör till avsnittet (<section>) som innehåller rubriken den pekar på.
+    var sections = targets.map(function (t) { return t ? t.closest("section") || t : null; });
+    var visible = [];
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        var i = sections.indexOf(en.target);
+        if (i !== -1) visible[i] = en.isIntersecting;
+      });
+      for (var i = 0; i < sections.length; i++) {
+        if (visible[i]) { setActive(targets[i].id); return; }
+      }
+    }, { rootMargin: "-30% 0px -60% 0px" });
+    sections.forEach(function (sec) { if (sec) io.observe(sec); });
+  }
+
   /* ---------- Skugga under sidhuvudet vid scroll ---------- */
   var header = document.querySelector("[data-header]");
   if (header) {

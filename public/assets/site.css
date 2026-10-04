@@ -1865,6 +1865,161 @@ a.cal-num:hover { background: var(--c-hover); }
   .cal-dot { width: 6px; height: 6px; }
 }
 
+
+/* ---------- Genvägar till sidans avsnitt (sektionsmeny) ---------- */
+.section-nav {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 30;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+.section-nav ul {
+  list-style: none;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-block: 10px;
+}
+.section-nav ul::-webkit-scrollbar { display: none; }
+.section-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--c-on-primary) 78%, transparent);
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+.section-nav a:hover { color: var(--c-on-primary); background: color-mix(in srgb, var(--c-on-primary) 12%, transparent); }
+.section-nav a.is-active, .section-nav a[aria-current="true"] { background: var(--c-accent); color: var(--c-on-accent); }
+.section-nav .sn-icon { display: none; line-height: 0; }
+.section-nav :focus-visible { outline-color: var(--c-accent); }
+html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 76px); }
+
+/* ---------- Om oss ---------- */
+.about-hero { padding-block: clamp(40px, 6vw, 80px) clamp(40px, 5vw, 72px); }
+.about-hero-grid { display: grid; gap: clamp(32px, 5vw, 64px); align-items: center; }
+@media (min-width: 920px) { .about-hero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); } }
+.about-hero .page-title { font-size: calc(clamp(2.5rem, 1.6rem + 3.4vw, 4.5rem) * var(--display-scale)); }
+
+.collage {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 14px;
+  aspect-ratio: 1.05;
+}
+.collage-tile { position: relative; margin: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--c-surface); }
+.collage-tile-1 { grid-row: 1 / 3; }
+.collage-tile img { width: 100%; height: 100%; object-fit: cover; }
+.collage-fallback { width: 100%; height: 100%; display: grid; place-content: center; text-align: center; padding: 20px; }
+.collage-fallback-glyph {
+  background:
+    radial-gradient(circle at 1.5px 1.5px, color-mix(in srgb, var(--c-on-accent) 18%, transparent) 1.5px, transparent 0) 0 0 / 22px 22px,
+    var(--c-accent);
+  color: var(--c-on-accent);
+  font-family: var(--font-display);
+  font-size: clamp(8rem, 18vw, 15rem);
+  line-height: 1;
+}
+.collage-fallback-dark { background: var(--c-primary); color: var(--c-on-primary); }
+.collage-fallback-light { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: inherit; }
+.collage-fig { font-family: var(--font-display); font-size: calc(clamp(2.5rem, 2rem + 2vw, 3.75rem) * var(--display-scale)); font-weight: 600; line-height: 1; font-variant-numeric: lining-nums; }
+.collage-fallback-dark .collage-fig { color: var(--c-accent); }
+.collage-cap { margin-top: 6px; font-size: 0.9375rem; font-weight: 500; opacity: 0.85; }
+
+.about-intro-grid { display: grid; gap: clamp(32px, 5vw, 72px); align-items: center; }
+@media (min-width: 920px) { .about-intro-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.about-intro-media { position: relative; }
+.about-intro-media::before {
+  content: "";
+  position: absolute;
+  inset: 28px -18px -18px 28px;
+  border-radius: var(--radius-xl);
+  background: var(--c-accent);
+  z-index: -1;
+}
+.about-intro-media img, .about-intro-fallback { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-xl); }
+.about-intro { isolation: isolate; }
+.about-intro-fallback { display: grid; place-items: center; background: var(--c-primary); color: var(--c-accent); font-family: var(--font-display); font-size: 9rem; line-height: 1; }
+.about-intro-copy .section-title { margin-bottom: 18px; }
+.about-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 28px 0; }
+.about-stats > div { display: flex; flex-direction: column-reverse; gap: 2px; padding-top: 12px; border-top: 2px solid var(--c-text); }
+.about-stats dd { font-family: var(--font-display); font-size: calc(1.75rem * var(--display-scale)); font-weight: 600; line-height: 1.1; font-variant-numeric: lining-nums; }
+.about-stats dt { font-size: 0.8125rem; color: var(--c-muted); }
+@media (max-width: 559px) { .about-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.doc-shortcut {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  text-decoration: none;
+  transition: border-color 0.15s var(--ease);
+}
+.doc-shortcut:hover { border-color: var(--c-text); }
+.doc-shortcut > span:nth-child(2) { flex: 1; display: grid; gap: 2px; }
+.doc-shortcut-text { font-size: 0.875rem; color: var(--c-muted); }
+.doc-shortcut-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 12px; background: var(--c-accent); color: var(--c-on-accent); }
+
+.inspector-card { display: grid; gap: 12px; align-content: start; padding: clamp(24px, 3vw, 32px); border-radius: var(--radius-lg); background: var(--c-bg); }
+.inspector-photo { width: 96px; height: 96px; border-radius: 50%; overflow: hidden; }
+.inspector-photo img { width: 100%; height: 100%; object-fit: cover; }
+.inspector-mark { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--c-primary); color: var(--c-accent); }
+.inspector-card .info-title { margin-bottom: 0; }
+
+/* Utskotten: egen mörk sektion */
+.committees {
+  position: relative;
+  isolation: isolate;
+  padding-block: var(--section-y);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  overflow: hidden;
+}
+.committees-bg { position: absolute; inset: 0; z-index: -1; }
+.committees-bg img { width: 100%; height: 100%; object-fit: cover; opacity: 0.22; }
+.committees .section-title { color: var(--c-on-primary); }
+.committees .section-lead { color: color-mix(in srgb, var(--c-on-primary) 80%, transparent); max-width: 60ch; }
+.committees-head { margin-bottom: clamp(28px, 4vw, 44px); }
+.committee-grid { list-style: none; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); }
+.committee-card {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 26px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--c-on-primary) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-on-primary) 14%, transparent);
+}
+.committee-mark {
+  display: grid; place-items: center;
+  width: 52px; height: 52px; margin-bottom: 6px;
+  border-radius: 50%;
+  background: var(--c-accent); color: var(--c-on-accent);
+  font-family: var(--font-display); font-size: 1.5rem; font-weight: 600;
+}
+.committee-name { font-size: calc(clamp(1.125rem, 1rem + .4vw, 1.375rem) * var(--display-scale)); color: var(--c-on-primary); overflow-wrap: break-word; hyphens: auto; -webkit-hyphens: auto; }
+.committee-text { color: color-mix(in srgb, var(--c-on-primary) 78%, transparent); font-size: 0.9375rem; }
+.committee-cta { background: var(--c-accent); border-color: transparent; color: var(--c-on-accent); }
+.committee-cta .committee-name, .committee-cta .committee-text { color: var(--c-on-accent); }
+.committee-cta .btn { margin-top: auto; align-self: flex-start; background: var(--c-primary); color: var(--c-on-primary); border-color: var(--c-primary); box-shadow: none; }
+
+/* Samarbeten med bild */
+.collab-card { overflow: hidden; border-radius: var(--radius-lg); background: var(--c-bg); }
+.collab-media { aspect-ratio: 16 / 7; display: grid; place-items: center; background: var(--c-primary); }
+.collab-card:nth-child(2) .collab-media { background: var(--c-accent); }
+.collab-media img { width: 100%; height: 100%; object-fit: cover; }
+.collab-wordmark { font-family: var(--font-display); font-size: calc(2.75rem * var(--display-scale)); font-weight: 600; color: var(--c-accent); letter-spacing: -0.01em; }
+.collab-card:nth-child(2) .collab-wordmark { color: var(--c-on-accent); }
+.collab-body { padding: clamp(22px, 3vw, 30px); }
+.collab-body .info-title { margin-bottom: 8px; }
+
 /* ---------- Förhandsvisning i adminpanelen ---------- */
 /* Länkar och knappar går inte att klicka på i förhandsvisningen – den ska bara visa hur det ser ut. */
 .is-preview a, .is-preview button, .is-preview input, .is-preview select, .is-preview textarea, .is-preview summary { pointer-events: none; }

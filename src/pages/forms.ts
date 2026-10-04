@@ -1,5 +1,5 @@
 import { html, paragraphs, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ec, ek, lines, loadSettings, type SettingKey, type Settings } from "../lib/settings.js";
+import { committeeList, ec, ek, lines, loadSettings, type SettingKey, type Settings } from "../lib/settings.js";
 import { boardQuery, partnerQuery, positionQuery, rows, type BoardRow, type PartnerRow, type PositionRow } from "../lib/content.js";
 import { errorSummary, renderField, validate, type Errors, type FieldSpec, type FormUiTexts, type Values } from "../lib/forms.js";
 import { checkFormToken, clientIp, formToken, rateLimit, turnstileEnabled, verifyTurnstile } from "../lib/security.js";
@@ -249,7 +249,7 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
   // "Jag är intresserad" på ett uppdrag förväljer det i formuläret.
   const chosen = positions.find((p) => String(p.id) === c.url.searchParams.get("uppdrag"));
   const formValues = values ?? (chosen ? { uppdrag: chosen.title.slice(0, 120) } : {});
-  const committees = lines(s.committees);
+  const committees = committeeList(s).map((c) => c.name);
   const content = html`
     ${pageHeader(s, { kickerKey: "engage_kicker", titleKey: "engage_title", leadKey: "engage_lead" })}
     <section class="section section-tight-top" aria-labelledby="lediga-uppdrag">

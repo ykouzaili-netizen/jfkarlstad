@@ -1,13 +1,35 @@
 import { html, type SafeHtml } from "../lib/html.js";
 import type { BoardRow } from "../lib/content.js";
 import { ec, ek, type SettingKey, type Settings } from "../lib/settings.js";
-import { icon } from "./icons.js";
+import { icon, type IconName } from "./icons.js";
 import { picture } from "./layout.js";
 
 /** Sidhuvud för undersidor: liten etikett, stor rubrik och ingress – alla från textregistret. */
+export interface SectionNavItem {
+  href: string;
+  labelKey: SettingKey;
+  icon?: IconName;
+}
+
+/**
+ * Genvägarna till sidans avsnitt. Ligger kvar under sidhuvudet när man scrollar och markerar
+ * avsnittet man läser (site.js). Utan JS är det vanliga ankarlänkar.
+ */
+export function sectionNav(s: Settings, items: SectionNavItem[]): SafeHtml {
+  return html`<nav class="section-nav" aria-label="På den här sidan" data-section-nav>
+    <div class="container">
+      <ul>
+        ${items.map(
+          (n) => html`<li><a href="${n.href}"${ek(s, n.labelKey)}>${n.icon ? html`<span class="sn-icon" aria-hidden="true">${icon(n.icon, "icon icon-sm")}</span>` : ""}<span class="sn-label">${s[n.labelKey]}</span></a></li>`,
+        )}
+      </ul>
+    </div>
+  </nav>`;
+}
+
 export function pageHeader(
   s: Settings,
-  opts: { kickerKey?: SettingKey; titleKey: SettingKey; leadKey?: SettingKey; actions?: SafeHtml; nav?: { href: string; labelKey: SettingKey }[] },
+  opts: { kickerKey?: SettingKey; titleKey: SettingKey; leadKey?: SettingKey; actions?: SafeHtml; nav?: SectionNavItem[] },
 ): SafeHtml {
   const lead = opts.leadKey ? s[opts.leadKey] : "";
   return html`<section class="page-hero">
@@ -16,13 +38,9 @@ export function pageHeader(
       <h1 class="page-title"${ek(s, opts.titleKey)}>${s[opts.titleKey]}</h1>
       ${lead ? html`<p class="page-lead"${ek(s, opts.leadKey!)}>${lead}</p>` : ""}
       ${opts.actions ? html`<div class="page-actions">${opts.actions}</div>` : ""}
-      ${opts.nav?.length
-        ? html`<nav class="chip-nav" aria-label="På den här sidan">
-            <ul>${opts.nav.map((n) => html`<li><a class="chip" href="${n.href}">${s[n.labelKey]}</a></li>`)}</ul>
-          </nav>`
-        : ""}
     </div>
-  </section>`;
+  </section>
+  ${opts.nav?.length ? sectionNav(s, opts.nav) : ""}`;
 }
 
 /** Initialer som ersättning när en person saknar foto. */
