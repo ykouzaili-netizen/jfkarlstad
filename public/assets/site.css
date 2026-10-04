@@ -1360,6 +1360,20 @@ main:focus { outline: none; }
   .fader-slide.is-active .sport-photo img { animation: none; }
 }
 
+
+/* Paus-knappen i bildspelen syns bara när muspekaren är över bildspelet (eller när den har fokus med
+   tangentbordet, eller när bildspelet är pausat). Den ligger ovanpå bilderna så att inget hoppar. */
+.insta-marquee .insta-pause,
+.marquee .motion-pause {
+  position: absolute; z-index: 3; left: 14px; bottom: 14px; margin: 0;
+  color: #fff; border-color: rgb(255 255 255 / 0.6); background: rgb(0 0 0 / 0.45);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.insta-pause, .motion-pause { opacity: 0; pointer-events: none; transition: opacity 0.2s var(--ease); }
+.insta-marquee:hover .insta-pause, .marquee:hover .motion-pause, .fader:hover .motion-pause,
+.insta-pause:focus-visible, .motion-pause:focus-visible,
+.is-paused .insta-pause, .is-paused .motion-pause { opacity: 1; pointer-events: auto; }
+
 /* ---------- Sidfot ---------- */
 
 .site-footer {

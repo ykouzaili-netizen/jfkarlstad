@@ -409,3 +409,21 @@
     }
   });
 })();
+
+/* Bildspel och rullande band: alla bilder laddas när bildspelet närmar sig skärmen. Webbläsarens
+   loading="lazy" laddar annars bara bilder som syns – och bilderna utanför bandets ruta "syns" aldrig
+   förrän de glider in, så bandet visade tomma rutor (som såg ut som ett slut på loopen). */
+(function () {
+  var shows = document.querySelectorAll("[data-marquee], [data-fader], [data-carousel]");
+  if (!shows.length) return;
+  function loadAll(el) {
+    el.querySelectorAll("img[loading=lazy]").forEach(function (img) { img.loading = "eager"; });
+  }
+  if (!("IntersectionObserver" in window)) { shows.forEach(loadAll); return; }
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { loadAll(e.target); io.unobserve(e.target); }
+    });
+  }, { rootMargin: "800px 0px" });
+  shows.forEach(function (el) { io.observe(el); });
+})();
