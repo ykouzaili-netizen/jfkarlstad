@@ -103,13 +103,6 @@ export async function loadSettings(db: D1Database, override?: Partial<Settings>)
 }
 
 /** Rader ur ett "lines"-fält, utan tomma rader. */
-/** Utskotten: en rad per utskott, "Namn | beskrivning". */
-export function committeeList(s: Settings): { name: string; text: string }[] {
-  return lines(s.committees).map((l) => {
-    const [name, ...rest] = l.split("|");
-    return { name: (name ?? "").trim(), text: rest.join("|").trim() };
-  }).filter((c) => c.name);
-}
 
 export function lines(value: string): string[] {
   return value

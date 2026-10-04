@@ -307,12 +307,6 @@ export const PAGES = [
     sec("utskott", "Utskotten", [
       text("committees_title", "Rubrik", "Utskotten", { required: true }),
       area("committees_lead", "Text", "Det är i utskotten mycket av föreningens arbete händer. Här planerar medlemmar evenemang, driver utbildningsfrågor och bygger kontakter med arbetslivet – tillsammans med styrelsen."),
-      list(
-        "committees",
-        "Utskotten",
-        "Utbildningsutskottet | Bevakar utbildningens kvalitet, tar tillvara synpunkter från kursombuden och driver studenternas frågor gentemot universitetet.\nArbetsmarknadsutskottet | Bygger kontakter med byråer, myndigheter och företag – från lunchföreläsningar till arbetsmarknadsdagen.\nKommunikationsutskottet | Ansvarar för Instagram, webbplatsen och allt som syns utåt: foto, film och grafik.\nEvenemangsutskottet | Planerar sittningar, banketter, inspark och fester så att studietiden blir minnesvärd.\nEkonomiutskottet | Håller ordning på budget och bokföring och hjälper styrelsen att använda föreningens pengar klokt.\nIdrottsutskottet | Ordnar träningar, turneringar och idrottsevenemang för alla nivåer.",
-        { help: "Ett utskott per rad. Skriv namnet, ett lodstreck | och en kort beskrivning. Namnen visas även på Engagera dig." },
-      ),
       choice("committees_style", "Utseende", "mork", [
         { value: "mork", label: "Mörk med bild", hint: "Mörk yta med bakgrundsbilden tonad bakom korten" },
         { value: "gul", label: "Gul lista", hint: "Ett utskott per rad på gul bakgrund – luftigt och lättläst" },
@@ -323,7 +317,8 @@ export const PAGES = [
       text("committees_cta_title", "Sista rutan – rubrik", "Vill du vara med?"),
       area("committees_cta_text", "Sista rutan – text", "Alla ordinarie medlemmar kan väljas in i ett utskott. Anmäl ditt intresse så hör vi av oss."),
       text("committees_cta_button", "Sista rutan – knapp", "Engagera dig", small),
-    ]),
+      text("committees_read_more", "Länk på varje utskott", "Läs mer", small),
+    ], "Utskotten själva – namn, beskrivning och bilder – ändrar du under Styrelse och uppdrag → Utskott i menyn."),
     sec("utmarkelser", "Hedersmedlemmar och utmärkelser", [
       text("honors_title", "Rubrik", "Hedersmedlemmar och utmärkelser", { required: true }),
       area("honors_text", "Text", "Hedersmedlemskap är en särskild utmärkelse som tilldelas personer som genom sitt engagemang och sina insatser har haft en djupgående påverkan på föreningen."),
@@ -506,9 +501,11 @@ export const PAGES = [
     sec("utskott", "Utskotten", [
       text("engage_committees_title", "Rubrik", "Våra utskott", { required: true }),
       area("engage_committees_text", "Text", "Alla ordinarie medlemmar kan väljas in i ett utskott. Där planerar du evenemang, föreläsningar, idrott och mycket mer tillsammans med andra – och du bestämmer själv hur mycket tid du lägger."),
-      image("engage_image", "Bild", "", { help: "Valfritt. Visas bredvid utskotten, t.ex. ett utskott som planerar ett evenemang." }),
-      text("engage_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
-    ], "Listan med utskott ändrar du på sidan Om oss → Utskotten."),
+      text("engage_committee_hint", "Text ovanför korten", "Klicka på ett utskott för att läsa mer om vad ni gör.", { more: true }),
+      text("engage_committee_more", "Knapp: läs mer", "Läs mer", small),
+      text("engage_committee_less", "Knapp: stäng", "Stäng", small),
+      text("engage_committee_join", "Knapp: vara med", "Jag vill vara med i {utskott}", { ...small, help: "{utskott} byts ut mot utskottets namn." }),
+    ], "Utskotten – namn, kort och lång beskrivning, tidsåtgång och bilder – lägger du in under Styrelse och uppdrag → Utskott i menyn."),
     sec("formular", "Formuläret", [
       text("engage_form_title", "Rubrik", "Anmäl ditt intresse", { required: true }),
       area("engage_form_intro", "Text ovanför formuläret", "Fyll i formuläret så hör någon i styrelsen av sig och berättar mer. Det är inte bindande."),

@@ -1,15 +1,17 @@
 import { html, paragraphs, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { committeeList, ec, ek, lines, loadSettings, type SettingKey, type Settings, arrange } from "../lib/settings.js";
+import { ec, ek, lines, loadSettings, type SettingKey, type Settings, arrange } from "../lib/settings.js";
+import { fill } from "../lib/texts.js";
+import { committeeImages, loadCommittees, type CommitteeRow } from "../lib/committees.js";
 import { boardQuery, partnerQuery, positionQuery, rows, type BoardRow, type PartnerRow, type PositionRow } from "../lib/content.js";
 import { errorSummary, renderField, validate, type Errors, type FieldSpec, type FormUiTexts, type Values } from "../lib/forms.js";
 import { checkFormToken, clientIp, formToken, rateLimit, turnstileEnabled, verifyTurnstile } from "../lib/security.js";
 import { mailConfigured, sendMail } from "../lib/mail.js";
-import { renderInline } from "../lib/markdown.js";
+import { renderInline, renderMarkdown } from "../lib/markdown.js";
 import { htmlResponse, redirect } from "../lib/http.js";
 import { formatDay, stockholmToday, telHref } from "../lib/format.js";
 import type { RequestContext } from "../router.js";
 import type { Env } from "../env.js";
-import { layout } from "../views/layout.js";
+import { layout, picture } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 import { checkList, contentPhoto, pageHeader } from "../views/page.js";
 import { partnerLogo } from "../views/components.js";
@@ -40,7 +42,7 @@ function optionsFrom(text: string): { value: string; label: string }[] {
 }
 
 /** Formulärens fält byggs från inställningarna, så att etiketter och val kan ändras i adminpanelen. */
-function fieldsFor(id: FormId, s: Settings, positions: PositionRow[] = []): FieldSpec[] {
+function fieldsFor(id: FormId, s: Settings, positions: PositionRow[] = [], committees: { name: string }[] = []): FieldSpec[] {
   switch (id) {
     case "kontakt":
       return [
@@ -82,12 +84,25 @@ function fieldsFor(id: FormId, s: Settings, positions: PositionRow[] = []): Fiel
           name: "uppdrag",
           type: "select",
           required: true,
-          options: [...positions.map((p) => ({ value: p.title.slice(0, 120), label: p.title.slice(0, 120) })), { value: s.ef_role_any.slice(0, 120), label: s.ef_role_any.slice(0, 120) }],
+          options: uniqueOptions([
+            ...positions.map((p) => p.title),
+            ...committees.map((cm) => cm.name),
+            s.ef_role_any,
+          ]),
           ...lbl(s, "ef_role"),
         },
         { name: "meddelande", type: "textarea", max: 3000, rows: 5, help: s.ef_message_help, ...lbl(s, "ef_message") },
       ];
   }
+}
+
+/** Val i formuläret (uppdrag, utskott, "vad som helst") utan dubbletter. */
+function uniqueOptions(labels: string[]): { value: string; label: string }[] {
+  const seen = new Set<string>();
+  return labels
+    .map((l) => l.slice(0, 120))
+    .filter((l) => l && !seen.has(l) && seen.add(l))
+    .map((l) => ({ value: l, label: l }));
 }
 
 const PATHS: Record<FormId, string> = { kontakt: "/kontakt", foretag: "/for-foretag", paverka: "/jf-paverka", engagemang: "/engagera-dig" };
@@ -254,12 +269,12 @@ export async function paverkaPage(c: RequestContext, values?: Values, errors?: E
 
 export async function engagePage(c: RequestContext, values?: Values, errors?: Errors, topError?: string, status = 200): Promise<Response> {
   const db = c.env.DB;
-  const [s, positions] = await Promise.all([loadSettings(db, c.preview), rows<PositionRow>(positionQuery.open(db, stockholmToday()))]);
+  const [s, positions, committees] = await Promise.all([loadSettings(db, c.preview), rows<PositionRow>(positionQuery.open(db, stockholmToday())), loadCommittees(db)]);
   // "Jag är intresserad" på ett uppdrag förväljer det i formuläret.
   const chosen = positions.find((p) => String(p.id) === c.url.searchParams.get("uppdrag"));
-  const formValues = values ?? (chosen ? { uppdrag: chosen.title.slice(0, 120) } : {});
-  const committees = committeeList(s).map((c) => c.name);
-  const formHtml = await formBlock(c, s, "engagemang", fieldsFor("engagemang", s, positions), formValues, errors, topError);
+  const chosenCommittee = committees.find((cm) => cm.slug === c.url.searchParams.get("utskott"));
+  const formValues = values ?? (chosen ? { uppdrag: chosen.title.slice(0, 120) } : chosenCommittee ? { uppdrag: chosenCommittee.name.slice(0, 120) } : {});
+  const formHtml = await formBlock(c, s, "engagemang", fieldsFor("engagemang", s, positions, committees), formValues, errors, topError);
   const content = html`
     ${pageHeader(s, { kickerKey: "engage_kicker", hero: "engage", titleKey: "engage_title", leadKey: "engage_lead" })}
     ${arrange(s, "engagera-dig", {
@@ -290,21 +305,7 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
           : html`<div class="empty-state empty-state-soft"${ek(s, "engage_positions_empty")}>${paragraphs(s.engage_positions_empty)}</div>`}
       </div>
     </section>`,
-      utskott: () => html`
-    ${committees.length
-      ? html`<section class="section section-surface" aria-labelledby="utskotten">
-          <div class="container split split-top">
-            <div>
-              <h2 class="section-title" id="utskotten"${ek(s, "engage_committees_title")}>${s.engage_committees_title}</h2>
-              <div class="prose"${ek(s, "engage_committees_text")}>${paragraphs(s.engage_committees_text)}</div>
-              ${s.engage_image ? html`<ul class="pill-list pill-list-lg after-list"${ek(s, "committees")}>${committees.map((cm) => html`<li>${cm}</li>`)}</ul>` : ""}
-            </div>
-            ${s.engage_image
-              ? contentPhoto(s, "engage_image", "engage_image_alt")
-              : html`<ul class="pill-list pill-list-lg"${ek(s, "committees")}>${committees.map((cm) => html`<li>${cm}</li>`)}</ul>`}
-          </div>
-        </section>`
-      : ""}`,
+      utskott: () => (committees.length ? committeeSection(s, committees) : ""),
       formular: () => html`
     <section class="section" aria-labelledby="anmalan">
       <div class="container form-layout">
@@ -317,6 +318,57 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
     </section>`,
     })}`;
   return htmlResponse(c, layout(c, s, { title: s.engage_title, description: s.engage_lead }, content), status);
+}
+
+/**
+ * "Våra utskott" på Engagera dig: ett kort per utskott som lyfts vid hovring. Ett klick fäller ut kortet
+ * över hela bredden med bilder, den långa beskrivningen, tidsåtgång och en knapp som förväljer utskottet i
+ * intresseformuläret. Byggt på <details>, så det fungerar även utan JavaScript; site.js stänger övriga kort,
+ * skrollar till det öppnade och öppnar kortet direkt om adressen slutar med #utskott-namn.
+ */
+function committeeSection(s: Settings, committees: CommitteeRow[]): SafeHtml {
+  const mark = (name: string) => name.replace(/utskottet$/i, "").trim().charAt(0).toUpperCase() || name.charAt(0);
+  return html`<section class="section section-surface" aria-labelledby="utskotten">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title" id="utskotten"${ek(s, "engage_committees_title")}>${s.engage_committees_title}</h2>
+          <div class="section-lead"${ek(s, "engage_committees_text")}>${paragraphs(s.engage_committees_text)}</div>
+          ${s.engage_committee_hint ? html`<p class="cm-hint"${ek(s, "engage_committee_hint")}>${s.engage_committee_hint}</p>` : ""}
+        </div>
+      </div>
+      <div class="cm-grid" data-cm-grid>
+        ${committees.map((cm) => {
+          const imgs = committeeImages(cm);
+          const cover = imgs[0];
+          return html`<details class="cm-card${cover ? " has-image" : ""}" id="utskott-${cm.slug}" data-cm${ec(s, `/admin/utskott/${cm.id}`, `Utskott › ${cm.name}`)}>
+            <summary class="cm-summary">
+              <span class="cm-cover" aria-hidden="true">
+                ${cover ? picture(cover.key, { alt: "", sizes: "(min-width: 1000px) 380px, 90vw", width: 800, height: 600 }) : html`<span class="cm-mark">${mark(cm.name)}</span>`}
+              </span>
+              <span class="cm-head">
+                <span class="cm-name">${cm.name}</span>
+                ${cm.summary ? html`<span class="cm-short">${cm.summary}</span>` : ""}
+                <span class="cm-toggle"><span class="cm-toggle-more"${ek(s, "engage_committee_more")}>${s.engage_committee_more}</span><span class="cm-toggle-less"${ek(s, "engage_committee_less")}>${s.engage_committee_less}</span>${icon("chevronDown", "icon icon-sm")}</span>
+              </span>
+            </summary>
+            <div class="cm-body">
+              ${imgs.length
+                ? html`<div class="cm-gallery cm-gallery-${imgs.length}">
+                    ${imgs.map((im, i) => html`<figure class="cm-photo">${picture(im.key, { alt: im.alt, sizes: i === 0 ? "(min-width: 1000px) 640px, 100vw" : "(min-width: 1000px) 320px, 50vw", width: 1200, height: 900 })}</figure>`)}
+                  </div>`
+                : ""}
+              <div class="cm-text">
+                ${cm.body ? html`<div class="prose">${renderMarkdown(cm.body)}</div>` : cm.summary ? html`<p>${cm.summary}</p>` : ""}
+                ${cm.commitment ? html`<p class="cm-commitment">${icon("clock", "icon icon-sm")}<span><strong${ek(s, "engage_commitment_label")}>${s.engage_commitment_label}:</strong> ${cm.commitment}</span></p>` : ""}
+                <a class="btn btn-primary" href="/engagera-dig?utskott=${cm.slug}#anmalan"${ek(s, "engage_committee_join")}>${fill(s.engage_committee_join, { utskott: cm.name })}</a>
+              </div>
+            </div>
+          </details>`;
+        })}
+      </div>
+    </div>
+  </section>`;
 }
 
 const RENDER: Record<FormId, typeof contactPage> = { kontakt: contactPage, foretag: companiesPage, paverka: paverkaPage, engagemang: engagePage };
@@ -337,7 +389,8 @@ export function submitHandler(id: FormId) {
 
     const s = await loadSettings(c.env.DB);
     const positions = id === "engagemang" ? await rows<PositionRow>(positionQuery.open(c.env.DB, stockholmToday())) : [];
-    const { values, errors } = validate(fieldsFor(id, s, positions), form);
+    const committees = id === "engagemang" ? await loadCommittees(c.env.DB) : [];
+    const { values, errors } = validate(fieldsFor(id, s, positions, committees), form);
     const anonymous = id === "paverka" && values.anonym === "1";
     if (anonymous) {
       values.namn = "";

@@ -1,6 +1,7 @@
+import { loadCommittees, type CommitteeRow } from "../lib/committees.js";
 import { blockOrder, isBlockHidden } from "../lib/pagelayout.js";
 import { html, paragraphs, type SafeHtml } from "../lib/html.js";
-import { committeeList, ec, ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
+import { ec, ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
 import { boardQuery, honorQuery, partnerQuery, type BoardRow, type HonorRow, type PartnerRow } from "../lib/content.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
@@ -11,14 +12,15 @@ import { avatar, HERO_FALLBACKS, heroStyle, heroTile, personCard, photoTop, sect
 
 export async function aboutPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, [boardRes, honorRes, partnerRes]] = await Promise.all([
+  const [s, [boardRes, honorRes, partnerRes], committeeRows] = await Promise.all([
     loadSettings(db, c.preview),
     db.batch([boardQuery.all(db), honorQuery.all(db), partnerQuery.all(db)]),
+    loadCommittees(db),
   ]);
   const board = boardRes!.results as unknown as BoardRow[];
   const honors = honorRes!.results as unknown as HonorRow[];
   const partners = partnerRes!.results as unknown as PartnerRow[];
-  const committees = committeeList(s);
+  const committees = committeeRows;
 
   const sections: { id: string; anchor: string; labelKey: SettingKey; icon: IconName; render: () => SafeHtml | string }[] = [
     { id: "om", anchor: "#om-jfk", labelKey: "about_section_title", icon: "sparkle", render: () => aboutSection(s) },
@@ -116,7 +118,7 @@ function governance(s: Settings): SafeHtml {
 
 const COMMITTEE_STYLES = ["mork", "gul", "ljusa", "karusell"] as const;
 
-function committeesSection(s: Settings, committees: { name: string; text: string }[]): SafeHtml {
+function committeesSection(s: Settings, committees: CommitteeRow[]): SafeHtml {
   const monogram = (name: string) => name.replace(/utskottet$/i, "").trim().charAt(0).toUpperCase() || name.charAt(0);
   const style = (COMMITTEE_STYLES as readonly string[]).includes(s.committees_style) ? s.committees_style : "mork";
   const showImage = Boolean(s.committees_image) && (style === "mork" || style === "karusell");
@@ -128,12 +130,13 @@ function committeesSection(s: Settings, committees: { name: string; text: string
         <h2 class="section-title" id="utskotten"${ek(s, "committees_title")}>${s.committees_title}</h2>
         <p class="section-lead"${ek(s, "committees_lead")}>${s.committees_lead}</p>
       </div>
-      <ul class="committee-grid"${carousel ? html` tabindex="0" aria-label="${s.committees_title} – bläddra i sidled"` : ""}${ek(s, "committees")}>
+      <ul class="committee-grid"${carousel ? html` tabindex="0" aria-label="${s.committees_title} – bläddra i sidled"` : ""}>
         ${committees.map(
-          (cm) => html`<li class="committee-card">
+          (cm) => html`<li class="committee-card is-link"${ec(s, `/admin/utskott/${cm.id}`, `Utskott › ${cm.name}`)}>
             <span class="committee-mark" aria-hidden="true">${monogram(cm.name)}</span>
-            <h3 class="committee-name">${softHyphen(cm.name)}</h3>
-            ${cm.text ? html`<p class="committee-text">${cm.text}</p>` : ""}
+            <h3 class="committee-name"><a class="committee-link" href="/engagera-dig#utskott-${cm.slug}">${softHyphen(cm.name)}</a></h3>
+            ${cm.summary ? html`<p class="committee-text">${cm.summary}</p>` : ""}
+            <span class="committee-more" aria-hidden="true"${ek(s, "committees_read_more")}>${s.committees_read_more}${icon("arrowRight", "icon icon-sm")}</span>
           </li>`,
         )}
         <li class="committee-card committee-cta">

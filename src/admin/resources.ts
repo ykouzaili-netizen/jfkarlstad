@@ -4,6 +4,8 @@ import { renderField, validate, errorSummary, type Errors, type FieldSpec, type 
 import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, HONOR_KINDS, JOB_KINDS } from "../lib/content.js";
 import { eventDate, formatDate, formatDateTimeShort, formatDay, localToUtcSql, stockholmToday, utcSqlToLocal } from "../lib/format.js";
 import { purgeIfUnused } from "../lib/media.js";
+import { slugify } from "../lib/slug.js";
+export { slugify };
 import { redirect } from "../lib/http.js";
 import { DEFAULT_SETTINGS } from "../lib/settings.js";
 import type { RequestContext } from "../router.js";
@@ -74,6 +76,7 @@ export interface Resource {
 
 const BOARD_TABS = [
   { href: "/admin/styrelsen", label: "Styrelsen" },
+  { href: "/admin/utskott", label: "Utskott" },
   { href: "/admin/kursombud", label: "Kursombud" },
   { href: "/admin/utmarkelser", label: "Utmärkelser" },
   { href: "/admin/uppdrag", label: "Lediga uppdrag" },
@@ -520,6 +523,43 @@ export const RESOURCES: Resource[] = [
     extraColumns: () => ({ updated_at: nowUtc() }),
   },
   {
+    path: "utskott",
+    table: "committees",
+    title: "Utskott",
+    singular: "utskott",
+    newLabel: "Lägg till utskott",
+    lead: "Utskotten visas som kort på Om oss och Engagera dig. På Engagera dig kan besökare klicka på ett utskott och läsa den långa beskrivningen med bilder – och anmäla intresse direkt.",
+    orderBy: "sort_order, id",
+    slugFrom: "name",
+    publishable: true,
+    publishLabels: ["Visas", "Dold"],
+    navActive: "/admin/styrelsen",
+    tabs: BOARD_TABS,
+    emptyText: "Inga utskott ännu. Lägg till föreningens utskott, så visas de på Om oss och Engagera dig.",
+    fields: [
+      { name: "name", label: "Namn", type: "text", required: true, max: 100, placeholder: "T.ex. Arbetsmarknadsutskottet" },
+      { name: "summary", label: "Kort beskrivning", type: "textarea", rows: 2, max: 300, help: "En eller två meningar. Visas på korten innan man klickar." },
+      { name: "body", label: "Hela beskrivningen", type: "textarea", rows: 12, max: 8000, help: `Visas när man klickar på utskottet: vad ni gör, hur ett år ser ut och vad man får ut av att vara med. ${MARKDOWN_HELP}` },
+      { name: "commitment", label: "Tidsåtgång", type: "text", max: 120, placeholder: "T.ex. Ett par timmar i veckan" },
+      { name: "image_1_key", label: "Bild 1 (visas på kortet)", type: "text", upload: "image", nullable: true, help: "Liggande bild fungerar bäst. Bild 1 visas även på kortet innan man klickar." },
+      { name: "image_1_alt", label: "Bild 1 – bildbeskrivning", type: "text", max: 200 },
+      { name: "image_2_key", label: "Bild 2", type: "text", upload: "image", nullable: true },
+      { name: "image_2_alt", label: "Bild 2 – bildbeskrivning", type: "text", max: 200 },
+      { name: "image_3_key", label: "Bild 3", type: "text", upload: "image", nullable: true },
+      { name: "image_3_alt", label: "Bild 3 – bildbeskrivning", type: "text", max: 200 },
+      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägre tal visas först." },
+    ],
+    listColumns: [
+      { label: "", render: (r) => thumb(r.image_1_key, ""), className: "col-thumb" },
+      { label: "Utskott", render: (r) => html`<a class="row-title" href="/admin/utskott/${r.id}">${String(r.name)}</a>` },
+      { label: "Bilder", render: (r) => String([r.image_1_key, r.image_2_key, r.image_3_key].filter(Boolean).length) },
+      { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
+    ],
+    titleOf: (r) => String(r.name),
+    publicUrl: (r) => (r.published ? `/engagera-dig#utskott-${r.slug}` : null),
+    extraColumns: () => ({ updated_at: nowUtc() }),
+  },
+  {
     path: "uppdrag",
     table: "positions",
     title: "Lediga uppdrag",
@@ -556,20 +596,6 @@ export const RESOURCES: Resource[] = [
 
 const col = (f: AdminField) => f.column ?? f.name;
 
-export function slugify(text: string): string {
-  return (
-    text
-      .toLowerCase()
-      .replace(/å/g, "a")
-      .replace(/ä/g, "a")
-      .replace(/ö/g, "o")
-      .normalize("NFKD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 70) || "inlagg"
-  );
-}
 
 async function uniqueSlug(db: D1Database, table: string, base: string, exceptId?: number): Promise<string> {
   let slug = base;

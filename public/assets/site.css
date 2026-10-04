@@ -1373,6 +1373,91 @@ main:focus { outline: none; }
 .insta-pause:focus-visible, .motion-pause:focus-visible,
 .is-paused .insta-pause, .is-paused .motion-pause { opacity: 1; pointer-events: auto; }
 
+/* ---------- Utskotten på Engagera dig ----------
+   Ett kort per utskott. Hovring lyfter kortet; ett klick fäller ut det över hela bredden med bilder,
+   hela beskrivningen och en knapp till intresseformuläret. Bygger på <details>, fungerar utan JS. */
+.cm-hint { margin-top: 10px; font-size: 0.9375rem; color: var(--c-muted); }
+.cm-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); align-items: start; }
+.cm-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
+}
+.cm-card:not([open]):hover,
+.cm-card:not([open]):has(.cm-summary:focus-visible) {
+  transform: translateY(-6px);
+  border-color: var(--c-accent);
+  box-shadow: 0 22px 44px -22px rgb(0 0 0 / 0.4);
+}
+.cm-summary { display: block; cursor: pointer; list-style: none; }
+.cm-summary::-webkit-details-marker { display: none; }
+.cm-summary:focus-visible { outline: 3px solid var(--c-text); outline-offset: -3px; border-radius: var(--radius-lg); }
+.cm-cover { position: relative; display: block; aspect-ratio: 16 / 10; overflow: hidden; background: var(--c-primary); }
+.cm-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s var(--ease); }
+.cm-card:not([open]):hover .cm-cover img { transform: scale(1.05); }
+.cm-mark {
+  display: grid; place-items: center; width: 100%; height: 100%;
+  background:
+    radial-gradient(circle at 1.5px 1.5px, color-mix(in srgb, var(--c-on-primary) 10%, transparent) 1.5px, transparent 0) 0 0 / 22px 22px,
+    var(--c-primary);
+  color: var(--c-accent);
+  font-family: var(--font-display); font-size: 5.5rem; line-height: 1;
+}
+.cm-card:nth-child(even) .cm-mark { background: radial-gradient(circle at 1.5px 1.5px, color-mix(in srgb, var(--c-on-accent) 14%, transparent) 1.5px, transparent 0) 0 0 / 22px 22px, var(--c-accent); color: var(--c-on-accent); }
+.cm-head { display: grid; gap: 6px; padding: 20px 22px 22px; }
+.cm-name { font-family: var(--font-display); font-size: calc(1.375rem * var(--display-scale)); font-weight: var(--display-weight, 600); line-height: 1.15; }
+.cm-short { color: var(--c-muted); font-size: 0.9375rem; line-height: 1.5; }
+.cm-toggle { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 600; font-size: 0.9375rem; }
+.cm-toggle .icon { transition: transform 0.25s var(--ease); }
+.cm-toggle-less { display: none; }
+.cm-card[open] .cm-toggle-more { display: none; }
+.cm-card[open] .cm-toggle-less { display: inline; }
+.cm-card[open] .cm-toggle .icon { transform: rotate(180deg); }
+
+/* Utfällt kort: över hela bredden, rubriken som en rad överst, bilder och text under */
+.cm-card[open] { grid-column: 1 / -1; border-color: var(--c-accent); box-shadow: 0 30px 60px -30px rgb(0 0 0 / 0.35); }
+.cm-card[open] .cm-cover { display: none; }
+.cm-card[open] .cm-head { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 22px clamp(20px, 3vw, 36px); border-bottom: 1px solid var(--c-border); }
+.cm-card[open] .cm-name { font-size: calc(clamp(1.625rem, 1.2rem + 1.4vw, 2.25rem) * var(--display-scale)); }
+.cm-card[open] .cm-short { grid-column: 1; }
+.cm-card[open] .cm-toggle { grid-column: 2; grid-row: 1 / span 2; margin: 0; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--c-border); }
+.cm-card[open] .cm-toggle:hover { border-color: var(--c-text); }
+.cm-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(20px, 3vw, 40px); padding: clamp(20px, 3vw, 36px); }
+.cm-card, .cm-text, .cm-gallery { min-width: 0; }
+.cm-text .btn { white-space: normal; text-align: center; max-width: 100%; }
+@media (min-width: 900px) { .cm-body:has(.cm-gallery) { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; } }
+.cm-card[open] .cm-body { animation: cm-open 0.35s var(--ease) both; }
+@keyframes cm-open { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.cm-gallery { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+.cm-gallery-1 { grid-template-columns: 1fr; }
+.cm-gallery .cm-photo:first-child { grid-column: 1 / -1; }
+.cm-gallery-2 .cm-photo:first-child { grid-column: auto; }
+.cm-photo { margin: 0; overflow: hidden; border-radius: var(--radius); aspect-ratio: 4 / 3; background: color-mix(in srgb, currentColor 8%, transparent); }
+.cm-gallery-1 .cm-photo, .cm-gallery-3 .cm-photo:first-child { aspect-ratio: 16 / 10; }
+.cm-photo img { width: 100%; height: 100%; object-fit: cover; }
+.cm-text .prose { max-width: 60ch; }
+.cm-commitment { display: flex; align-items: flex-start; gap: 8px; margin: 20px 0; padding: 12px 14px; border-radius: var(--radius); background: var(--c-bg); font-size: 0.9375rem; }
+.cm-commitment .icon { flex: none; margin-top: 3px; }
+.cm-text .btn { margin-top: 4px; }
+@media (max-width: 599px) {
+  .cm-card[open] .cm-head { grid-template-columns: minmax(0, 1fr); }
+  .cm-card[open] .cm-toggle { grid-column: 1; grid-row: auto; justify-self: start; }
+}
+
+/* Om oss: korten länkar till utskottet på Engagera dig */
+.committee-card.is-link { position: relative; transition: transform 0.25s var(--ease); }
+.committee-card.is-link:hover { transform: translateY(-4px); }
+.committee-link { color: inherit; text-decoration: none; }
+.committee-link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.committee-link:focus-visible { outline: none; }
+.committee-card.is-link:has(.committee-link:focus-visible) { outline: 3px solid var(--c-accent); outline-offset: 3px; }
+.committee-more { display: inline-flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 6px; font-size: 0.875rem; font-weight: 600; opacity: 0.85; }
+.committee-card.is-link:hover .committee-more .icon { transform: translateX(3px); }
+.committee-more .icon { transition: transform 0.2s var(--ease); }
+
 /* ---------- Prestanda ----------
    Avsnitt långt ned på sidan ritas först när besökaren närmar sig dem (content-visibility), och rullande
    band/bildspel som inte syns står still (site.js sätter .is-offscreen). Det gör att sidan blir klar

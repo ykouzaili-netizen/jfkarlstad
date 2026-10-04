@@ -34,7 +34,7 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(u);
   };
-  const [news, events, partners, board, honors, gallery, docs, settings, insta] = await db.batch([
+  const [news, events, partners, board, honors, gallery, docs, settings, insta, cm1, cm2, cm3] = await db.batch([
     db.prepare("SELECT id, title, image_key AS k FROM news WHERE image_key IS NOT NULL AND image_key != ''"),
     db.prepare("SELECT id, title, image_key AS k FROM events WHERE image_key IS NOT NULL AND image_key != ''"),
     db.prepare("SELECT id, name AS title, logo_key AS k FROM partners WHERE logo_key IS NOT NULL AND logo_key != ''"),
@@ -44,6 +44,9 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
     db.prepare("SELECT id, title, file_key AS k FROM documents WHERE file_key IS NOT NULL AND file_key != ''"),
     db.prepare("SELECT key, value AS k FROM settings WHERE value != ''"),
     db.prepare("SELECT id, caption AS title, image_key AS k FROM instagram_posts"),
+    db.prepare("SELECT id, name AS title, image_1_key AS k FROM committees WHERE image_1_key IS NOT NULL"),
+    db.prepare("SELECT id, name AS title, image_2_key AS k FROM committees WHERE image_2_key IS NOT NULL"),
+    db.prepare("SELECT id, name AS title, image_3_key AS k FROM committees WHERE image_3_key IS NOT NULL"),
   ]);
   type R = { id: number; title: string; k: string };
   const each = (res: D1Result | undefined, label: string, path: string) =>
@@ -56,6 +59,7 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
   each(gallery, "Bildgalleri", "galleri");
   each(docs, "Dokument", "dokument");
   each(insta, "Instagram", "instagram");
+  for (const r of [cm1, cm2, cm3]) each(r, "Utskott", "utskott");
   for (const r of (settings?.results ?? []) as { key: string; k: string }[]) {
     if (r.key === "ig:profil") {
       try {

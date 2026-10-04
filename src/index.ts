@@ -1,3 +1,4 @@
+import { ensureCommitteeSchema } from "./lib/committees.js";
 import { ensureInstagramSchema } from "./lib/instagram.js";
 import { LAYOUT_PREFIX, pageIdForPath } from "./lib/pagelayout.js";
 import type { Env } from "./env.js";
@@ -140,6 +141,9 @@ export default {
     try {
       // Tabellen för Instagram behövs bara på startsidan, i adminpanelens Instagram-del och i bildbanken.
       if (url.pathname === "/" || url.pathname.startsWith("/admin/instagram") || url.pathname.startsWith("/admin/bildbank")) await ensureInstagramSchema(env.DB);
+      // Utskottstabellen (och flytten av den gamla listan) för adminpanelens Utskott och bildbanken.
+      // Hela adminpanelen: bildbanken och raderingar räknar även med utskottens bilder. Körs en gång per instans.
+      if (url.pathname.startsWith("/admin")) await ensureCommitteeSchema(env.DB);
       const match = router.match(req.method, url.pathname);
       if (match === "method-not-allowed") return new Response("Metoden stöds inte", { status: 405, headers: { Allow: "GET, HEAD, POST" } });
       if (!match) return await notFoundPage(c);

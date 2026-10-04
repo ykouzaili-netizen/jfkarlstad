@@ -436,3 +436,37 @@
   });
   document.querySelectorAll("[data-marquee], [data-fader]").forEach(function (el) { io.observe(el); });
 })();
+
+/* Utskotten på Engagera dig: ett utfällt kort i taget, skrolla till det som öppnas, och öppna rätt kort
+   direkt om adressen slutar med #utskott-namn (länkarna från Om oss). */
+(function () {
+  var cards = document.querySelectorAll("[data-cm]");
+  if (!cards.length) return;
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function reveal(card) {
+    requestAnimationFrame(function () {
+      var top = card.getBoundingClientRect().top;
+      var header = document.querySelector(".site-header");
+      var offset = (header ? header.getBoundingClientRect().height : 0) + 16;
+      if (top < offset || top > window.innerHeight * 0.6) {
+        window.scrollTo({ top: window.scrollY + top - offset, behavior: reduce ? "auto" : "smooth" });
+      }
+    });
+  }
+  cards.forEach(function (card) {
+    card.addEventListener("toggle", function () {
+      if (!card.open) return;
+      cards.forEach(function (other) { if (other !== card) other.open = false; });
+      reveal(card);
+      if (history.replaceState) history.replaceState(null, "", "#" + card.id);
+    });
+  });
+  function openFromHash() {
+    var id = decodeURIComponent(location.hash.slice(1));
+    if (!/^utskott-/.test(id)) return;
+    var card = document.getElementById(id);
+    if (card && card.hasAttribute("data-cm")) card.open = true;
+  }
+  openFromHash();
+  window.addEventListener("hashchange", openFromHash);
+})();
