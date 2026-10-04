@@ -1,4 +1,4 @@
-import { instagramConfigured, syncInstagram } from "./instagram.js";
+import { ensureInstagramSchema, instagramConfigured, syncInstagram } from "./instagram.js";
 import type { Env } from "../env.js";
 import { mailConfigured, sendMail } from "./mail.js";
 
@@ -25,6 +25,7 @@ export async function runMaintenance(env: Env): Promise<void> {
     ),
   ]);
   await remindAboutWaitingMessages(env);
+  await ensureInstagramSchema(env.DB);
   if (instagramConfigured(env)) await syncInstagram(env);
 }
 

@@ -1,3 +1,4 @@
+import { ensureInstagramSchema } from "./lib/instagram.js";
 import { LAYOUT_PREFIX, pageIdForPath } from "./lib/pagelayout.js";
 import type { Env } from "./env.js";
 import { Router, type RequestContext } from "./router.js";
@@ -114,6 +115,7 @@ export default {
 
     const c: RequestContext = { req, env, exec, url, params: {}, nonce: randomToken(16) };
     try {
+      await ensureInstagramSchema(env.DB);
       const match = router.match(req.method, url.pathname);
       if (match === "method-not-allowed") return new Response("Metoden stöds inte", { status: 405, headers: { Allow: "GET, HEAD, POST" } });
       if (!match) return await notFoundPage(c);

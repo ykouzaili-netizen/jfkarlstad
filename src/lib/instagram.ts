@@ -47,6 +47,36 @@ interface ApiMedia {
   timestamp?: string;
 }
 
+/**
+ * Tabellen för inläggen skapas av migrering 0003. Workern skapar den också själv (en gång per instans) om
+ * den saknas, så att inget behöver köras i Cloudflare för hand. Samma SQL som i migreringen, med IF NOT EXISTS.
+ */
+let schemaReady = false;
+export async function ensureInstagramSchema(db: D1Database): Promise<void> {
+  if (schemaReady) return;
+  try {
+    await db.batch([
+      db.prepare(`CREATE TABLE IF NOT EXISTS instagram_posts (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        ig_id       TEXT UNIQUE,
+        source      TEXT NOT NULL DEFAULT 'manuell' CHECK (source IN ('manuell', 'auto')),
+        image_key   TEXT NOT NULL,
+        permalink   TEXT NOT NULL DEFAULT '',
+        caption     TEXT NOT NULL DEFAULT '',
+        posted_at   TEXT,
+        sort_order  INTEGER NOT NULL DEFAULT 0,
+        published   INTEGER NOT NULL DEFAULT 1,
+        created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      )`),
+      db.prepare("CREATE INDEX IF NOT EXISTS idx_instagram_posts_order ON instagram_posts(published, posted_at DESC, id DESC)"),
+    ]);
+    schemaReady = true;
+  } catch (err) {
+    console.error("Kunde inte skapa tabellen för Instagram", err instanceof Error ? err.message : err);
+  }
+}
+
 export function instagramConfigured(env: Env): boolean {
   return Boolean(env.INSTAGRAM_TOKEN);
 }
