@@ -234,7 +234,7 @@ export const RESOURCES: Resource[] = [
       { name: "name", label: "Namn", type: "text", required: true, max: 100 },
       { name: "role", label: "Roll", type: "text", required: true, max: 100, placeholder: "T.ex. Ordförande" },
       { name: "email", label: "E-post för rollen", type: "email", nullable: true, max: 200 },
-      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR). Kvadratiskt porträtt fungerar bäst. Utan foto visas initialerna. Fotot raderas helt när det tas bort." },
+      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR). Stående porträtt (ungefär 3:4) med ansiktet i övre halvan fungerar bäst. Utan foto visas initialerna. Fotot raderas helt när det tas bort." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägre tal visas först." },
     ],
     listColumns: [
