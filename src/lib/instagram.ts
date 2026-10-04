@@ -171,7 +171,8 @@ export async function syncInstagram(env: Env): Promise<SyncStatus> {
       if (!src) continue;
       const key = `ig-${m.id}.jpg`;
       if (!(await storeImage(env, src, key, `Instagram ${day ?? m.id}`))) continue;
-      await env.DB.prepare("INSERT INTO instagram_posts (ig_id, source, image_key, permalink, caption, posted_at) VALUES (?, 'auto', ?, ?, ?, ?)")
+      // OR IGNORE: två hämtningar samtidigt (cron och en besökare) ska inte krocka.
+      await env.DB.prepare("INSERT OR IGNORE INTO instagram_posts (ig_id, source, image_key, permalink, caption, posted_at) VALUES (?, 'auto', ?, ?, ?, ?)")
         .bind(m.id, key, permalink, caption, day)
         .run();
       added++;

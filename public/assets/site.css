@@ -1148,6 +1148,68 @@ main:focus { outline: none; }
 .insta-next { right: -14px; }
 @media (hover: hover) and (min-width: 760px) { .insta-nav { display: grid; } }
 
+/* Rullande band: inläggen glider från höger till vänster och stannar när man pekar på ett inlägg,
+   som då lyfts fram. Listan finns två gånger efter varandra (den andra dold för skärmläsare), så att
+   animationen till -50 % loopar sömlöst. Längden sätts av site.js utifrån antal inlägg och vald hastighet. */
+.insta-marquee { --insta-duration: 40s; position: relative; }
+.insta-marquee-viewport {
+  overflow: hidden;
+  /* Plats ovanför och under för inlägget som lyfts och förstoras */
+  padding-block: 40px 34px;
+  margin-block: -40px -34px;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);
+}
+.insta-marquee .insta-track {
+  display: flex;
+  width: max-content;
+  overflow: visible;
+  padding: 0;
+  scroll-snap-type: none;
+  animation: insta-marquee var(--insta-duration) linear infinite;
+  will-change: transform;
+}
+@keyframes insta-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.insta-marquee .insta-post {
+  flex: 0 0 min(var(--insta-w), 68vw);
+  margin-right: var(--insta-gap);
+  transition: transform 0.35s var(--ease), opacity 0.35s var(--ease), filter 0.35s var(--ease);
+}
+.insta-marquee .insta-media { transition: box-shadow 0.35s var(--ease); }
+/* Stanna när muspekaren är över inläggen, när ett inlägg har fokus och när man pausat */
+.insta-marquee-viewport:hover .insta-track,
+.insta-marquee:focus-within .insta-track,
+.insta-marquee.is-paused .insta-track { animation-play-state: paused; }
+/* Inlägget man pekar på lyfts och förstoras, de andra tonas ned */
+.insta-marquee .insta-post:hover,
+.insta-marquee .insta-post:focus-within { position: relative; z-index: 2; transform: translateY(-12px) scale(1.07); }
+.insta-marquee .insta-post:hover .insta-media,
+.insta-marquee .insta-post:focus-within .insta-media { box-shadow: 0 22px 44px -18px rgb(0 0 0 / 0.55), 0 0 0 3px var(--c-accent); }
+.insta-marquee .insta-track:hover .insta-post:not(:hover) { opacity: 0.55; filter: saturate(0.7); }
+.insta-marquee .insta-post:hover .insta-media img { transform: none; }
+
+.insta-pause {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 14px;
+  padding: 6px 14px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 999px;
+  background: transparent; color: inherit;
+  font: inherit; font-size: 0.8125rem; font-weight: 600;
+  cursor: pointer;
+}
+.insta-pause:hover { border-color: currentColor; }
+.insta-pause-icon { width: 10px; height: 10px; border-inline: 3px solid currentColor; box-sizing: border-box; }
+.insta-marquee.is-paused .insta-pause-icon { border: 0; border-left: 10px solid currentColor; border-block: 6px solid transparent; width: 0; height: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Ingen rörelse: inläggen står still och går att skrolla i sidled, kopian döljs. */
+  .insta-marquee .insta-track { animation: none !important; transform: none !important; }
+  .insta-marquee-viewport { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
+  .insta-marquee .insta-post[aria-hidden="true"], .insta-pause { display: none; }
+  .insta-marquee .insta-post:hover, .insta-marquee .insta-post:focus-within { transform: none; }
+}
+
 /* Rutnät – som en Instagramprofil */
 .insta--rutnat .container { max-width: calc(980px + var(--gutter) * 2); }
 .insta--rutnat.insta-size-liten .container { max-width: calc(760px + var(--gutter) * 2); }

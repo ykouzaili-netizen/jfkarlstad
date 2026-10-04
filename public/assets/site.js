@@ -316,3 +316,23 @@
     }
   });
 })();
+
+/* Rullande Instagram-band: längden på animationen följer antal inlägg och vald hastighet, och knappen
+   Pausa/Spela stoppar rörelsen (WCAG 2.2.2 – rörligt innehåll ska gå att pausa). */
+(function () {
+  document.querySelectorAll("[data-marquee]").forEach(function (root) {
+    var track = root.querySelector(".insta-track");
+    // Bandet består av två lika halvor; en varvlängd = antalet inlägg i en halva.
+    var half = track ? track.children.length / 2 : 0;
+    var seconds = Number(root.getAttribute("data-seconds")) || 5;
+    root.style.setProperty("--insta-duration", Math.max(12, half * seconds) + "s");
+    var btn = root.querySelector("[data-marquee-toggle]");
+    var label = root.querySelector("[data-marquee-label]");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var paused = root.classList.toggle("is-paused");
+      btn.setAttribute("aria-pressed", paused ? "true" : "false");
+      if (label) label.textContent = paused ? btn.getAttribute("data-play-label") : btn.getAttribute("data-pause-label");
+    });
+  });
+})();

@@ -1,7 +1,7 @@
 import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
 import { ek, loadSettings, type Settings, arrange } from "../lib/settings.js";
 import { eventQuery, instagramQuery, jobQuery, newsQuery, partnerQuery, type EventRow, type InstagramPostRow, type NewsRow, type PartnerRow } from "../lib/content.js";
-import { parseProfile, PROFILE_SETTING, type InstagramProfile } from "../lib/instagram.js";
+import { instagramConfigured, parseProfile, parseStatus, PROFILE_SETTING, STATUS_SETTING, syncInstagram, type InstagramProfile, type SyncStatus } from "../lib/instagram.js";
 import { eventDate, stockholmNow, stockholmToday, telHref } from "../lib/format.js";
 import { renderInline } from "../lib/markdown.js";
 import type { RequestContext } from "../router.js";
@@ -16,7 +16,7 @@ export async function homePage(c: RequestContext): Promise<Response> {
   const [s, [eventsRes, newsRes, partnersRes, jobsRes], insta] = await Promise.all([
     loadSettings(db, c.preview),
     db.batch([eventQuery.upcoming(db, stockholmNow(), 3), newsQuery.latest(db, 3), partnerQuery.all(db), jobQuery.openCount(db, stockholmToday())]),
-    loadInstagram(db),
+    loadInstagram(c),
   ]);
   const events = eventsRes!.results as unknown as EventRow[];
   const news = newsRes!.results as unknown as NewsRow[];
@@ -207,13 +207,35 @@ function paverka(s: Settings): SafeHtml {
   </section>`;
 }
 
+/**
+ * Det rullande bandet består av två lika halvor (animationen flyttar −50 %). Varje halva måste vara
+ * bredare än skärmen, annars syns ett tomrum – med få inlägg upprepas de tills halvan har minst åtta.
+ */
+function marqueeFill(posts: InstagramPostRow[]): InstagramPostRow[] {
+  const fill: InstagramPostRow[] = [];
+  while (posts.length + fill.length < 8) fill.push(posts[fill.length % posts.length]!);
+  return fill;
+}
+
+/** Har det gått mer än en timme sedan senaste hämtningen (eller har det aldrig hämtats)? */
+function isStale(status: SyncStatus | null): boolean {
+  if (!status?.at) return true;
+  const last = Date.parse(status.at.replace(" ", "T") + "Z");
+  return !Number.isFinite(last) || Date.now() - last > 60 * 60 * 1000;
+}
+
 /** Inläggen och (om automatisk hämtning är på) profilen. Fel – t.ex. en ännu inte körd migrering – får aldrig fälla startsidan. */
-async function loadInstagram(db: D1Database): Promise<{ posts: InstagramPostRow[]; profile: InstagramProfile | null }> {
+async function loadInstagram(c: RequestContext): Promise<{ posts: InstagramPostRow[]; profile: InstagramProfile | null }> {
+  const db = c.env.DB;
   try {
-    const [posts, profile] = await Promise.all([
+    const [posts, profile, status] = await Promise.all([
       instagramQuery.latest(db, 12).all<InstagramPostRow>(),
       db.prepare("SELECT value FROM settings WHERE key = ?").bind(PROFILE_SETTING).first<{ value: string }>(),
+      db.prepare("SELECT value FROM settings WHERE key = ?").bind(STATUS_SETTING).first<{ value: string }>(),
     ]);
+    // Så fort Instagram-nyckeln finns hämtas inläggen – utan att vänta på nästa timkörning.
+    // Körs i bakgrunden efter svaret (besökaren väntar inte) och högst en gång i timmen.
+    if (instagramConfigured(c.env) && !c.preview && isStale(parseStatus(status?.value))) c.exec.waitUntil(syncInstagram(c.env));
     return { posts: posts.results, profile: parseProfile(profile?.value) };
   } catch (err) {
     console.error("Instagram-inläggen kunde inte läsas", err instanceof Error ? err.message : err);
@@ -248,8 +270,12 @@ function instagram(s: Settings, tight: boolean, allPosts: InstagramPostRow[], pr
   const count = Number(pick(s.insta_count, ["4", "6", "8", "12"] as const, "8"));
   const posts = allPosts.slice(0, style === "mosaik" ? mosaicCount(count, allPosts.length, size) : count);
   const showProfile = s.insta_profile !== "dolj";
-  const autoplay = s.insta_autoplay === "pa" && (style === "karusell" || style === "band");
   const scrolls = style === "karusell" || style === "band";
+  const motion = !scrolls ? "av" : pick(s.insta_autoplay, ["rullar", "av", "pa"] as const, "rullar");
+  const autoplay = motion === "pa";
+  // Rullande band: inläggen visas två gånger efter varandra så att rörelsen kan loopa sömlöst.
+  const marquee = motion === "rullar" && posts.length >= 2;
+  const secondsPerPost = { lugn: 7, medel: 5, snabb: 3 }[pick(s.insta_speed, ["lugn", "medel", "snabb"] as const, "medel")];
   const url = safeUrl(s.instagram_url);
   const handle = s.instagram_handle;
   const avatarKey = profile?.pictureKey || s.insta_avatar || "";
@@ -284,33 +310,47 @@ function instagram(s: Settings, tight: boolean, allPosts: InstagramPostRow[], pr
     <div class="insta-actions">${followBtn(style === "band" || bg === "mork" ? "btn-light" : "btn-primary")}</div>
   </div>`;
 
-  const postItem = (p: InstagramPostRow, i: number) => {
+  const postItem = (p: InstagramPostRow, i: number, copy = false) => {
     const label = p.caption ? p.caption.replace(/\s+/g, " ").slice(0, 140) : `Inlägg från ${handle}`;
     const big = style === "mosaik" && i === 0;
-    return html`<li class="insta-post${big ? " insta-post-big" : ""}"${ec(s, `/admin/instagram/${p.id}`, `Instagram › ${label.slice(0, 40)}`)}>
-      <a href="${p.permalink ? safeUrl(p.permalink) : url}" target="_blank" rel="noopener">
+    // Kopian i det rullande bandet är bara utfyllnad: dold för skärmläsare och tangentbord.
+    return html`<li class="insta-post${big ? " insta-post-big" : ""}"${copy ? html` aria-hidden="true"` : ec(s, `/admin/instagram/${p.id}`, `Instagram › ${label.slice(0, 40)}`)}>
+      <a href="${p.permalink ? safeUrl(p.permalink) : url}" target="_blank" rel="noopener"${copy ? html` tabindex="-1"` : ""}>
         <span class="insta-media">
-          ${picture(p.image_key, { alt: p.caption ? "" : `Inlägg från ${handle}`, sizes: big ? "(min-width: 900px) 600px, 90vw" : size === "stor" ? "(min-width: 900px) 420px, 80vw" : "(min-width: 900px) 300px, 60vw", width: 800, height: shape === "staende" ? 1000 : 800 })}
+          ${picture(p.image_key, { alt: p.caption || copy ? "" : `Inlägg från ${handle}`, sizes: big ? "(min-width: 900px) 600px, 90vw" : size === "stor" ? "(min-width: 900px) 420px, 80vw" : "(min-width: 900px) 300px, 60vw", width: 800, height: shape === "staende" ? 1000 : 800 })}
           <span class="insta-glyph" aria-hidden="true">${icon("instagram", "icon icon-sm")}</span>
           ${captions === "hover" && p.caption ? html`<span class="insta-overlay" aria-hidden="true"><span>${p.caption.slice(0, 220)}</span></span>` : ""}
         </span>
         ${captions === "under" && p.caption ? html`<span class="insta-caption" aria-hidden="true">${p.caption.slice(0, 220)}</span>` : ""}
-        <span class="sr-only">${label} (öppnas på Instagram i ny flik)</span>
+        ${copy ? "" : html`<span class="sr-only">${label} (öppnas på Instagram i ny flik)</span>`}
       </a>
     </li>`;
   };
 
   const feed = posts.length
-    ? html`<div class="insta-feed"${scrolls ? html` data-carousel${autoplay ? html` data-autoplay` : ""}` : ""}>
+    ? marquee
+      ? html`<div class="insta-feed insta-marquee" data-marquee data-seconds="${secondsPerPost}">
+          <div class="insta-marquee-viewport">
+            <ul class="insta-track" aria-label="Senaste inläggen från ${handle}">
+              ${posts.map((p, i) => postItem(p, i))}
+              ${marqueeFill(posts).map((p, i) => postItem(p, i, true))}
+              ${[...posts, ...marqueeFill(posts)].map((p, i) => postItem(p, i, true))}
+            </ul>
+          </div>
+          <button type="button" class="insta-pause" data-marquee-toggle aria-pressed="false" data-pause-label="${s.insta_pause}" data-play-label="${s.insta_play}">
+            <span class="insta-pause-icon" aria-hidden="true"></span><span data-marquee-label${ek(s, "insta_pause")}>${s.insta_pause}</span><span class="sr-only"> inläggen som rullar</span>
+          </button>
+        </div>`
+      : html`<div class="insta-feed"${scrolls ? html` data-carousel${autoplay ? html` data-autoplay` : ""}` : ""}>
         ${scrolls ? html`<button type="button" class="insta-nav insta-prev" data-carousel-prev aria-label="Föregående inlägg">${icon("chevronLeft", "icon")}</button>` : ""}
         <ul class="insta-track"${scrolls ? html` tabindex="0" aria-label="Senaste inläggen från ${handle} – bläddra i sidled" data-carousel-track` : html` aria-label="Senaste inläggen från ${handle}"`}>
-          ${posts.map(postItem)}
+          ${posts.map((p, i) => postItem(p, i))}
         </ul>
         ${scrolls ? html`<button type="button" class="insta-nav insta-next" data-carousel-next aria-label="Nästa inlägg">${icon("chevronRight", "icon")}</button>` : ""}
       </div>`
     : html`<p class="insta-empty"${ek(s, "insta_empty")}>${s.insta_empty}</p>`;
 
-  return html`<section class="section insta insta--${style} insta-size-${size} insta-shape-${shape} insta-bg-${bg} insta-cap-${captions}${tight && bg === "ljus" ? " section-tight-top" : ""}" aria-labelledby="insta-titel">
+  return html`<section class="section insta insta--${style}${marquee ? " has-marquee" : ""} insta-size-${size} insta-shape-${shape} insta-bg-${bg} insta-cap-${captions}${tight && bg === "ljus" ? " section-tight-top" : ""}" aria-labelledby="insta-titel">
     <div class="container">
       ${style === "band" ? html`<div class="insta-band-wrap">${head}${feed}</div>` : html`${head}${feed}`}
     </div>

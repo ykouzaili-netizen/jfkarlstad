@@ -242,16 +242,24 @@ export const PAGES = [
         { value: "visa", label: "Visa", hint: "Profilbild, namn, presentation och knappen Följ" },
         { value: "dolj", label: "Visa bara rubrik och text" },
       ], { required: true }),
-      choice("insta_autoplay", "Bläddra automatiskt", "av", [
-        { value: "av", label: "Nej" },
-        { value: "pa", label: "Ja, var 5:e sekund", hint: "Stannar när man pekar på eller bläddrar själv, och aldrig för den som valt minskad rörelse" },
-      ], { required: true, help: "Gäller utseendena Bildspel och Mörkt band." }),
+      choice("insta_autoplay", "Rörelse", "rullar", [
+        { value: "rullar", label: "Rullar hela tiden", hint: "Inläggen glider sakta från höger till vänster. Stannar när man pekar på ett inlägg, som då lyfts fram" },
+        { value: "av", label: "Står still", hint: "Besökaren bläddrar själv med pilarna" },
+        { value: "pa", label: "Bläddrar var 5:e sekund", hint: "Hoppar fram ett steg i taget" },
+      ], { required: true, help: "Gäller utseendena Bildspel och Mörkt band. Den som valt minskad rörelse i sin dator eller mobil ser alltid inläggen stilla." }),
+      choice("insta_speed", "Hastighet när inläggen rullar", "medel", [
+        { value: "lugn", label: "Lugn" },
+        { value: "medel", label: "Mellan" },
+        { value: "snabb", label: "Snabbare" },
+      ], { required: true }),
       text("insta_profile_name", "Profilens namn", "Juridiska Föreningen i Karlstad", { more: true }),
       area("insta_profile_bio", "Profilens presentation", "Studentföreningen för juriststudenter och masterstudenter i skatterätt vid Karlstads universitet.", { more: true }),
       image("insta_avatar", "Profilbild", "", { more: true, help: "Valfri. Hämtas automatiskt från Instagram när den automatiska hämtningen är på – annars visas logotypen." }),
       text("insta_posts_label", "Etikett: inlägg", "inlägg", { ...small, help: "Visas efter antalet inlägg när den automatiska hämtningen är på." }),
       text("insta_followers_label", "Etikett: följare", "följare", small),
       text("insta_empty", "Text när inga inlägg finns", "Inläggen visas här snart.", { more: true }),
+      text("insta_pause", "Knapp: pausa", "Pausa", small),
+      text("insta_play", "Knapp: spela", "Spela", small),
     ], "Inläggen lägger du till under Instagram i menyn till vänster. Länken och kontonamnet ändrar du under Gemensamt → Kontaktuppgifter och länkar."),
   ]),
 
