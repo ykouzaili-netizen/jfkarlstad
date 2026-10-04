@@ -111,7 +111,8 @@ export function signupState(s: Settings, now = stockholmNow()): { open: boolean;
  * Formuläret → Stängd – utseende): mörk ruta, gul banderoll, nedräkning och diskret kort.
  */
 function signupClosed(s: Settings, when: string, opens: string): SafeHtml {
-  const style = (["mork", "gul", "nedrakning", "diskret"] as const).find((v) => v === s.engage_closed_style) ?? "mork";
+  const style = (["mork", "gul", "nedrakning", "diskret", ...Object.keys(CLOSED_VARIANTS)] as const).find((v) => v === s.engage_closed_style) ?? "mork";
+  const variant = CLOSED_VARIANTS[style];
   const title = html`<h2 class="section-title" id="anmalan"${ek(s, "engage_closed_title")}>${s.engage_closed_title}</h2>`;
   const text = html`<p class="signup-closed-text"${ek(s, "engage_closed_text")}>${fill(s.engage_closed_text, { datum: when })}</p>`;
   const follow = s.engage_closed_follow ? html`<p class="signup-closed-follow"${ek(s, "engage_closed_follow")}>${renderInline(s.engage_closed_follow)}</p>` : "";
@@ -141,8 +142,29 @@ function signupClosed(s: Settings, when: string, opens: string): SafeHtml {
       <div>${title}${text}${follow}</div>
     </div>`;
   }
+  if (variant) {
+    // De nya varianterna: banderoller (hela bredden) och kort, med lås eller datumbricka.
+    const p = parseLocal(opens);
+    const mark = variant.badge && p
+      ? html`<div class="open-badge" aria-hidden="true"><span class="open-badge-label"${ek(s, "engage_closed_badge")}>${s.engage_closed_badge}</span><span class="open-badge-day">${p.day}</span><span class="open-badge-month">${monthName(p.month).slice(0, 3)}</span></div>`
+      : lock;
+    const photo = style === "band-bild" ? (s.engage_image_1 ? html`<div class="signup-closed-bg" aria-hidden="true">${picture(s.engage_image_1, { alt: "", sizes: "100vw", width: 1600, height: 900 })}</div>` : "") : "";
+    return html`<div class="signup-closed signup-closed--v sc-${style}">${photo}${mark}<div class="sc-copy">${title}${text}${follow}</div></div>`;
+  }
   return html`<div class="signup-closed signup-closed--${style === "nedrakning" ? "mork" : style}">${lock}<div>${title}${text}${follow}</div></div>`;
 }
+
+/** Varianter som byggs av samma delar: banderoll eller kort, med lås eller datumbricka. */
+const CLOSED_VARIANTS: Record<string, { badge: boolean }> = {
+  "band-svart": { badge: false },
+  "band-vit": { badge: false },
+  "band-rand": { badge: false },
+  "band-bild": { badge: false },
+  "kort-svart": { badge: true },
+  "kort-kontur": { badge: true },
+  "kombo-ljus": { badge: true },
+  "kombo-svart": { badge: true },
+};
 
 /** Val i formuläret (uppdrag, utskott, "vad som helst") utan dubbletter. */
 function uniqueOptions(labels: string[]): { value: string; label: string }[] {

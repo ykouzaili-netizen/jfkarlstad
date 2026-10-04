@@ -1507,6 +1507,59 @@ main:focus { outline: none; }
 .open-badge-day { padding-top: 6px; font-family: var(--font-display); font-size: 2.75rem; line-height: 1; }
 .open-badge-month { padding-bottom: 10px; font-size: 0.9375rem; font-weight: 600; text-transform: lowercase; }
 
+/* Fler utseenden för stängd anmälan (sc-*): banderoller över hela bredden och kort, med lås eller datumbricka */
+.signup-closed--v { position: relative; isolation: isolate; overflow: hidden; align-items: center; }
+.signup-closed--v .sc-copy { min-width: 0; }
+/* Banderollerna fyller hela sektionens bredd (sektionen får färgen, rutan blir genomskinlig) */
+.signup-closed-section--band-svart, .signup-closed-section--kombo-svart { background: var(--c-primary); color: var(--c-on-primary); }
+.signup-closed-section--band-vit, .signup-closed-section--kombo-ljus { background: var(--c-surface); box-shadow: inset 0 6px 0 var(--c-accent); }
+.signup-closed-section--band-rand {
+  background:
+    repeating-linear-gradient(-45deg, var(--c-primary) 0 14px, var(--c-accent) 14px 28px) top / 100% 14px no-repeat,
+    repeating-linear-gradient(-45deg, var(--c-primary) 0 14px, var(--c-accent) 14px 28px) bottom / 100% 14px no-repeat,
+    var(--c-surface);
+}
+.signup-closed-section--band-bild { position: relative; background: var(--c-primary); color: #fff; overflow: hidden; }
+.sc-band-svart, .sc-band-vit, .sc-band-rand, .sc-band-bild, .sc-kombo-ljus, .sc-kombo-svart {
+  max-width: none; padding: clamp(8px, 2vw, 24px) 0; border-radius: 0; background: none; color: inherit;
+}
+.sc-band-svart .section-title, .sc-kombo-svart .section-title, .sc-band-bild .section-title { color: inherit; font-size: calc(clamp(2.25rem, 1.4rem + 3.6vw, 4.25rem) * var(--display-scale)); }
+.sc-band-vit .section-title, .sc-band-rand .section-title, .sc-kombo-ljus .section-title { color: var(--c-text); font-size: calc(clamp(2.25rem, 1.4rem + 3.6vw, 4.25rem) * var(--display-scale)); }
+.sc-band-vit .signup-closed-text, .sc-band-rand .signup-closed-text, .sc-kombo-ljus .signup-closed-text,
+.sc-band-vit .signup-closed-follow, .sc-band-rand .signup-closed-follow, .sc-kombo-ljus .signup-closed-follow { color: var(--c-muted); }
+.sc-band-vit a, .sc-band-rand a, .sc-kombo-ljus a { color: var(--c-text); text-decoration-color: var(--c-accent); }
+.sc-band-svart .signup-closed-icon, .sc-band-bild .signup-closed-icon { width: 76px; height: 76px; }
+.sc-band-vit .signup-closed-icon, .sc-band-rand .signup-closed-icon { width: 76px; height: 76px; background: var(--c-primary); color: var(--c-accent); }
+.sc-band-svart .signup-closed-icon .icon, .sc-band-vit .signup-closed-icon .icon, .sc-band-rand .signup-closed-icon .icon, .sc-band-bild .signup-closed-icon .icon { width: 34px; height: 34px; }
+/* Banderoll med bild */
+.signup-closed-bg { position: absolute; inset: 0; z-index: -1; }
+.signup-closed-section--band-bild .signup-closed-bg { position: absolute; }
+.signup-closed-bg img { width: 100%; height: 100%; object-fit: cover; opacity: 0.4; }
+.sc-band-bild { position: static; }
+.sc-band-bild .signup-closed-text { color: rgb(255 255 255 / 0.9); }
+.sc-band-bild .signup-closed-follow { color: rgb(255 255 255 / 0.78); }
+/* Kort */
+.sc-kort-svart { background: var(--c-primary); color: var(--c-on-primary); }
+.sc-kort-svart .open-badge { border-color: var(--c-accent); background: var(--c-primary); color: var(--c-on-primary); }
+.sc-kort-svart .open-badge-label { background: var(--c-accent); color: var(--c-on-accent); }
+.sc-kort-kontur { background: transparent; color: var(--c-text); border: 2px solid var(--c-text); }
+.sc-kort-kontur .section-title { color: var(--c-text); font-size: calc(clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem) * var(--display-scale)); }
+.sc-kort-kontur .signup-closed-text, .sc-kort-kontur .signup-closed-follow { color: var(--c-muted); }
+.sc-kort-kontur a { color: var(--c-text); text-decoration-color: var(--c-accent); }
+.sc-kort-kontur .open-badge { background: var(--c-primary); color: var(--c-on-primary); border-color: var(--c-primary); }
+.sc-kort-kontur .open-badge-label { background: var(--c-accent); color: var(--c-on-accent); }
+/* Kombinationer: banderoll med stor datumbricka */
+.sc-kombo-ljus .open-badge, .sc-kombo-svart .open-badge { width: clamp(120px, 14vw, 168px); }
+.sc-kombo-ljus .open-badge-day, .sc-kombo-svart .open-badge-day { font-size: clamp(3.25rem, 2.4rem + 3vw, 5rem); padding-top: 10px; }
+.sc-kombo-ljus .open-badge-month, .sc-kombo-svart .open-badge-month { font-size: 1.125rem; padding-bottom: 14px; }
+.sc-kombo-ljus .open-badge { border-width: 3px; }
+.sc-kombo-ljus .open-badge-label { background: var(--c-accent); color: var(--c-on-accent); padding: 7px 0; }
+.sc-kombo-svart .open-badge { background: var(--c-accent); color: var(--c-on-accent); border-color: var(--c-accent); }
+.sc-kombo-svart .open-badge-label { background: var(--c-on-accent); color: var(--c-accent); padding: 7px 0; }
+.sc-kombo-svart .signup-closed-text { color: color-mix(in srgb, var(--c-on-primary) 85%, transparent); }
+.sc-kombo-svart .signup-closed-follow { color: color-mix(in srgb, var(--c-on-primary) 70%, transparent); }
+.sc-kombo-svart a { color: var(--c-accent); }
+
 /* ---------- Prestanda ----------
    Avsnitt långt ned på sidan ritas först när besökaren närmar sig dem (content-visibility), och rullande
    band/bildspel som inte syns står still (site.js sätter .is-offscreen). Det gör att sidan blir klar
