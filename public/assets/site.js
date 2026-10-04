@@ -262,3 +262,57 @@
     update();
   }
 })();
+
+/* Bildspel (Instagram på startsidan): pilar, piltangenter och valfri automatisk bläddring.
+   Utan JS går det att skrolla i sidled ändå. Automatisk bläddring stannar vid hovring, fokus och egen
+   bläddring, och körs aldrig för den som valt minskad rörelse. */
+(function () {
+  document.querySelectorAll("[data-carousel]").forEach(function (root) {
+    var track = root.querySelector("[data-carousel-track]");
+    var prev = root.querySelector("[data-carousel-prev]");
+    var next = root.querySelector("[data-carousel-next]");
+    if (!track) return;
+
+    function step() {
+      var item = track.querySelector("li");
+      var gap = parseFloat(getComputedStyle(track).columnGap) || 0;
+      var w = item ? item.getBoundingClientRect().width + gap : track.clientWidth * 0.8;
+      // Bläddra så många hela inlägg som får plats, minst ett
+      return Math.max(w, Math.floor(track.clientWidth / w) * w);
+    }
+    function atEnd() { return track.scrollLeft + track.clientWidth >= track.scrollWidth - 4; }
+    function update() {
+      if (prev) prev.disabled = track.scrollLeft <= 4;
+      if (next) next.disabled = atEnd();
+    }
+    function go(dir) { track.scrollBy({ left: dir * step(), behavior: "smooth" }); }
+
+    if (prev) prev.addEventListener("click", function () { stop(); go(-1); });
+    if (next) next.addEventListener("click", function () { stop(); go(1); });
+    track.addEventListener("scroll", update, { passive: true });
+    track.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") { e.preventDefault(); stop(); go(1); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); stop(); go(-1); }
+    });
+    window.addEventListener("resize", update);
+    update();
+
+    // Automatisk bläddring
+    var timer = null, paused = false, stopped = false;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function tick() {
+      if (paused || stopped || document.hidden) return;
+      if (atEnd()) track.scrollTo({ left: 0, behavior: "smooth" }); else go(1);
+    }
+    function stop() { stopped = true; if (timer) clearInterval(timer); }
+    if (root.hasAttribute("data-autoplay") && !reduce) {
+      timer = setInterval(tick, 5000);
+      root.addEventListener("mouseenter", function () { paused = true; });
+      root.addEventListener("mouseleave", function () { paused = false; });
+      root.addEventListener("focusin", function () { paused = true; });
+      root.addEventListener("focusout", function () { paused = false; });
+      track.addEventListener("touchstart", stop, { passive: true });
+      track.addEventListener("wheel", function (e) { if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) stop(); }, { passive: true });
+    }
+  });
+})();

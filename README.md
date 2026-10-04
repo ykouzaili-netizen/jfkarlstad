@@ -126,6 +126,15 @@ På en mobil eller liten skärm öppnar du förhandsvisningen med knappen **Visa
 **Texter och sidor → Menyn.** Skriv ett nytt namn, flytta med pilarna och bocka ur **Visas** för att dölja ett
 menyval. Sidan finns kvar även om den inte syns i menyn. **Återställ standardmenyn** tar tillbaka originalet.
 
+### Visa Instagram på startsidan
+**Instagram** i menyn: **Lägg till inlägg**, ladda upp bilden, klistra in länken till inlägget och skriv bildtexten.
+De senaste inläggen visas på startsidan. **Fäst först** håller ett inlägg först oavsett datum, och **Dölj** tar bort det
+från startsidan utan att radera det. Utseende (bildspel, mörkt band, rutnät eller mosaik), storlek, bildformat, antal,
+bakgrund och bildtexter väljer du under **Texter och sidor → Startsidan → Instagram**.
+
+Vill ni hellre att de senaste inläggen hämtas automatiskt varje timme? Se *Instagram – automatisk hämtning* under
+avsnitt 6. När den är på syns även profilbild, antal inlägg och följare från Instagram.
+
 ### Byta logotyp eller färger *(administratör)*
 1. **Utseende**.
 2. Klicka på en färgruta eller skriv en hexkod (t.ex. `#f1cc4d`). Förhandsvisningen till höger visar den riktiga
@@ -222,10 +231,27 @@ Lägg till som typ **Secret**:
 | `MAIL_TO` | adressen som ska få notiserna | E-postnotiser (standard: `SMTP_USER`) |
 | `TURNSTILE_SECRET_KEY` | från Cloudflare Turnstile | Extra robotskydd (valfritt) |
 | `SETUP_TOKEN` | lång slumpad sträng | Skapa första admin om databasen är tom (valfritt) |
+| `INSTAGRAM_TOKEN` | långlivad nyckel från Meta (se nedan) | Automatisk hämtning av Instagraminlägg (valfritt) |
 
 Utan SMTP fungerar allt ändå – meddelanden sparas i databasen och syns i adminpanelen.
 Med **Turnstile**: skapa en widget i Cloudflare (Turnstile → Add widget, domän `jfkarlstad.ykouzaili.workers.dev`),
 lägg in *secret key* som secret och byt `TURNSTILE_SITE_KEY` i `wrangler.jsonc` mot *site key*.
+
+### Instagram – automatisk hämtning (valfritt)
+Utan nyckel läggs inläggen in för hand under **Instagram** i adminpanelen. Med nyckel hämtar webbplatsen själv profil
+och de 12 senaste inläggen varje timme (`src/lib/instagram.ts`). Bilderna sparas på webbplatsen, så besökarnas
+webbläsare kontaktar aldrig Instagram – inga kakor, inget samtycke behövs.
+
+1. Gör @jfkarlstad till ett **professionellt konto** (företag eller kreatör) i Instagram-appen: Inställningar → Kontotyp och verktyg.
+2. Skapa en app på [developers.facebook.com](https://developers.facebook.com) av typen *Business* och lägg till produkten
+   **Instagram → API setup with Instagram login**.
+3. Under *Generate access tokens*: lägg till kontot @jfkarlstad och generera en nyckel (behörighet `instagram_business_basic`).
+   Nyckeln är långlivad (60 dagar) och **förnyas sedan automatiskt** av webbplatsen varje vecka.
+4. Lägg in nyckeln som secret: `npx wrangler secret put INSTAGRAM_TOKEN` (eller i Cloudflare under Variables and Secrets).
+5. Gå till **Instagram** i adminpanelen och klicka **Hämta nu**. Rutan visar när det senast hämtades och om något gick fel.
+
+Slutar hämtningen fungera (t.ex. om kontot bytt lösenord eller appen tagits bort) visas felet i rutan – generera en ny
+nyckel och lägg in den igen. Automatiskt hämtade inlägg kan döljas som vanligt; de 24 senaste sparas.
 
 ### Databasändringar
 Lägg till en ny fil i `migrations/` (t.ex. `0003_...sql`) och kör `npm run db:migrate:remote`. Ändra aldrig en migrering som redan körts.

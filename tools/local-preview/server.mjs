@@ -133,6 +133,12 @@ const FILES = {
     const value = type === "stream" ? new Response(data).body : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
     return { value, metadata: head.customMetadata };
   },
+  async get(key, type = "text") {
+    const head = await UPLOADS.head(key);
+    if (!head) return null;
+    const data = readFileSync(r2Path(key));
+    return type === "arrayBuffer" ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) : data.toString("utf8");
+  },
   async delete(key) { await UPLOADS.delete(key); },
 };
 const env = { ...vars, DB, FILES, ASSETS };

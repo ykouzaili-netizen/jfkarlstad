@@ -31,6 +31,7 @@ const FLASH: Record<string, { kind: "ok" | "error"; text: string }> = {
   "angrat-delvis": { kind: "ok", text: "Ändringen är ångrad, utom för texter som någon har ändrat igen efteråt." },
   "aterstallt-text": { kind: "ok", text: "Versionen är återställd och syns nu på webbplatsen." },
   anvands: { kind: "error", text: "Bilden används fortfarande och kan inte tas bort." },
+  instagram: { kind: "error", text: "Inläggen kunde inte hämtas från Instagram. Se felet i rutan nedan – oftast har nyckeln gått ut och behöver bytas." },
   "bild-borta": { kind: "error", text: "Bilden i den versionen finns inte kvar i bildbanken och kan inte återställas." },
 };
 
@@ -80,7 +81,8 @@ export async function adminLayout(
         { href: "/admin/partners", label: "Partners", icon: "chart" },
         { href: "/admin/dokument", label: "Dokument", icon: "lock" },
         { href: "/admin/faq", label: "Vanliga frågor", icon: "network" },
-        { href: "/admin/galleri", label: "Bildgalleri", icon: "instagram" },
+        { href: "/admin/galleri", label: "Bildgalleri", icon: "image" },
+        { href: "/admin/instagram", label: "Instagram", icon: "instagram" },
       ],
     },
     {

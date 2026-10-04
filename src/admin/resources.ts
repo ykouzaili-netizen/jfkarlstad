@@ -1,3 +1,4 @@
+import { instagramConfigured, parseStatus, STATUS_SETTING, syncInstagram } from "../lib/instagram.js";
 import { html, type SafeHtml } from "../lib/html.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec, type Values } from "../lib/forms.js";
 import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, HONOR_KINDS, JOB_KINDS } from "../lib/content.js";
@@ -67,6 +68,8 @@ export interface Resource {
   tabs?: { href: string; label: string }[];
   /** Extra knappar bredvid "Ny …" i listan. */
   listActions?: SafeHtml;
+  /** Extra innehåll mellan rubriken och listan (t.ex. status för automatisk hämtning). */
+  listIntro?: (c: RequestContext, session: Session) => Promise<SafeHtml | string>;
 }
 
 const BOARD_TABS = [
@@ -98,6 +101,45 @@ const thumb = (key: unknown, alt = "") => {
 
 const MARKDOWN_HELP =
   "Tom rad = nytt stycke. **fet text**, *kursiv*, [länktext](https://adress.se), rader som börjar med ”- ” blir en punktlista och ”## ” blir en underrubrik.";
+
+/** Rutan överst under Instagram: status för den automatiska hämtningen, eller hur den slås på. */
+async function instagramIntro(c: RequestContext, session: Session): Promise<SafeHtml> {
+  if (!instagramConfigured(c.env)) {
+    return html`<details class="admin-card insta-sync">
+      <summary><strong>Vill du att de senaste inläggen hämtas automatiskt?</strong> <span class="muted">Valfritt – annars lägger du till inläggen här nedan.</span></summary>
+      <div class="insta-sync-body">
+        <p>Webbplatsen kan själv hämta de senaste inläggen från @jfkarlstad varje timme. Det kräver:</p>
+        <ol>
+          <li>att Instagramkontot är ett <strong>företags- eller kreatörskonto</strong> (gratis, ställs in i Instagram-appen),</li>
+          <li>en <strong>nyckel från Meta</strong> (Instagram API med Instagram-inloggning) som läggs in som hemlighet i Cloudflare med namnet <code>INSTAGRAM_TOKEN</code>.</li>
+        </ol>
+        <p class="muted">Steg för steg finns i README under ”Instagram”. Bilderna sparas på webbplatsen – besökarnas webbläsare kontaktar aldrig Instagram.</p>
+      </div>
+    </details>`;
+  }
+  const row = await c.env.DB.prepare("SELECT value FROM settings WHERE key = ?").bind(STATUS_SETTING).first<{ value: string }>();
+  const status = parseStatus(row?.value);
+  return html`<div class="admin-card insta-sync is-on">
+    <div>
+      <p><strong>${icon("check", "icon icon-sm")} Automatisk hämtning är på.</strong> De senaste inläggen från Instagram hämtas varje timme.</p>
+      ${status
+        ? status.ok
+          ? html`<p class="muted">Senast hämtat ${formatDateTimeShort(status.at)}${status.added ? ` – ${status.added} ${status.added === 1 ? "nytt inlägg" : "nya inlägg"}` : " – inga nya inlägg"}.</p>`
+          : html`<p class="field-error">Senaste försöket (${formatDateTimeShort(status.at)}) misslyckades: ${status.error}</p>`
+        : html`<p class="muted">Inget hämtat ännu.</p>`}
+    </div>
+    <form method="post" action="/admin/instagram/hamta">${csrfField(session)}<button class="btn btn-outline btn-sm" type="submit">${icon("history", "icon icon-sm")}Hämta nu</button></form>
+  </div>`;
+}
+
+/** "Hämta nu" under Instagram. */
+export async function instagramSyncSubmit(c: RequestContext, session: Session): Promise<Response> {
+  const form = await c.req.formData();
+  if (!checkCsrf(c, session, form)) return redirect("/admin/instagram?fel=csrf", 303);
+  const status = await syncInstagram(c.env);
+  await audit(c.env, session, "hämtade", "instagram", null, status.ok ? `${status.added ?? 0} nya inlägg` : "misslyckades");
+  return redirect(`/admin/instagram?${status.ok ? "klart=sparat" : "fel=instagram"}`, 303);
+}
 
 export const RESOURCES: Resource[] = [
   {
@@ -327,6 +369,42 @@ export const RESOURCES: Resource[] = [
       { label: "Album", render: (r) => String(r.album) },
     ],
     titleOf: (r) => String(r.alt || "Bild"),
+  },
+  {
+    path: "instagram",
+    table: "instagram_posts",
+    title: "Instagram",
+    singular: "inlägg",
+    newLabel: "Lägg till inlägg",
+    lead: "Inläggen visas i Instagram-avsnittet på startsidan. Lägg till dem här – eller låt webbplatsen hämta de senaste inläggen automatiskt (se rutan ovan). Utseende, antal och storlek väljer du under Texter och sidor → Startsidan → Instagram.",
+    orderBy: "sort_order DESC, COALESCE(posted_at, created_at) DESC, id DESC",
+    emptyText: "Inga inlägg ännu. Lägg till de senaste inläggen från @jfkarlstad, så visas de i ett bildspel på startsidan.",
+    publishable: true,
+    publishLabels: ["Visas", "Dold"],
+    fields: [
+      { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, help: "Spara bilden från inlägget och ladda upp den här. Kvadratiska eller stående (4:5) bilder blir snyggast." },
+      { name: "permalink", label: "Länk till inlägget", type: "url", max: 300, help: "Öppna inlägget på Instagram och kopiera adressen, t.ex. https://www.instagram.com/p/… Lämna tomt för att länka till profilen." },
+      { name: "caption", label: "Bildtext", type: "textarea", max: 600, help: "Visas under bilden (om bildtexter är påslagna) och läses upp för skärmläsare." },
+      { name: "posted_at", label: "Publicerat på Instagram", type: "date", nullable: true, help: "Används för att visa de senaste inläggen först." },
+      {
+        name: "sort_order",
+        label: "Placering",
+        type: "select",
+        options: [
+          { value: "0", label: "Efter datum" },
+          { value: "1", label: "Fäst först" },
+        ],
+      },
+    ],
+    listColumns: [
+      { label: "", render: (r) => thumb(r.image_key, ""), className: "col-thumb" },
+      { label: "Inlägg", render: (r) => html`<a class="row-title" href="/admin/instagram/${r.id}">${String(r.caption || "Inlägg utan bildtext").slice(0, 70)}</a>${Number(r.sort_order) > 0 ? html` <span class="pill">Fäst först</span>` : ""}` },
+      { label: "Datum", render: (r) => (r.posted_at ? formatDay(String(r.posted_at)) : "–") },
+      { label: "Källa", render: (r) => (r.source === "auto" ? "Hämtat automatiskt" : "Tillagt för hand") },
+    ],
+    titleOf: (r) => String(r.caption || "Inlägg").slice(0, 60),
+    publicUrl: (r) => (r.permalink ? String(r.permalink) : null),
+    listIntro: instagramIntro,
   },
   {
     path: "faq",
@@ -562,6 +640,7 @@ export function listHandler(r: Resource) {
     const content = html`
       ${adminHead(r.title, { lead: r.lead, actions: html`${r.listActions ?? ""}<a class="btn btn-primary" href="/admin/${r.path}/ny">+ ${r.newLabel}</a>` })}
       ${resourceTabs(r.tabs, `/admin/${r.path}`)}
+      ${r.listIntro ? await r.listIntro(c, session) : ""}
       ${results.length
         ? html`<div class="admin-card admin-card-flush">
             <table class="admin-table">

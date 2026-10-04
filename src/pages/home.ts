@@ -1,6 +1,7 @@
 import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
 import { ek, loadSettings, type Settings, arrange } from "../lib/settings.js";
-import { eventQuery, jobQuery, newsQuery, partnerQuery, type EventRow, type NewsRow, type PartnerRow } from "../lib/content.js";
+import { eventQuery, instagramQuery, jobQuery, newsQuery, partnerQuery, type EventRow, type InstagramPostRow, type NewsRow, type PartnerRow } from "../lib/content.js";
+import { parseProfile, PROFILE_SETTING, type InstagramProfile } from "../lib/instagram.js";
 import { eventDate, stockholmNow, stockholmToday, telHref } from "../lib/format.js";
 import { renderInline } from "../lib/markdown.js";
 import type { RequestContext } from "../router.js";
@@ -12,9 +13,10 @@ import { ec } from "../lib/settings.js";
 
 export async function homePage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, [eventsRes, newsRes, partnersRes, jobsRes]] = await Promise.all([
+  const [s, [eventsRes, newsRes, partnersRes, jobsRes], insta] = await Promise.all([
     loadSettings(db, c.preview),
     db.batch([eventQuery.upcoming(db, stockholmNow(), 3), newsQuery.latest(db, 3), partnerQuery.all(db), jobQuery.openCount(db, stockholmToday())]),
+    loadInstagram(db),
   ]);
   const events = eventsRes!.results as unknown as EventRow[];
   const news = newsRes!.results as unknown as NewsRow[];
@@ -31,7 +33,7 @@ export async function homePage(c: RequestContext): Promise<Response> {
       evenemang: () => eventsSection(s, events),
       nyheter: (prev) => newsSection(s, news, prev === "evenemang"),
       paverka: () => paverka(s),
-      instagram: (prev) => instagram(s, prev === "paverka"),
+      instagram: (prev) => instagram(s, prev === "paverka", insta.posts, insta.profile),
     })}
   `;
 
@@ -205,17 +207,112 @@ function paverka(s: Settings): SafeHtml {
   </section>`;
 }
 
-function instagram(s: Settings, tight: boolean): SafeHtml {
-  return html`<section class="section${tight ? " section-tight-top" : ""}" aria-labelledby="insta-titel">
+/** Inläggen och (om automatisk hämtning är på) profilen. Fel – t.ex. en ännu inte körd migrering – får aldrig fälla startsidan. */
+async function loadInstagram(db: D1Database): Promise<{ posts: InstagramPostRow[]; profile: InstagramProfile | null }> {
+  try {
+    const [posts, profile] = await Promise.all([
+      instagramQuery.latest(db, 12).all<InstagramPostRow>(),
+      db.prepare("SELECT value FROM settings WHERE key = ?").bind(PROFILE_SETTING).first<{ value: string }>(),
+    ]);
+    return { posts: posts.results, profile: parseProfile(profile?.value) };
+  } catch (err) {
+    console.error("Instagram-inläggen kunde inte läsas", err instanceof Error ? err.message : err);
+    return { posts: [], profile: null };
+  }
+}
+
+/**
+ * Mosaiken ska fylla hela rader: det stora inlägget tar 2×2 rutor, de andra en var. Kolumner på dator:
+ * 5 (små), 4 (mellan) eller 3 (stora); i mobilen 2. Välj största antalet (högst ett fler än valt) som går jämnt ut.
+ */
+function mosaicCount(wanted: number, available: number, size: string): number {
+  const cols = size === "liten" ? 5 : size === "stor" ? 3 : 4;
+  for (let n = Math.min(wanted + 1, available); n >= 2; n--) {
+    if ((4 + n - 1) % cols === 0 && (n - 1) % 2 === 0) return n;
+  }
+  return Math.min(wanted, available);
+}
+
+const pick = <T extends string>(value: string, allowed: readonly T[], fallback: T): T => ((allowed as readonly string[]).includes(value) ? (value as T) : fallback);
+
+/**
+ * Instagram-avsnittet: profilruta (profilbild, namn, presentation, siffror och Följ-knapp) och de senaste
+ * inläggen i fyra utseenden. Allt ställs in under Texter och sidor → Startsidan → Instagram.
+ */
+function instagram(s: Settings, tight: boolean, allPosts: InstagramPostRow[], profile: InstagramProfile | null): SafeHtml {
+  const style = pick(s.insta_style, ["karusell", "band", "rutnat", "mosaik"] as const, "karusell");
+  const size = pick(s.insta_size, ["liten", "medel", "stor"] as const, "medel");
+  const shape = pick(s.insta_shape, ["kvadrat", "staende"] as const, "kvadrat");
+  const bg = style === "band" ? "ljus" : pick(s.insta_background, ["ljus", "yta", "gul", "mork"] as const, "ljus");
+  const captions = pick(s.insta_captions, ["hover", "under", "dolda"] as const, "hover");
+  const count = Number(pick(s.insta_count, ["4", "6", "8", "12"] as const, "8"));
+  const posts = allPosts.slice(0, style === "mosaik" ? mosaicCount(count, allPosts.length, size) : count);
+  const showProfile = s.insta_profile !== "dolj";
+  const autoplay = s.insta_autoplay === "pa" && (style === "karusell" || style === "band");
+  const scrolls = style === "karusell" || style === "band";
+  const url = safeUrl(s.instagram_url);
+  const handle = s.instagram_handle;
+  const avatarKey = profile?.pictureKey || s.insta_avatar || "";
+  const fmt = (n: number) => new Intl.NumberFormat("sv-SE").format(n);
+
+  const followBtn = (cls: string) =>
+    html`<a class="btn ${cls} insta-follow" href="${url}" target="_blank" rel="noopener">${icon("instagram", "icon icon-sm")}<span${ek(s, "insta_follow_label")}>${s.insta_follow_label}</span> <span class="insta-follow-handle">${handle}</span><span class="sr-only"> på Instagram (öppnas i ny flik)</span></a>`;
+
+  const profileCard = html`<div class="insta-profile">
+    <a class="insta-avatar" href="${url}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true"${ek(s, "insta_avatar")}>
+      ${avatarKey ? picture(avatarKey, { alt: "", sizes: "96px", width: 160, height: 160 }) : html`<span class="insta-avatar-mark">${s.site_short_name}</span>`}
+    </a>
+    <div class="insta-profile-text">
+      <p class="insta-handle"${ek(s, "instagram_handle")}>${handle}</p>
+      <p class="insta-name"${ek(s, "insta_profile_name")}>${s.insta_profile_name}</p>
+      ${profile && (profile.posts !== null || profile.followers !== null)
+        ? html`<p class="insta-stats">
+            ${profile.posts !== null ? html`<span><strong>${fmt(profile.posts)}</strong> <span${ek(s, "insta_posts_label")}>${s.insta_posts_label}</span></span>` : ""}
+            ${profile.followers !== null ? html`<span><strong>${fmt(profile.followers)}</strong> <span${ek(s, "insta_followers_label")}>${s.insta_followers_label}</span></span>` : ""}
+          </p>`
+        : ""}
+      ${s.insta_profile_bio ? html`<p class="insta-bio"${ek(s, "insta_profile_bio")}>${s.insta_profile_bio}</p>` : ""}
+    </div>
+  </div>`;
+
+  const head = html`<div class="insta-head">
+    <div class="insta-intro">
+      <h2 class="section-title insta-title" id="insta-titel"${ek(s, "home_insta_title")}>${s.home_insta_title}</h2>
+      ${s.home_insta_text ? html`<p class="section-lead"${ek(s, "home_insta_text")}>${s.home_insta_text}</p>` : ""}
+    </div>
+    ${showProfile ? profileCard : ""}
+    <div class="insta-actions">${followBtn(style === "band" || bg === "mork" ? "btn-light" : "btn-primary")}</div>
+  </div>`;
+
+  const postItem = (p: InstagramPostRow, i: number) => {
+    const label = p.caption ? p.caption.replace(/\s+/g, " ").slice(0, 140) : `Inlägg från ${handle}`;
+    const big = style === "mosaik" && i === 0;
+    return html`<li class="insta-post${big ? " insta-post-big" : ""}"${ec(s, `/admin/instagram/${p.id}`, `Instagram › ${label.slice(0, 40)}`)}>
+      <a href="${p.permalink ? safeUrl(p.permalink) : url}" target="_blank" rel="noopener">
+        <span class="insta-media">
+          ${picture(p.image_key, { alt: p.caption ? "" : `Inlägg från ${handle}`, sizes: big ? "(min-width: 900px) 600px, 90vw" : size === "stor" ? "(min-width: 900px) 420px, 80vw" : "(min-width: 900px) 300px, 60vw", width: 800, height: shape === "staende" ? 1000 : 800 })}
+          <span class="insta-glyph" aria-hidden="true">${icon("instagram", "icon icon-sm")}</span>
+          ${captions === "hover" && p.caption ? html`<span class="insta-overlay" aria-hidden="true"><span>${p.caption.slice(0, 220)}</span></span>` : ""}
+        </span>
+        ${captions === "under" && p.caption ? html`<span class="insta-caption" aria-hidden="true">${p.caption.slice(0, 220)}</span>` : ""}
+        <span class="sr-only">${label} (öppnas på Instagram i ny flik)</span>
+      </a>
+    </li>`;
+  };
+
+  const feed = posts.length
+    ? html`<div class="insta-feed"${scrolls ? html` data-carousel${autoplay ? html` data-autoplay` : ""}` : ""}>
+        ${scrolls ? html`<button type="button" class="insta-nav insta-prev" data-carousel-prev aria-label="Föregående inlägg">${icon("chevronLeft", "icon")}</button>` : ""}
+        <ul class="insta-track"${scrolls ? html` tabindex="0" aria-label="Senaste inläggen från ${handle} – bläddra i sidled" data-carousel-track` : html` aria-label="Senaste inläggen från ${handle}"`}>
+          ${posts.map(postItem)}
+        </ul>
+        ${scrolls ? html`<button type="button" class="insta-nav insta-next" data-carousel-next aria-label="Nästa inlägg">${icon("chevronRight", "icon")}</button>` : ""}
+      </div>`
+    : html`<p class="insta-empty"${ek(s, "insta_empty")}>${s.insta_empty}</p>`;
+
+  return html`<section class="section insta insta--${style} insta-size-${size} insta-shape-${shape} insta-bg-${bg} insta-cap-${captions}${tight && bg === "ljus" ? " section-tight-top" : ""}" aria-labelledby="insta-titel">
     <div class="container">
-      <div class="insta-band">
-        <span class="insta-icon">${icon("instagram")}</span>
-        <div class="insta-copy">
-          <h2 class="insta-title" id="insta-titel"${ek(s, "home_insta_title")}>${s.home_insta_title}</h2>
-          <p${ek(s, "home_insta_text")}>${s.home_insta_text}</p>
-        </div>
-        <a class="btn btn-outline" href="${safeUrl(s.instagram_url)}" target="_blank" rel="noopener"${ek(s, "instagram_handle")}>${s.instagram_handle}${icon("external", "icon icon-sm")}<span class="sr-only"> på Instagram (öppnas i ny flik)</span></a>
-      </div>
+      ${style === "band" ? html`<div class="insta-band-wrap">${head}${feed}</div>` : html`${head}${feed}`}
     </div>
   </section>`;
 }

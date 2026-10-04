@@ -34,6 +34,8 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   `NEWS_LIVE`/`EVENT_LIVE`/`JOB_LIVE` i `content.ts`. Admin-fält med `schedule: true` visas i svensk tid.
 - **Partnerstatistik** (`src/lib/stats.ts`): bara totalsiffror per dag i `stats_daily`, utan IP/kakor. Utlänkar går via
   `/ut/:typ/:id` (adressen hämtas från databasen – ingen öppen omdirigering).
+- **Instagram** (startsidan): inlägg i `instagram_posts` – för hand under Instagram i adminpanelen, eller automatiskt
+  via `src/lib/instagram.ts` (cron, kräver secret `INSTAGRAM_TOKEN`). Bilderna lagras på sajten; besökaren kontaktar aldrig Instagram.
 - **Formulär** i `src/pages/forms.ts`: validering (`src/lib/forms.ts`), honungsfälla + tidstoken + rate limiting (`src/lib/security.ts`),
   valfri Turnstile, sparas alltid i D1 först, e-post via SMTP (`src/lib/mail.ts`, `cloudflare:sockets`) är best effort.
 - **Cron** (varje timme): `src/lib/maintenance.ts` rensar sessioner, rate limits, meddelanden > 12 mån, logg > 24 mån,

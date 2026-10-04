@@ -688,3 +688,12 @@ a.admin-user:hover { background: var(--c-hover); }
 .last-change strong { color: var(--c-text); font-weight: 600; }
 .page-card-changed { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.8125rem; color: var(--c-muted); }
 .page-card-changed strong { color: var(--c-text); font-weight: 600; }
+
+/* Instagram: automatisk hämtning */
+.insta-sync { margin-bottom: 20px; }
+.insta-sync summary { cursor: pointer; }
+.insta-sync-body { margin-top: 12px; }
+.insta-sync-body ol { margin: 8px 0 12px 1.2em; display: grid; gap: 6px; }
+.insta-sync.is-on { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.insta-sync.is-on p { margin: 0; }
+.insta-sync.is-on p + p { margin-top: 4px; }

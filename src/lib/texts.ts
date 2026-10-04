@@ -205,7 +205,54 @@ export const PAGES = [
     sec("instagram", "Instagram", [
       text("home_insta_title", "Rubrik", "Följ oss på Instagram", { required: true }),
       area("home_insta_text", "Text", "Bilder från sittningar, inspark och arbetsmarknadsdagar – och alla nyheter först."),
-    ], "Länken till Instagram ändrar du under Gemensamt → Kontaktuppgifter och länkar."),
+      text("insta_follow_label", "Knapp", "Följ oss", { ...small, help: "Kontots namn (t.ex. @jfkarlstad) läggs till automatiskt efter texten." }),
+      choice("insta_style", "Utseende", "karusell", [
+        { value: "karusell", label: "Bildspel", hint: "Profilen överst och inläggen i ett bildspel som man bläddrar i sidled" },
+        { value: "band", label: "Mörkt band", hint: "Profil och knapp till vänster, bildspelet till höger på mörk bakgrund" },
+        { value: "rutnat", label: "Rutnät", hint: "Som en Instagramprofil: profilen överst och inläggen i tre kolumner" },
+        { value: "mosaik", label: "Mosaik", hint: "Det senaste inlägget stort, de andra mindre runt omkring" },
+      ], { required: true }),
+      choice("insta_size", "Storlek på bilderna", "medel", [
+        { value: "liten", label: "Små", hint: "Fler inlägg syns samtidigt" },
+        { value: "medel", label: "Mellan" },
+        { value: "stor", label: "Stora", hint: "Färre men större bilder" },
+      ], { required: true }),
+      choice("insta_shape", "Bildformat", "kvadrat", [
+        { value: "kvadrat", label: "Kvadratiska", hint: "Som i Instagrams rutnät" },
+        { value: "staende", label: "Stående (4:5)", hint: "Som inlägg i flödet" },
+      ], { required: true }),
+      choice("insta_count", "Antal inlägg", "8", [
+        { value: "4", label: "4" },
+        { value: "6", label: "6" },
+        { value: "8", label: "8" },
+        { value: "12", label: "12" },
+      ], { required: true }),
+      choice("insta_background", "Bakgrund", "ljus", [
+        { value: "ljus", label: "Ljus", hint: "Sidans bakgrundsfärg" },
+        { value: "yta", label: "Vit yta" },
+        { value: "gul", label: "Gul" },
+        { value: "mork", label: "Mörk" },
+      ], { required: true, help: "Utseendet Mörkt band har alltid mörk bakgrund på själva bandet." }),
+      choice("insta_captions", "Bildtexter", "hover", [
+        { value: "hover", label: "När man pekar på bilden", hint: "Rent och luftigt – bildtexten syns vid hovring eller fokus" },
+        { value: "under", label: "Under bilden", hint: "De första raderna syns alltid" },
+        { value: "dolda", label: "Visa inte" },
+      ], { required: true }),
+      choice("insta_profile", "Profilrutan", "visa", [
+        { value: "visa", label: "Visa", hint: "Profilbild, namn, presentation och knappen Följ" },
+        { value: "dolj", label: "Visa bara rubrik och text" },
+      ], { required: true }),
+      choice("insta_autoplay", "Bläddra automatiskt", "av", [
+        { value: "av", label: "Nej" },
+        { value: "pa", label: "Ja, var 5:e sekund", hint: "Stannar när man pekar på eller bläddrar själv, och aldrig för den som valt minskad rörelse" },
+      ], { required: true, help: "Gäller utseendena Bildspel och Mörkt band." }),
+      text("insta_profile_name", "Profilens namn", "Juridiska Föreningen i Karlstad", { more: true }),
+      area("insta_profile_bio", "Profilens presentation", "Studentföreningen för juriststudenter och masterstudenter i skatterätt vid Karlstads universitet.", { more: true }),
+      image("insta_avatar", "Profilbild", "", { more: true, help: "Valfri. Hämtas automatiskt från Instagram när den automatiska hämtningen är på – annars visas logotypen." }),
+      text("insta_posts_label", "Etikett: inlägg", "inlägg", { ...small, help: "Visas efter antalet inlägg när den automatiska hämtningen är på." }),
+      text("insta_followers_label", "Etikett: följare", "följare", small),
+      text("insta_empty", "Text när inga inlägg finns", "Inläggen visas här snart.", { more: true }),
+    ], "Inläggen lägger du till under Instagram i menyn till vänster. Länken och kontonamnet ändrar du under Gemensamt → Kontaktuppgifter och länkar."),
   ]),
 
   page("om-oss", "Om oss", "/om-oss", [
@@ -757,7 +804,7 @@ export const PAGES = [
       text("privacy_kicker", "Liten etikett ovanför rubriken", "Integritet", small),
       text("privacy_title", "Rubrik", "Integritetspolicy", { required: true }),
       area("privacy_lead", "Ingress", "Så behandlar vi personuppgifter. Kort sagt: vi samlar bara in det vi behöver, vi använder inga spårningskakor eller analysverktyg, och vi säljer eller delar aldrig dina uppgifter för reklam."),
-      text("privacy_updated", "Senast uppdaterad", "3 oktober 2026", { required: true, help: "Ändra datumet när innehållet i policyn ändras i sak." }),
+      text("privacy_updated", "Senast uppdaterad", "4 oktober 2026", { required: true, help: "Ändra datumet när innehållet i policyn ändras i sak." }),
     ], "Ändra bara policyn om föreningens hantering av personuppgifter faktiskt har ändrats. Fråga gärna någon som kan GDPR."),
     sec("ansvarig", "Personuppgiftsansvarig", [
       text("privacy_controller_title", "Rubrik", "Personuppgiftsansvarig", { more: true, required: true }),
@@ -866,7 +913,7 @@ export const PAGES = [
       text("cookies_session_who", "Inloggningskakan – vem", "Bara administratörer", { more: true }),
       md("cookies_necessary_text", "Text under tabellen", "Kakan är strikt nödvändig för att inloggningen ska fungera och kräver därför inget samtycke enligt lagen (2022:482) om elektronisk kommunikation. Vanliga besökare får inga kakor alls, och webbplatsen sparar inte heller något annat i din webbläsare (som local storage).", { more: true, help: MD_HELP }),
       text("cookies_external_title", "Externa tjänster – rubrik", "Externa tjänster", { more: true }),
-      md("cookies_external_text", "Externa tjänster – text", "Vi bäddar inte in Instagram, YouTube, kartor eller liknande, eftersom sådana tjänster ofta sätter egna kakor. I stället länkar vi ut till dem – det är först när du klickar som du lämnar vår webbplats.\n\nLäs mer om hur vi behandlar personuppgifter i vår [integritetspolicy](/integritetspolicy).", { more: true, help: MD_HELP }),
+      md("cookies_external_text", "Externa tjänster – text", "Vi bäddar inte in Instagram, YouTube, kartor eller liknande, eftersom sådana tjänster ofta sätter egna kakor. I stället länkar vi ut till dem – det är först när du klickar som du lämnar vår webbplats.\n\nInläggen från vårt eget Instagramkonto på startsidan visas från vår egen webbplats: bilderna hämtas och lagras här, så din webbläsare kontaktar inte Instagram förrän du klickar på ett inlägg.\n\nLäs mer om hur vi behandlar personuppgifter i vår [integritetspolicy](/integritetspolicy).", { more: true, help: MD_HELP }),
     ]),
   ]),
 

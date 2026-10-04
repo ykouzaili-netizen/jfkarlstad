@@ -21,4 +21,8 @@ export interface Env {
   TURNSTILE_SECRET_KEY?: string;
   SETUP_TOKEN?: string;
   IP_HASH_SALT?: string;
+  /** Valfritt: långlivad nyckel till Instagram API – då hämtas de senaste inläggen automatiskt (src/lib/instagram.ts). */
+  INSTAGRAM_TOKEN?: string;
+  /** Bara för tester: annan adress till Instagram API. */
+  INSTAGRAM_API_BASE?: string;
 }

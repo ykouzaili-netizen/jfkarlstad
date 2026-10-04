@@ -34,7 +34,7 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(u);
   };
-  const [news, events, partners, board, honors, gallery, docs, settings] = await db.batch([
+  const [news, events, partners, board, honors, gallery, docs, settings, insta] = await db.batch([
     db.prepare("SELECT id, title, image_key AS k FROM news WHERE image_key IS NOT NULL AND image_key != ''"),
     db.prepare("SELECT id, title, image_key AS k FROM events WHERE image_key IS NOT NULL AND image_key != ''"),
     db.prepare("SELECT id, name AS title, logo_key AS k FROM partners WHERE logo_key IS NOT NULL AND logo_key != ''"),
@@ -43,6 +43,7 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
     db.prepare("SELECT id, alt AS title, image_key AS k FROM gallery_images"),
     db.prepare("SELECT id, title, file_key AS k FROM documents WHERE file_key IS NOT NULL AND file_key != ''"),
     db.prepare("SELECT key, value AS k FROM settings WHERE value != ''"),
+    db.prepare("SELECT id, caption AS title, image_key AS k FROM instagram_posts"),
   ]);
   type R = { id: number; title: string; k: string };
   const each = (res: D1Result | undefined, label: string, path: string) =>
@@ -54,7 +55,16 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
   each(honors, "Utmärkelse", "utmarkelser");
   each(gallery, "Bildgalleri", "galleri");
   each(docs, "Dokument", "dokument");
+  each(insta, "Instagram", "instagram");
   for (const r of (settings?.results ?? []) as { key: string; k: string }[]) {
+    if (r.key === "ig:profil") {
+      try {
+        add((JSON.parse(r.k) as { pictureKey?: string }).pictureKey, { label: "Instagram: profilbild", href: "/admin/instagram" });
+      } catch {
+        /* ogiltig rad */
+      }
+      continue;
+    }
     if (!isImageSetting(r.key)) continue;
     if (r.key === "logo_key") add(r.k, { label: "Logotypen", href: "/admin/utseende#logotyp" });
     else {

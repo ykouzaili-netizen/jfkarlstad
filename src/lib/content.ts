@@ -82,6 +82,18 @@ export interface GalleryRow {
   sort_order: number;
 }
 
+export interface InstagramPostRow {
+  id: number;
+  ig_id: string | null;
+  source: "manuell" | "auto";
+  image_key: string;
+  permalink: string;
+  caption: string;
+  posted_at: string | null;
+  sort_order: number;
+  published: number;
+}
+
 export interface FaqRow {
   id: number;
   category: string;
@@ -230,6 +242,14 @@ export const repQuery = {
 
 export const galleryQuery = {
   all: (db: D1Database) => db.prepare("SELECT * FROM gallery_images ORDER BY album, sort_order, id DESC"),
+};
+
+/** Startsidans Instagram-avsnitt: de senaste publicerade inläggen (fastnålade först via sortering). */
+export const instagramQuery = {
+  latest: (db: D1Database, limit: number) =>
+    db
+      .prepare("SELECT * FROM instagram_posts WHERE published = 1 ORDER BY sort_order DESC, COALESCE(posted_at, created_at) DESC, id DESC LIMIT ?")
+      .bind(Math.min(24, Math.max(1, limit))),
 };
 
 export const faqQuery = {
