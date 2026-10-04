@@ -206,6 +206,11 @@ export const PAGES = [
       area("inspector_text", "Inspektorn", "Föreningens inspektor är Nick Dimitrievski, universitetslektor i skatterätt. Inspektorn är en länk mellan föreningen och universitetet och ska vara disputerad jurist och anställd vid Karlstads universitet. Uppdraget gäller normalt i tre år."),
       image("inspector_image", "Foto på inspektorn", "", { help: "Valfritt. Ladda bara upp ett foto om inspektorn har sagt ja till det." }),
     ]),
+    sec("styrelsen", "Styrelsen", [
+      text("board_title", "Rubrik", "Styrelsen", { required: true }),
+      area("board_lead", "Text", "Har du en fråga till någon i styrelsen? Mejla direkt – vi svarar så snart vi kan."),
+      text("board_empty", "Text när styrelsen saknas", "Styrelsen presenteras snart.", { more: true }),
+    ], "Personerna i styrelsen ändrar du under Styrelsen i menyn."),
     sec("utskott", "Utskotten", [
       text("committees_title", "Rubrik", "Utskotten", { required: true }),
       area("committees_lead", "Text", "Det är i utskotten mycket av föreningens arbete händer. Här planerar medlemmar evenemang, driver utbildningsfrågor och bygger kontakter med arbetslivet – tillsammans med styrelsen."),
@@ -226,11 +231,6 @@ export const PAGES = [
       area("committees_cta_text", "Sista rutan – text", "Alla ordinarie medlemmar kan väljas in i ett utskott. Anmäl ditt intresse så hör vi av oss."),
       text("committees_cta_button", "Sista rutan – knapp", "Engagera dig", small),
     ]),
-    sec("styrelsen", "Styrelsen", [
-      text("board_title", "Rubrik", "Styrelsen", { required: true }),
-      area("board_lead", "Text", "Har du en fråga till någon i styrelsen? Mejla direkt – vi svarar så snart vi kan."),
-      text("board_empty", "Text när styrelsen saknas", "Styrelsen presenteras snart.", { more: true }),
-    ], "Personerna i styrelsen ändrar du under Styrelsen i menyn."),
     sec("utmarkelser", "Hedersmedlemmar och utmärkelser", [
       text("honors_title", "Rubrik", "Hedersmedlemmar och utmärkelser", { required: true }),
       area("honors_text", "Text", "Hedersmedlemskap är en särskild utmärkelse som tilldelas personer som genom sitt engagemang och sina insatser har haft en djupgående påverkan på föreningen."),

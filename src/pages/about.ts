@@ -24,16 +24,16 @@ export async function aboutPage(c: RequestContext): Promise<Response> {
     ${sectionNav(s, [
       { href: "#om-jfk", labelKey: "about_section_title", icon: "sparkle" },
       { href: "#sa-styrs-jfk", labelKey: "governance_title", icon: "network" },
-      ...(committees.length ? [{ href: "#utskotten", labelKey: "committees_title" as SettingKey, icon: "users" as const }] : []),
       { href: "#styrelsen", labelKey: "board_title", icon: "user" },
+      ...(committees.length ? [{ href: "#utskotten", labelKey: "committees_title" as SettingKey, icon: "users" as const }] : []),
       { href: "#utmarkelser", labelKey: "honors_title", icon: "check" },
       { href: "#arets-pedagog", labelKey: "pedagog_title", icon: "megaphone" },
       { href: "#samarbeten", labelKey: "collab_title", icon: "briefcase" },
     ])}
     ${aboutSection(s)}
     ${governance(s)}
-    ${committees.length ? committeesSection(s, committees) : ""}
     ${boardSection(s, board)}
+    ${committees.length ? committeesSection(s, committees) : ""}
     ${honorsSection(s, honors)}
     ${pedagogSection(s, honors)}
     ${collabSection(s, partners)}
