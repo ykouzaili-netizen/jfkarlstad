@@ -1,8 +1,8 @@
 import { html, raw, type SafeHtml } from "../lib/html.js";
-import { loadSettings } from "../lib/settings.js";
+import { loadSettings, type Settings } from "../lib/settings.js";
 import { securityHeaders } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
-import { ASSET_VERSION, favicon } from "../views/layout.js";
+import { ASSET_VERSION, favicon, mediaUrl } from "../views/layout.js";
 import { icon, type IconName } from "../views/icons.js";
 import { ROLE_LABELS, type Session } from "./auth.js";
 
@@ -45,6 +45,15 @@ export interface NavEntry {
   badge?: number;
 }
 
+/** Föreningens logotyp (Utseende → Logotyp) bredvid "Adminpanel", annars §-märket. */
+function brandMark(s: Settings): SafeHtml {
+  const src = s.logo_key ? mediaUrl(s.logo_key) : null;
+  return src ? html`<img class="brand-logo" src="${src}" alt="" width="36" height="36">` : html`<span class="brand-mark" aria-hidden="true">§</span>`;
+}
+
+/** Platsen för märket på inloggningssidorna (guestCard i auth-pages.ts); byts mot logotypen i adminLayout. */
+export const BRAND_SLOT = '<span class="brand-mark" aria-hidden="true" data-brand-slot>§</span>';
+
 export async function adminLayout(
   c: RequestContext,
   session: Session | null,
@@ -53,6 +62,7 @@ export async function adminLayout(
   status = 200,
 ): Promise<Response> {
   const s = await loadSettings(c.env.DB);
+  if (content.value.includes(BRAND_SLOT)) content = raw(content.value.replace(BRAND_SLOT, brandMark(s).value));
   const flashCode = c.url.searchParams.get("klart") ?? c.url.searchParams.get("fel") ?? "";
   const flash = FLASH[flashCode];
 
@@ -134,7 +144,7 @@ ${favicon(s)}
 <a class="skip-link" href="#admin-innehall">Hoppa till innehållet</a>
 ${session
   ? html`<header class="admin-top">
-      <a class="admin-brand" href="/admin"><span class="brand-mark" aria-hidden="true">§</span><span>Adminpanel</span></a>
+      <a class="admin-brand" href="/admin">${brandMark(s)}<span>Adminpanel</span></a>
       <form class="admin-top-search" method="get" action="/admin/sok" role="search">
         <label class="sr-only" for="topp-sok">Hitta text eller innehåll</label>
         <span class="admin-top-search-icon" aria-hidden="true">${icon("search", "icon icon-sm")}</span>

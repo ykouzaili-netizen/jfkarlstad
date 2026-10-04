@@ -1,4 +1,4 @@
-import { html, type SafeHtml } from "../lib/html.js";
+import { html, raw, type SafeHtml } from "../lib/html.js";
 import { redirect } from "../lib/http.js";
 import { rateLimit, safeEqual } from "../lib/security.js";
 import { mailConfigured, sendMail } from "../lib/mail.js";
@@ -21,12 +21,12 @@ import {
   checkCsrf,
   type User,
 } from "./auth.js";
-import { adminLayout } from "./layout.js";
+import { adminLayout, BRAND_SLOT } from "./layout.js";
 
 function guestCard(title: string, lead: string, body: SafeHtml): SafeHtml {
   return html`<div class="guest-wrap">
     <div class="guest-card">
-      <a class="guest-brand" href="/"><span class="brand-mark" aria-hidden="true">§</span><span>Juridiska Föreningen i Karlstad</span></a>
+      <a class="guest-brand" href="/">${raw(BRAND_SLOT)}<span>Juridiska Föreningen i Karlstad</span></a>
       <h1 class="admin-title">${title}</h1>
       <p class="admin-lead">${lead}</p>
       ${body}
