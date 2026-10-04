@@ -1258,6 +1258,103 @@ main:focus { outline: none; }
 .insta--band .insta-prev { left: 4px; }
 .insta--band .insta-next { right: 4px; }
 
+/* ---------- Rullande band och bildspel (används av JFK Idrott) ----------
+   .marquee: innehållet glider från höger till vänster i en loop (två lika halvor, −50 %), stannar vid hovring,
+   fokus och paus. .fader: en bild i taget som tonar över. Båda står still vid minskad rörelse. */
+.marquee { --marquee-duration: 40s; position: relative; }
+.marquee-viewport {
+  overflow: hidden;
+  padding-block: 40px 34px;
+  margin-block: -40px -34px;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);
+}
+.marquee-track { display: flex; width: max-content; list-style: none; margin: 0; padding: 0; animation: insta-marquee var(--marquee-duration, var(--insta-duration)) linear infinite; will-change: transform; }
+.marquee-item { position: relative; margin-right: 18px; transition: transform 0.35s var(--ease), opacity 0.35s var(--ease), filter 0.35s var(--ease); }
+.marquee-photos .marquee-item { flex: 0 0 min(380px, 75vw); }
+.marquee-cards .marquee-item { flex: 0 0 min(300px, 78vw); }
+.marquee-viewport:hover .marquee-track,
+.marquee:focus-within .marquee-track,
+.marquee.is-paused .marquee-track { animation-play-state: paused; }
+.marquee .marquee-item:hover { z-index: 2; transform: translateY(-12px) scale(1.05); }
+.marquee .marquee-track:hover .marquee-item:not(:hover) { opacity: 0.55; filter: saturate(0.7); }
+.marquee .marquee-item:hover .sport-photo, .marquee-cards .marquee-item:hover .sport-card { box-shadow: 0 22px 44px -18px rgb(0 0 0 / 0.5), 0 0 0 3px var(--c-accent); }
+
+.motion-pause {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 14px;
+  padding: 6px 14px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 999px;
+  background: transparent; color: inherit;
+  font: inherit; font-size: 0.8125rem; font-weight: 600;
+  cursor: pointer;
+}
+.motion-pause:hover { border-color: currentColor; }
+.motion-pause-icon { width: 10px; height: 10px; border-inline: 3px solid currentColor; box-sizing: border-box; }
+.is-paused .motion-pause-icon { border: 0; border-left: 10px solid currentColor; border-block: 6px solid transparent; width: 0; height: 0; }
+
+.sport-photo { position: relative; margin: 0; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--radius-lg); background: color-mix(in srgb, currentColor 8%, transparent); transition: box-shadow 0.35s var(--ease); }
+.sport-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* Aktivitetskort med bild */
+.sport-card { height: 100%; overflow: hidden; border-radius: var(--radius-lg); background: var(--c-surface); border: 1px solid var(--c-border); transition: box-shadow 0.35s var(--ease); }
+.sport-card .sport-photo { border-radius: 0; }
+.sport-card-mark { display: grid; place-items: center; aspect-ratio: 4 / 3; background: var(--c-accent); color: var(--c-on-accent); font-family: var(--font-display); font-size: 4.5rem; }
+.sport-card-body { padding: 18px 20px 22px; }
+.sport-card-body p { margin-top: 6px; color: var(--c-muted); font-size: 0.9375rem; }
+
+/* Bildspel som tonar */
+.fader { position: relative; overflow: hidden; border-radius: var(--radius-xl); background: var(--c-primary); color: #fff; isolation: isolate; }
+.fader-slides { position: relative; aspect-ratio: 16 / 9; }
+.fader-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s var(--ease); }
+.fader-slide.is-active { opacity: 1; }
+.fader-slide .sport-photo { height: 100%; aspect-ratio: auto; border-radius: 0; }
+.fader-slide.is-active .sport-photo img { animation: fader-zoom 9s var(--ease) both; }
+@keyframes fader-zoom { from { transform: scale(1.06); } to { transform: scale(1); } }
+.fader-controls { position: absolute; z-index: 2; right: 18px; bottom: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 14px; }
+.fader-dots { display: flex; gap: 6px; }
+.fader-dot { width: 10px; height: 10px; padding: 0; border: 0; border-radius: 999px; background: rgb(255 255 255 / 0.5); cursor: pointer; transition: width 0.3s var(--ease), background-color 0.3s var(--ease); }
+.fader-dot.is-active { width: 26px; background: #fff; }
+.fader-dot:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 2px; }
+.fader .motion-pause { margin: 0; color: #fff; border-color: rgb(255 255 255 / 0.6); background: rgb(0 0 0 / 0.25); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.fader :focus-visible { outline-color: #fff; }
+
+/* Stort bildspel med rubriken ovanpå */
+.fader-hero .fader-slides { aspect-ratio: 4 / 5; }
+@media (min-width: 700px) { .fader-hero .fader-slides { aspect-ratio: 21 / 9; min-height: 420px; } }
+.fader-overlay {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px;
+  padding: clamp(24px, 4vw, 48px) clamp(24px, 4vw, 48px) clamp(64px, 7vw, 80px);
+  background: linear-gradient(to top, rgb(0 0 0 / 0.78), rgb(0 0 0 / 0.15) 60%, transparent);
+  pointer-events: none;
+}
+.fader-overlay > * { pointer-events: auto; max-width: 640px; }
+.fader-overlay .section-title { color: #fff; }
+.fader-overlay .section-lead { color: rgb(255 255 255 / 0.88); }
+.fader-overlay .btn-outline { color: #fff; border-color: rgb(255 255 255 / 0.75); }
+.fader-overlay .btn-outline:hover { background: #fff; color: #141414; }
+.sport-after-hero, .sport-after-band { margin-top: clamp(28px, 4vw, 44px); }
+
+/* Text och bildspel bredvid varandra */
+.sport-split { display: grid; gap: clamp(28px, 4vw, 56px); align-items: center; }
+@media (min-width: 920px) { .sport-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); } }
+.fader-split .fader-slides { aspect-ratio: 4 / 5; }
+@media (min-width: 920px) { .fader-split .fader-slides { aspect-ratio: 5 / 6; } }
+.sport-list { list-style: none; margin: 28px 0 0; padding: 0; border-top: 1px solid var(--c-border); }
+.sport-list .feature-card { padding: 14px 0; border: 0; border-bottom: 1px solid var(--c-border); border-radius: 0; background: none; box-shadow: none; }
+.sport-list .feature-card p { margin-top: 2px; color: var(--c-muted); font-size: 0.9375rem; }
+.sport-split-text .after-list { margin-top: 20px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none !important; transform: none !important; }
+  .marquee-viewport { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
+  .marquee-item[aria-hidden="true"], .marquee .motion-pause { display: none; }
+  .marquee .marquee-item:hover { transform: none; }
+  .fader-slide.is-active .sport-photo img { animation: none; }
+}
+
 /* ---------- Sidfot ---------- */
 
 .site-footer {

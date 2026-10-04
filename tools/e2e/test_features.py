@@ -297,6 +297,33 @@ with sync_playwright() as p:
     page.click("#texter-form .sticky-actions button[type=submit]")
     page.wait_for_url(re.compile(r"klart="))
 
+    # ───────── JFK Idrott ─────────
+    print("JFK Idrott")
+    status, body, _ = get("/for-studenter")
+    check("sport--band" in body and "data-marquee" not in body and "feature-grid" in body, "utan bilder visas aktiviteterna utan rörelse")
+    page.goto(f"{BASE}/admin/texter?sida=for-studenter&falt=sport_image")
+    for i, k in enumerate(["sport_image", "sport_image_2", "sport_image_3"]):
+        page.locator(f"input[type=file][name={k}]").set_input_files(str(test_image(OUT / f"idrott{i}.jpg", (1200, 900), (30 + i * 70, 120, 90))))
+    page.wait_for_timeout(1500)
+    page.click("#texter-form .sticky-actions button[type=submit]")
+    page.wait_for_url(re.compile(r"klart="), timeout=60000)
+    status, body, _ = get("/for-studenter")
+    check("marquee-photos" in body and body.count('<li class="marquee-item">') == 3 and 'aria-hidden="true"' in body and "data-motion-toggle" in body, "med bilder rullar de i ett band med paus-knapp")
+    for style, marker in [("bildspel", "fader-hero"), ("delad", "fader-split"), ("kort", "marquee-cards")]:
+        page.goto(f"{BASE}/admin/texter?sida=for-studenter&falt=sport_style")
+        page.locator(f"label:has(input[name=sport_style][value={style}])").click()
+        page.click("#texter-form .sticky-actions button[type=submit]")
+        page.wait_for_url(re.compile(r"klart="))
+        status, body, _ = get("/for-studenter")
+        check(marker in body, f"utseendet {style} visas")
+    page.goto(f"{BASE}/for-studenter")
+    page.mouse.move(5, 5)
+    page.wait_for_timeout(300)
+    page.goto(f"{BASE}/admin/texter?sida=for-studenter&falt=sport_style")
+    page.locator("label:has(input[name=sport_style][value=band])").click()
+    page.click("#texter-form .sticky-actions button[type=submit]")
+    page.wait_for_url(re.compile(r"klart="))
+
     # ───────── Sök ─────────
     print("Sök")
     page.goto(f"{BASE}/admin")

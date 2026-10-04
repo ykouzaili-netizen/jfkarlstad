@@ -321,18 +321,66 @@
    Pausa/Spela stoppar rörelsen (WCAG 2.2.2 – rörligt innehåll ska gå att pausa). */
 (function () {
   document.querySelectorAll("[data-marquee]").forEach(function (root) {
-    var track = root.querySelector(".insta-track");
+    var track = root.querySelector("[data-marquee-track], .insta-track");
     // Bandet består av två lika halvor; en varvlängd = antalet inlägg i en halva.
     var half = track ? track.children.length / 2 : 0;
     var seconds = Number(root.getAttribute("data-seconds")) || 5;
     root.style.setProperty("--insta-duration", Math.max(12, half * seconds) + "s");
-    var btn = root.querySelector("[data-marquee-toggle]");
-    var label = root.querySelector("[data-marquee-label]");
+    root.style.setProperty("--marquee-duration", Math.max(12, half * seconds) + "s");
+    var btn = root.querySelector("[data-marquee-toggle], [data-motion-toggle]");
+    var label = root.querySelector("[data-marquee-label], [data-motion-label]");
     if (!btn) return;
     btn.addEventListener("click", function () {
       var paused = root.classList.toggle("is-paused");
       btn.setAttribute("aria-pressed", paused ? "true" : "false");
       if (label) label.textContent = paused ? btn.getAttribute("data-play-label") : btn.getAttribute("data-pause-label");
     });
+  });
+})();
+
+/* Bildspel som tonar mellan bilderna (JFK Idrott). Byter bild var X:e sekund, stannar vid hovring, fokus och
+   paus, och byter aldrig av sig självt för den som valt minskad rörelse. Prickarna väljer bild direkt. */
+(function () {
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.querySelectorAll("[data-fader]").forEach(function (root) {
+    var slides = root.querySelectorAll(".fader-slide");
+    var dots = root.querySelectorAll("[data-fader-dot]");
+    if (slides.length < 2) return;
+    var current = 0, hover = false, paused = false;
+    var seconds = Number(root.getAttribute("data-seconds")) || 5;
+    function show(i) {
+      current = (i + slides.length) % slides.length;
+      slides.forEach(function (sl, j) {
+        sl.classList.toggle("is-active", j === current);
+        if (j === current) sl.removeAttribute("aria-hidden"); else sl.setAttribute("aria-hidden", "true");
+      });
+      dots.forEach(function (d, j) {
+        d.classList.toggle("is-active", j === current);
+        if (j === current) d.setAttribute("aria-current", "true"); else d.removeAttribute("aria-current");
+      });
+    }
+    dots.forEach(function (d) {
+      d.addEventListener("click", function () { show(Number(d.getAttribute("data-fader-dot"))); });
+    });
+    root.addEventListener("mouseenter", function () { hover = true; });
+    root.addEventListener("mouseleave", function () { hover = false; });
+    root.addEventListener("focusin", function () { hover = true; });
+    root.addEventListener("focusout", function () { hover = false; });
+    var btn = root.querySelector("[data-motion-toggle]");
+    var label = root.querySelector("[data-motion-label]");
+    if (btn) {
+      if (reduce) btn.hidden = true;
+      btn.addEventListener("click", function () {
+        paused = !paused;
+        root.classList.toggle("is-paused", paused);
+        btn.setAttribute("aria-pressed", paused ? "true" : "false");
+        if (label) label.textContent = paused ? btn.getAttribute("data-play-label") : btn.getAttribute("data-pause-label");
+      });
+    }
+    if (!reduce) {
+      setInterval(function () {
+        if (!hover && !paused && !document.hidden) show(current + 1);
+      }, seconds * 1000);
+    }
   });
 })();

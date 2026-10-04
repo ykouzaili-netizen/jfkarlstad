@@ -104,27 +104,121 @@ function repsSection(s: Settings, reps: CourseRepRow[]): SafeHtml {
   </section>`;
 }
 
+type SportImage = { key: string; alt: string; setting: SettingKey };
+
+/** Bilderna till JFK Idrott (Bild 1–8 i Texter och sidor), i ordning. */
+function sportImages(s: Settings): SportImage[] {
+  const keys = ["sport_image", "sport_image_2", "sport_image_3", "sport_image_4", "sport_image_5", "sport_image_6", "sport_image_7", "sport_image_8"] as const;
+  return keys
+    .map((k) => ({ key: s[k], alt: s[`${k}_alt` as const], setting: k as SettingKey }))
+    .filter((img) => img.key);
+}
+
+/** Upprepa listan tills den har minst `min` poster – ett rullande band måste vara bredare än skärmen. */
+function fill<T>(items: T[], min: number): T[] {
+  const out = [...items];
+  while (out.length < min) out.push(items[out.length % items.length]!);
+  return out;
+}
+
+/**
+ * JFK Idrott med fyra utseenden (Texter och sidor → För studenter → JFK Idrott):
+ * rullande bildband, stort bildspel, text och bildspel bredvid varandra, och aktivitetskort med bild.
+ * Rörliga delar har en paus-knapp och står still för den som valt minskad rörelse (site.js + site.css).
+ */
 function sport(s: Settings): SafeHtml {
-  const items = lines(s.sport_items).map((l) => {
-    const [title, ...rest] = l.split("|");
-    return { title: (title ?? "").trim(), text: rest.join("|").trim() };
-  });
-  return html`<section class="section" aria-labelledby="jfk-idrott">
-    <div class="container">
-      <div class="section-head">
-        <div>
-          <h2 class="section-title" id="jfk-idrott"${ek(s, "sport_title")}>${s.sport_title}</h2>
-          <p class="section-lead"${ek(s, "sport_text")}>${s.sport_text}</p>
-        </div>
-        ${s.instagram_sport_url
-          ? html`<a class="btn btn-outline" href="${safeUrl(s.instagram_sport_url)}" target="_blank" rel="noopener"${ek(s, "instagram_sport_handle")}>${icon("instagram", "icon icon-sm")}${s.instagram_sport_handle}<span class="sr-only"> på Instagram (öppnas i ny flik)</span></a>`
-          : ""}
+  const items = lines(s.sport_items)
+    .map((l) => {
+      const [title, ...rest] = l.split("|");
+      return { title: (title ?? "").trim(), text: rest.join("|").trim() };
+    })
+    .filter((it) => it.title);
+  const images = sportImages(s);
+  const style = (["band", "bildspel", "delad", "kort"] as const).find((v) => v === s.sport_style) ?? "band";
+  const speed = (["lugn", "medel", "snabb"] as const).find((v) => v === s.sport_speed) ?? "medel";
+  const bandSeconds = { lugn: 8, medel: 6, snabb: 4 }[speed];
+  const fadeSeconds = { lugn: 8, medel: 5.5, snabb: 3.5 }[speed];
+
+  const insta = s.instagram_sport_url
+    ? html`<a class="btn btn-outline sport-insta" href="${safeUrl(s.instagram_sport_url)}" target="_blank" rel="noopener"${ek(s, "instagram_sport_handle")}>${icon("instagram", "icon icon-sm")}${s.instagram_sport_handle}<span class="sr-only"> på Instagram (öppnas i ny flik)</span></a>`
+    : "";
+  const heading = html`<h2 class="section-title" id="jfk-idrott"${ek(s, "sport_title")}>${s.sport_title}</h2>
+    <p class="section-lead"${ek(s, "sport_text")}>${s.sport_text}</p>`;
+  const head = html`<div class="section-head"><div>${heading}</div>${insta}</div>`;
+  const pauseButton = (what: string) =>
+    html`<button type="button" class="motion-pause" data-motion-toggle aria-pressed="false" data-pause-label="${s.sport_pause}" data-play-label="${s.sport_play}">
+      <span class="motion-pause-icon" aria-hidden="true"></span><span data-motion-label${ek(s, "sport_pause")}>${s.sport_pause}</span><span class="sr-only"> ${what}</span>
+    </button>`;
+  const cards = (cls = "feature-grid") =>
+    html`<ul class="${cls}"${ek(s, "sport_items")}>
+      ${items.map((it) => html`<li class="feature-card"><h3 class="feature-title">${it.title}</h3>${it.text ? html`<p>${it.text}</p>` : ""}</li>`)}
+    </ul>`;
+  const photo = (img: SportImage, sizes: string, copy = false, eager = false) =>
+    html`<figure class="sport-photo"${copy ? "" : ek(s, img.setting)}>${picture(img.key, { alt: copy ? "" : img.alt, sizes, width: 1200, height: 900, eager })}</figure>`;
+
+  // Rullande band: två lika halvor, den andra dold för skärmläsare (animationen flyttar −50 %).
+  const band = (list: (SafeHtml | string)[], copies: (SafeHtml | string)[], label: string, cls: string) =>
+    html`<div class="marquee ${cls}" data-marquee data-seconds="${bandSeconds}">
+      <div class="marquee-viewport">
+        <ul class="marquee-track" aria-label="${label}" data-marquee-track>
+          ${list.map((x) => html`<li class="marquee-item">${x}</li>`)}
+          ${copies.map((x) => html`<li class="marquee-item" aria-hidden="true">${x}</li>`)}
+        </ul>
       </div>
-      ${contentPhoto(s, "sport_image", "sport_image_alt", "wide")}
-      <ul class="feature-grid"${ek(s, "sport_items")}>
-        ${items.map((it) => html`<li class="feature-card"><h3 class="feature-title">${it.title}</h3>${it.text ? html`<p>${it.text}</p>` : ""}</li>`)}
-      </ul>
-    </div>
+      ${pauseButton("bilderna som rullar")}
+    </div>`;
+
+  // Bildspel som tonar mellan bilderna. Utan JS syns den första bilden.
+  const fader = (cls: string, overlay?: SafeHtml) =>
+    html`<div class="fader ${cls}" data-fader data-seconds="${fadeSeconds}">
+      <div class="fader-slides">
+        ${images.map((img, i) => html`<div class="fader-slide${i === 0 ? " is-active" : ""}"${i === 0 ? "" : html` aria-hidden="true"`}>${photo(img, "(min-width: 920px) 70vw, 100vw", false, i === 0)}</div>`)}
+      </div>
+      ${overlay ?? ""}
+      <div class="fader-controls">
+        <div class="fader-dots" role="group" aria-label="Välj bild">
+          ${images.map((_, i) => html`<button type="button" class="fader-dot${i === 0 ? " is-active" : ""}" data-fader-dot="${i}" aria-label="Bild ${i + 1} av ${images.length}"${i === 0 ? html` aria-current="true"` : ""}></button>`)}
+        </div>
+        ${pauseButton("bildspelet")}
+      </div>
+    </div>`;
+
+  let body: SafeHtml;
+  if (style === "kort") {
+    // Varje aktivitet med sin bild (bild 1 till första aktiviteten osv.), korten rullar i sidled.
+    const card = (it: { title: string; text: string }, i: number, copy = false) => {
+      const img = images.length ? images[i % images.length] : null;
+      return html`<article class="sport-card${img ? " has-image" : ""}">
+        ${img ? photo(img, "320px", copy) : html`<span class="sport-card-mark" aria-hidden="true">${it.title.charAt(0)}</span>`}
+        <div class="sport-card-body"><h3 class="feature-title">${it.title}</h3>${it.text ? html`<p>${it.text}</p>` : ""}</div>
+      </article>`;
+    };
+    const many = items.length >= 3;
+    body = html`${head}${many
+      ? band(items.map((it, i) => card(it, i)), fill(items.map((it, i) => ({ it, i })), 8).slice(items.length).concat(fill(items.map((it, i) => ({ it, i })), 8)).map(({ it, i }) => card(it, i, true)), s.sport_title, "marquee-cards")
+      : cards()}`;
+  } else if (images.length < 2) {
+    // För få bilder för ett bildspel: en stor bild (om den finns) och aktiviteterna.
+    body = html`${head}${images[0] ? html`<figure class="content-photo content-photo-wide"${ek(s, images[0].setting)}>${picture(images[0].key, { alt: images[0].alt, sizes: "(min-width: 1280px) 1200px, 100vw", width: 1600, height: 640 })}</figure>` : ""}${cards()}`;
+  } else if (style === "bildspel") {
+    body = html`${fader("fader-hero", html`<div class="fader-overlay"><div>${heading}</div>${insta}</div>`)}${cards("feature-grid sport-after-hero")}`;
+  } else if (style === "delad") {
+    body = html`<div class="sport-split">
+      <div class="sport-split-text">${heading}${insta ? html`<p class="after-list">${insta}</p>` : ""}${cards("sport-list")}</div>
+      ${fader("fader-split")}
+    </div>`;
+  } else {
+    const half = fill(images, 8);
+    body = html`${head}${band(
+      images.map((img) => photo(img, "(min-width: 900px) 380px, 75vw")),
+      half.slice(images.length).concat(half).map((img) => photo(img, "(min-width: 900px) 380px, 75vw", true)),
+      `Bilder från ${s.sport_title}`,
+      "marquee-photos",
+    )}${cards("feature-grid sport-after-band")}`;
+  }
+
+  return html`<section class="section sport sport--${style}" aria-labelledby="jfk-idrott">
+    <div class="container">${body}</div>
   </section>`;
 }
 
