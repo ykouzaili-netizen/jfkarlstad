@@ -43,17 +43,22 @@ export async function aboutPage(c: RequestContext): Promise<Response> {
 }
 
 /** En bild ur kollaget – eller en grafisk ruta i föreningens färger om ingen bild är uppladdad. */
-function collageTile(s: Settings, n: 1 | 2 | 3, fallback: SafeHtml): SafeHtml {
+function collageTile(s: Settings, n: 1 | 2 | 3, style: string, fallback: SafeHtml): SafeHtml {
   const key = s[`about_image_${n}` as const];
+  const big = n === 1 && (style === "helbild" || style === "delad");
+  const sizes = big ? (style === "helbild" ? "100vw" : "(min-width: 920px) 50vw, 100vw") : n === 1 ? "(min-width: 920px) 28vw, 60vw" : "(min-width: 920px) 22vw, 40vw";
   return html`<figure class="collage-tile collage-tile-${n}${key ? " has-image" : ""}"${ek(s, `about_image_${n}` as const)}>
     ${key
-      ? picture(key, { alt: s[`about_image_${n}_alt` as const], sizes: n === 1 ? "(min-width: 920px) 28vw, 60vw" : "(min-width: 920px) 22vw, 40vw", width: 800, height: n === 1 ? 1000 : 640, eager: true })
+      ? picture(key, { alt: s[`about_image_${n}_alt` as const], sizes, width: big ? 1600 : 800, height: big ? 1000 : n === 1 ? 1000 : 640, eager: true })
       : fallback}
   </figure>`;
 }
 
+const HERO_STYLES = ["kollage", "bildband", "fotostapel", "helbild", "delad"] as const;
+
 function hero(s: Settings): SafeHtml {
-  return html`<section class="about-hero" aria-labelledby="om-oss-titel">
+  const style = (HERO_STYLES as readonly string[]).includes(s.about_hero_style) ? s.about_hero_style : "kollage";
+  return html`<section class="about-hero about-hero--${style}${s.about_image_1 ? " has-photo" : ""}" aria-labelledby="om-oss-titel">
     <div class="container about-hero-grid">
       <div class="about-hero-copy">
         <p class="page-kicker"${ek(s, "about_kicker")}>${s.about_kicker}</p>
@@ -65,9 +70,9 @@ function hero(s: Settings): SafeHtml {
         </div>
       </div>
       <div class="collage">
-        ${collageTile(s, 1, html`<div class="collage-fallback collage-fallback-glyph" aria-hidden="true"><span>§</span></div>`)}
-        ${collageTile(s, 2, html`<div class="collage-fallback collage-fallback-dark"><span class="collage-fig"${ek(s, "stat_1_value")}>${s.stat_1_value}</span><span class="collage-cap">${s.stat_1_label}</span></div>`)}
-        ${collageTile(s, 3, html`<div class="collage-fallback collage-fallback-light"><span class="collage-fig"${ek(s, "stat_2_value")}>${s.stat_2_value}</span><span class="collage-cap">${s.stat_2_label}</span></div>`)}
+        ${collageTile(s, 1, style, html`<div class="collage-fallback collage-fallback-glyph" aria-hidden="true"><span>§</span></div>`)}
+        ${collageTile(s, 2, style, html`<div class="collage-fallback collage-fallback-dark"><span class="collage-fig"${ek(s, "stat_1_value")}>${s.stat_1_value}</span><span class="collage-cap">${s.stat_1_label}</span></div>`)}
+        ${collageTile(s, 3, style, html`<div class="collage-fallback collage-fallback-light"><span class="collage-fig"${ek(s, "stat_2_value")}>${s.stat_2_value}</span><span class="collage-cap">${s.stat_2_label}</span></div>`)}
       </div>
     </div>
   </section>`;
