@@ -404,7 +404,7 @@
     }
     if (!reduce) {
       setInterval(function () {
-        if (!hover && !paused && !document.hidden) show(current + 1);
+        if (!hover && !paused && !document.hidden && !root.classList.contains("is-offscreen")) show(current + 1);
       }, seconds * 1000);
     }
   });
@@ -426,4 +426,13 @@
     });
   }, { rootMargin: "800px 0px" });
   shows.forEach(function (el) { io.observe(el); });
+})();
+
+/* Pausa rullande band och bildspel som inte syns på skärmen – sparar batteri och gör skrollningen jämnare. */
+(function () {
+  if (!("IntersectionObserver" in window)) return;
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { e.target.classList.toggle("is-offscreen", !e.isIntersecting); });
+  });
+  document.querySelectorAll("[data-marquee], [data-fader]").forEach(function (el) { io.observe(el); });
 })();

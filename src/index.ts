@@ -82,9 +82,32 @@ const router = new Router()
 registerAdminRoutes(router);
 
 /** Uppladdade bilder. Nyckeln innehåller ett slumpat id, så filerna kan cachas länge. */
+/**
+ * Bilder (och andra filer) under /media. Filnamnen byts när en bild byts ut, så svaren kan cachas för
+ * evigt – i webbläsaren och i Cloudflares datacenter nära besökaren (caches.default). Då hämtas en bild
+ * från lagringen (KV/R2) bara första gången i varje datacenter, i stället för vid varje besök.
+ */
 async function mediaHandler(c: RequestContext): Promise<Response> {
   const key = c.params.key ?? "";
   if (!/^[a-z0-9][a-z0-9._-]{0,200}$/i.test(key)) return notFoundPage(c);
+  const edge = typeof caches !== "undefined" && c.req.method === "GET" ? caches.default : null;
+  const cacheKey = new Request(new URL(`/media/${key}`, c.url).toString(), { method: "GET" });
+  if (edge) {
+    const hit = await edge.match(cacheKey);
+    if (hit) return hit;
+  }
+  const res = await mediaFromStorage(c, key);
+  if (edge && res.status === 200) {
+    // Kopian i datacentret lever högst ett dygn, så att en raderad bild (t.ex. ett personfoto) försvinner
+    // överallt inom 24 timmar även om den raderas från ett annat datacenter (GDPR).
+    const copy = new Response(res.clone().body, res);
+    copy.headers.set("Cache-Control", "public, max-age=86400");
+    c.exec.waitUntil(edge.put(cacheKey, copy));
+  }
+  return res;
+}
+
+async function mediaFromStorage(c: RequestContext, key: string): Promise<Response> {
   // Den lilla versionen (".sm") finns inte för äldre bilder och SVG – svara då med originalet.
   const file = (await getFile(c.env, key)) ?? (key.endsWith(".sm") ? await getFile(c.env, key.slice(0, -3)) : null);
   if (!file) return notFoundPage(c);
@@ -115,13 +138,20 @@ export default {
 
     const c: RequestContext = { req, env, exec, url, params: {}, nonce: randomToken(16) };
     try {
-      await ensureInstagramSchema(env.DB);
+      // Tabellen för Instagram behövs bara på startsidan, i adminpanelens Instagram-del och i bildbanken.
+      if (url.pathname === "/" || url.pathname.startsWith("/admin/instagram") || url.pathname.startsWith("/admin/bildbank")) await ensureInstagramSchema(env.DB);
       const match = router.match(req.method, url.pathname);
       if (match === "method-not-allowed") return new Response("Metoden stöds inte", { status: 405, headers: { Allow: "GET, HEAD, POST" } });
       if (!match) return await notFoundPage(c);
-      if (await isHiddenPage(env, url.pathname)) return await notFoundPage(c);
       c.params = match.params;
-      return await match.handler(c);
+      // Visningar: kontrollen om sidan är dold körs samtidigt som sidan byggs (ingen väntar på två anrop i rad).
+      // Inskick (POST) kontrolleras först – ett formulär på en dold sida får aldrig tas emot.
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        if (await isHiddenPage(env, url.pathname)) return await notFoundPage(c);
+        return await match.handler(c);
+      }
+      const [hidden, res] = await Promise.all([isHiddenPage(env, url.pathname), match.handler(c)]);
+      return hidden ? await notFoundPage(c) : res;
     } catch (err) {
       // Engångslänkar (lösenord) får aldrig hamna i loggen
       const safePath = url.pathname.replace(/^\/admin\/losenord\/.+$/, "/admin/losenord/[dold]");

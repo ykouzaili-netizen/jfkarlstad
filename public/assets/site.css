@@ -1176,7 +1176,7 @@ main:focus { outline: none; }
 .insta-marquee .insta-post {
   flex: 0 0 min(var(--insta-w), 68vw);
   margin-right: var(--insta-gap);
-  transition: transform 0.35s var(--ease), opacity 0.35s var(--ease), filter 0.35s var(--ease);
+  transition: transform 0.35s var(--ease), opacity 0.35s var(--ease);
 }
 .insta-marquee .insta-media { transition: box-shadow 0.35s var(--ease); }
 /* Stanna när muspekaren är över inläggen, när ett inlägg har fokus och när man pausat */
@@ -1188,7 +1188,7 @@ main:focus { outline: none; }
 .insta-marquee .insta-post:focus-within { position: relative; z-index: 2; transform: translateY(-12px) scale(1.07); }
 .insta-marquee .insta-post:hover .insta-media,
 .insta-marquee .insta-post:focus-within .insta-media { box-shadow: 0 22px 44px -18px rgb(0 0 0 / 0.55), 0 0 0 3px var(--c-accent); }
-.insta-marquee .insta-track:hover .insta-post:not(:hover) { opacity: 0.55; filter: saturate(0.7); }
+.insta-marquee .insta-track:hover .insta-post:not(:hover) { opacity: 0.55; }
 .insta-marquee .insta-post:hover .insta-media img { transform: none; }
 
 .insta-pause {
@@ -1274,14 +1274,14 @@ main:focus { outline: none; }
   mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);
 }
 .marquee-track { display: flex; width: max-content; list-style: none; margin: 0; padding: 0; animation: insta-marquee var(--marquee-duration, var(--insta-duration)) linear infinite; will-change: transform; }
-.marquee-item { position: relative; margin-right: var(--mq-gap); transition: transform 0.35s var(--ease), opacity 0.35s var(--ease), filter 0.35s var(--ease); }
+.marquee-item { position: relative; margin-right: var(--mq-gap); transition: transform 0.35s var(--ease), opacity 0.35s var(--ease); }
 .marquee-photos .marquee-item { flex: 0 0 min(380px, 75vw); }
 .marquee-cards .marquee-item { flex: 0 0 min(300px, 78vw); }
 .marquee-viewport:hover .marquee-track,
 .marquee:focus-within .marquee-track,
 .marquee.is-paused .marquee-track { animation-play-state: paused; }
 .marquee .marquee-item:hover { z-index: 2; transform: translateY(-12px) scale(1.05); }
-.marquee .marquee-track:hover .marquee-item:not(:hover) { opacity: 0.55; filter: saturate(0.7); }
+.marquee .marquee-track:hover .marquee-item:not(:hover) { opacity: 0.55; }
 .marquee .marquee-item:hover .sport-photo, .marquee-cards .marquee-item:hover .sport-card { box-shadow: 0 22px 44px -18px rgb(0 0 0 / 0.5), 0 0 0 3px var(--c-accent); }
 
 .motion-pause {
@@ -1321,7 +1321,7 @@ main:focus { outline: none; }
 .fader-dot { width: 10px; height: 10px; padding: 0; border: 0; border-radius: 999px; background: rgb(255 255 255 / 0.5); cursor: pointer; transition: width 0.3s var(--ease), background-color 0.3s var(--ease); }
 .fader-dot.is-active { width: 26px; background: #fff; }
 .fader-dot:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 2px; }
-.fader .motion-pause { margin: 0; color: #fff; border-color: rgb(255 255 255 / 0.6); background: rgb(0 0 0 / 0.25); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.fader .motion-pause { margin: 0; color: #fff; border-color: rgb(255 255 255 / 0.6); background: rgb(20 20 20 / 0.6); }
 .fader :focus-visible { outline-color: #fff; }
 
 /* Stort bildspel med rubriken ovanpå */
@@ -1366,13 +1366,23 @@ main:focus { outline: none; }
 .insta-marquee .insta-pause,
 .marquee .motion-pause {
   position: absolute; z-index: 3; left: 14px; bottom: 14px; margin: 0;
-  color: #fff; border-color: rgb(255 255 255 / 0.6); background: rgb(0 0 0 / 0.45);
-  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  color: #fff; border-color: rgb(255 255 255 / 0.6); background: rgb(20 20 20 / 0.72);
 }
 .insta-pause, .motion-pause { opacity: 0; pointer-events: none; transition: opacity 0.2s var(--ease); }
 .insta-marquee:hover .insta-pause, .marquee:hover .motion-pause, .fader:hover .motion-pause,
 .insta-pause:focus-visible, .motion-pause:focus-visible,
 .is-paused .insta-pause, .is-paused .motion-pause { opacity: 1; pointer-events: auto; }
+
+/* ---------- Prestanda ----------
+   Avsnitt långt ned på sidan ritas först när besökaren närmar sig dem (content-visibility), och rullande
+   band/bildspel som inte syns står still (site.js sätter .is-offscreen). Det gör att sidan blir klar
+   snabbare och att datorn/mobilen inte arbetar med animationer ingen ser. */
+/* Inte på sidor med genvägsmeny – där måste avsnittens riktiga höjd vara känd för att hoppen ska landa rätt. */
+html:not(:has(.section-nav)) main > section:nth-child(n + 3),
+.site-footer { content-visibility: auto; contain-intrinsic-size: auto 700px; }
+.is-offscreen .marquee-track,
+.is-offscreen .insta-track,
+.is-offscreen .fader-slide.is-active .sport-photo img { animation-play-state: paused !important; }
 
 /* ---------- Sidfot ---------- */
 

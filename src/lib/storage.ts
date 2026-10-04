@@ -98,6 +98,14 @@ export async function getFile(env: Env, key: string): Promise<StoredFile | null>
 }
 
 export async function deleteFile(env: Env, key: string | null | undefined): Promise<void> {
+  // Töm även kopian i Cloudflares cache (i det här datacentret; övriga går ut inom ett dygn).
+  if (key && typeof caches !== "undefined" && env.SITE_URL) {
+    try {
+      await caches.default.delete(new Request(`${env.SITE_URL.replace(/\/$/, "")}/media/${key}`));
+    } catch {
+      /* cachen är en bonus */
+    }
+  }
   if (!key) return;
   try {
     if (env.UPLOADS) await env.UPLOADS.delete(key);

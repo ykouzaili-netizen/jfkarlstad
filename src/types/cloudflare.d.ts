@@ -104,3 +104,8 @@ declare module "cloudflare:sockets" {
   }
   export function connect(address: { hostname: string; port: number } | string, options?: SocketOptions): Socket;
 }
+
+/** Cloudflares cache i datacentret (Cache API). Finns inte i alla miljöer – kontrollera med typeof caches. */
+interface CacheStorage {
+  readonly default: Cache;
+}
