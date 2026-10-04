@@ -126,16 +126,21 @@ function governance(s: Settings): SafeHtml {
   </section>`;
 }
 
+const COMMITTEE_STYLES = ["mork", "gul", "ljusa", "karusell"] as const;
+
 function committeesSection(s: Settings, committees: { name: string; text: string }[]): SafeHtml {
   const monogram = (name: string) => name.replace(/utskottet$/i, "").trim().charAt(0).toUpperCase() || name.charAt(0);
-  return html`<section class="committees${s.committees_image ? " has-image" : ""}" aria-labelledby="utskotten">
-    ${s.committees_image ? html`<div class="committees-bg" aria-hidden="true"${ek(s, "committees_image")}>${picture(s.committees_image, { alt: "", sizes: "100vw", width: 2000, height: 1200 })}</div>` : ""}
+  const style = (COMMITTEE_STYLES as readonly string[]).includes(s.committees_style) ? s.committees_style : "mork";
+  const showImage = Boolean(s.committees_image) && (style === "mork" || style === "karusell");
+  const carousel = style === "karusell";
+  return html`<section class="committees committees--${style}${showImage ? " has-image" : ""}" aria-labelledby="utskotten">
+    ${showImage ? html`<div class="committees-bg" aria-hidden="true"${ek(s, "committees_image")}>${picture(s.committees_image, { alt: "", sizes: "100vw", width: 2000, height: 1200 })}</div>` : ""}
     <div class="container">
       <div class="committees-head">
         <h2 class="section-title" id="utskotten"${ek(s, "committees_title")}>${s.committees_title}</h2>
         <p class="section-lead"${ek(s, "committees_lead")}>${s.committees_lead}</p>
       </div>
-      <ul class="committee-grid"${ek(s, "committees")}>
+      <ul class="committee-grid"${carousel ? html` tabindex="0" aria-label="${s.committees_title} – bläddra i sidled"` : ""}${ek(s, "committees")}>
         ${committees.map(
           (cm) => html`<li class="committee-card">
             <span class="committee-mark" aria-hidden="true">${monogram(cm.name)}</span>

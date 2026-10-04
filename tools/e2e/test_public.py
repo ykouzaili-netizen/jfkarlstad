@@ -57,6 +57,7 @@ with sync_playwright() as p:
             page.goto(BASE + "/om-oss")
             check(page.locator(".about-hero--kollage").count() == 1, "Om oss har kollaget som standardutseende")
             check(page.locator(".committee-card").count() >= 6, "utskotten visas som egna kort")
+            check(page.locator(".committees--mork").count() == 1, "utskotten har Mörk med bild som standardutseende")
             page.click(".section-nav a[href='#utskotten']")
             page.wait_for_timeout(800)
             check(page.locator(".section-nav a[href='#utskotten'].is-active").count() == 1, "genvägen till avsnittet man läser markeras")

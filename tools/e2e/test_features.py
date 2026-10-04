@@ -139,6 +139,23 @@ with sync_playwright() as p:
     status, body, _ = get("/om-oss")
     check(body.count("Gå med i JFK") >= 2, "”Bli medlem”-knapparna får den nya texten")
 
+    # Om oss: utseendet på toppen och utskotten väljs i adminpanelen
+    for key, value, css in [("about_hero_style", "delad", "about-hero--delad"), ("committees_style", "karusell", "committees--karusell")]:
+        page.goto(f"{BASE}/admin/texter?sida=om-oss&falt={key}")
+        page.locator(f"label:has(input[name={key}][value={value}])").click()
+        page.click("#texter-form button[type=submit]")
+        page.wait_for_url(re.compile(r"klart=texter"))
+        status, body, _ = get("/om-oss")
+        check(css in body, f"utseendet {value} syns på Om oss")
+    page.goto(f"{BASE}/om-oss")
+    page.locator(".committees--karusell .committee-grid").focus()
+    check(page.evaluate("document.activeElement.classList.contains('committee-grid')"), "karusellen kan nås med tangentbordet")
+    for key, value in [("about_hero_style", "kollage"), ("committees_style", "mork")]:
+        page.goto(f"{BASE}/admin/texter?sida=om-oss&falt={key}")
+        page.locator(f"label:has(input[name={key}][value={value}])").click()
+        page.click("#texter-form button[type=submit]")
+        page.wait_for_url(re.compile(r"klart=texter"))
+
     # ───────── Sök ─────────
     print("Sök")
     page.goto(f"{BASE}/admin")

@@ -2086,6 +2086,51 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .committee-cta .committee-name, .committee-cta .committee-text { color: var(--c-on-accent); }
 .committee-cta .btn { margin-top: auto; align-self: flex-start; background: var(--c-primary); color: var(--c-on-primary); border-color: var(--c-primary); box-shadow: none; }
 
+/* Utskottens utseende väljs i adminpanelen (Om oss → Utskotten → Utseende). Mörk med bild är grundutseendet ovan. */
+
+/* Gul lista */
+.committees--gul { background: var(--c-accent); color: var(--c-on-accent); }
+.committees--gul .section-title { color: var(--c-on-accent); }
+.committees--gul .section-lead { color: color-mix(in srgb, var(--c-on-accent) 82%, transparent); }
+.committees--gul .committee-grid { grid-template-columns: minmax(0, 1fr); gap: 0; border-top: 2px solid var(--c-on-accent); }
+.committees--gul .committee-card { display: grid; grid-template-columns: 52px minmax(0, 1fr); column-gap: 18px; row-gap: 4px; align-items: center; padding: 22px 0; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--c-on-accent) 35%, transparent); border-radius: 0; background: none; }
+.committees--gul .committee-mark { margin: 0; grid-row: 1 / 3; align-self: start; background: var(--c-primary); color: var(--c-accent); }
+.committees--gul .committee-name { color: var(--c-on-accent); }
+.committees--gul .committee-text { color: color-mix(in srgb, var(--c-on-accent) 85%, transparent); grid-column: 2; font-size: 1rem; }
+.committees--gul .committee-cta { grid-template-columns: minmax(0, 1fr); padding: 28px 0 4px; border-bottom: 0; }
+.committees--gul .committee-cta .committee-text { grid-column: 1; }
+.committees--gul .committee-cta .btn { margin-top: 10px; }
+@media (min-width: 760px) {
+  .committees--gul .committee-card { grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1.4fr); column-gap: 28px; }
+  .committees--gul .committee-mark { grid-row: auto; align-self: center; }
+  .committees--gul .committee-name { font-size: calc(1.625rem * var(--display-scale)); }
+  .committees--gul .committee-text { grid-column: 3; }
+  .committees--gul .committee-cta { grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1.4fr); row-gap: 14px; }
+  .committees--gul .committee-cta .committee-name { grid-column: 1 / 3; align-self: start; }
+  .committees--gul .committee-cta .committee-text { grid-column: 3; }
+  .committees--gul .committee-cta .btn { grid-column: 3; margin: 0; justify-self: start; }
+}
+
+/* Ljusa kort med stor begynnelsebokstav */
+.committees--ljusa { background: var(--c-surface); color: var(--c-text); }
+.committees--ljusa .section-title { color: var(--c-text); }
+.committees--ljusa .section-lead { color: var(--c-muted); }
+.committees--ljusa .committee-card { gap: 0; padding: 0; overflow: hidden; background: var(--c-bg); border: 0; }
+.committees--ljusa .committee-mark { width: 100%; height: clamp(110px, 12vw, 150px); margin: 0; border-radius: 0; font-size: clamp(4.5rem, 7vw, 6rem); background: var(--c-primary); color: var(--c-accent); }
+.committees--ljusa .committee-card:nth-child(even) .committee-mark { background: var(--c-accent); color: var(--c-on-accent); }
+.committees--ljusa .committee-name { color: var(--c-text); padding: 20px 22px 6px; }
+.committees--ljusa .committee-text { color: var(--c-muted); padding: 0 22px 24px; }
+.committees--ljusa .committee-cta { gap: 10px; padding: 26px; background: var(--c-primary); }
+.committees--ljusa .committee-cta .committee-name, .committees--ljusa .committee-cta .committee-text { color: var(--c-on-primary); padding: 0; }
+.committees--ljusa .committee-cta .btn { background: var(--c-accent); color: var(--c-on-accent); border-color: var(--c-accent); }
+
+/* Karusell som bläddras i sidled */
+.committees--karusell .committee-grid { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 14px; scrollbar-color: color-mix(in srgb, var(--c-on-primary) 35%, transparent) transparent; }
+.committees--karusell .committee-grid:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 4px; border-radius: var(--radius-lg); }
+.committees--karusell .committee-card { position: relative; flex: 0 0 min(300px, 82%); min-height: 360px; justify-content: flex-end; scroll-snap-align: start; padding-top: 140px; background: linear-gradient(to top, rgb(0 0 0 / 0.5), rgb(0 0 0 / 0.08)), color-mix(in srgb, var(--c-on-primary) 7%, transparent); }
+.committees--karusell .committee-mark { position: absolute; top: 18px; left: 22px; width: auto; height: auto; margin: 0; background: none; color: var(--c-accent); font-size: 7rem; line-height: 1; }
+.committees--karusell .committee-cta { justify-content: center; padding-top: 26px; background: var(--c-accent); }
+
 /* Samarbeten med bild */
 .collab-card { overflow: hidden; border-radius: var(--radius-lg); background: var(--c-bg); }
 .collab-media { aspect-ratio: 16 / 7; display: grid; place-items: center; background: var(--c-primary); }

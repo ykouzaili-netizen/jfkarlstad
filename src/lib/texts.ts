@@ -215,7 +215,13 @@ export const PAGES = [
         "Utbildningsutskottet | Bevakar utbildningens kvalitet, tar tillvara synpunkter från kursombuden och driver studenternas frågor gentemot universitetet.\nArbetsmarknadsutskottet | Bygger kontakter med byråer, myndigheter och företag – från lunchföreläsningar till arbetsmarknadsdagen.\nKommunikationsutskottet | Ansvarar för Instagram, webbplatsen och allt som syns utåt: foto, film och grafik.\nEvenemangsutskottet | Planerar sittningar, banketter, inspark och fester så att studietiden blir minnesvärd.\nEkonomiutskottet | Håller ordning på budget och bokföring och hjälper styrelsen att använda föreningens pengar klokt.\nIdrottsutskottet | Ordnar träningar, turneringar och idrottsevenemang för alla nivåer.",
         { help: "Ett utskott per rad. Skriv namnet, ett lodstreck | och en kort beskrivning. Namnen visas även på Engagera dig." },
       ),
-      image("committees_image", "Bakgrundsbild", "", { help: "Valfritt. Visas tonad i mörkt bakom utskotten, t.ex. en gruppbild från ett utskottsmöte." }),
+      choice("committees_style", "Utseende", "mork", [
+        { value: "mork", label: "Mörk med bild", hint: "Mörk yta med bakgrundsbilden tonad bakom korten" },
+        { value: "gul", label: "Gul lista", hint: "Ett utskott per rad på gul bakgrund – luftigt och lättläst" },
+        { value: "ljusa", label: "Ljusa kort", hint: "Ljusa kort med utskottets begynnelsebokstav stort i svart eller gult" },
+        { value: "karusell", label: "Karusell", hint: "Mörka kort som man bläddrar mellan i sidled" },
+      ], { required: true }),
+      image("committees_image", "Bakgrundsbild", "", { help: "Valfritt. Visas tonad i mörkt bakom utskotten i utseendena Mörk med bild och Karusell, t.ex. en gruppbild från ett utskottsmöte." }),
       text("committees_cta_title", "Sista rutan – rubrik", "Vill du vara med?"),
       area("committees_cta_text", "Sista rutan – text", "Alla ordinarie medlemmar kan väljas in i ett utskott. Anmäl ditt intresse så hör vi av oss."),
       text("committees_cta_button", "Sista rutan – knapp", "Engagera dig", small),
@@ -370,7 +376,7 @@ export const PAGES = [
     sec("utskott", "Utskotten", [
       text("engage_committees_title", "Rubrik", "Våra utskott", { required: true }),
       area("engage_committees_text", "Text", "Alla ordinarie medlemmar kan väljas in i ett utskott. Där planerar du evenemang, föreläsningar, idrott och mycket mer tillsammans med andra – och du bestämmer själv hur mycket tid du lägger."),
-    ], "Listan med utskott ändrar du på sidan Om oss → Så styrs JFK."),
+    ], "Listan med utskott ändrar du på sidan Om oss → Utskotten."),
     sec("formular", "Formuläret", [
       text("engage_form_title", "Rubrik", "Anmäl ditt intresse", { required: true }),
       area("engage_form_intro", "Text ovanför formuläret", "Fyll i formuläret så hör någon i styrelsen av sig och berättar mer. Det är inte bindande."),
