@@ -470,3 +470,23 @@
   openFromHash();
   window.addEventListener("hashchange", openFromHash);
 })();
+
+/* Nedräkning till att anmälan öppnar (Engagera dig). Uppdateras varje minut; när tiden är ute laddas sidan
+   om så att formuläret visas. */
+(function () {
+  var el = document.querySelector("[data-countdown]");
+  if (!el) return;
+  var target = Date.parse(el.getAttribute("data-countdown") || "");
+  if (!isFinite(target)) return;
+  var d = el.querySelector("[data-countdown-d]"), h = el.querySelector("[data-countdown-h]"), m = el.querySelector("[data-countdown-m]");
+  function two(n) { return (n < 10 ? "0" : "") + n; }
+  function tick() {
+    var ms = target - Date.now();
+    if (ms <= 0) { window.location.reload(); return; }
+    d.textContent = two(Math.floor(ms / 86400000));
+    h.textContent = two(Math.floor((ms % 86400000) / 3600000));
+    m.textContent = two(Math.floor((ms % 3600000) / 60000));
+  }
+  tick();
+  setInterval(tick, 30000);
+})();

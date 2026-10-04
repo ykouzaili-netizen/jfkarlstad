@@ -8,7 +8,7 @@ import { checkFormToken, clientIp, formToken, rateLimit, turnstileEnabled, verif
 import { mailConfigured, sendMail } from "../lib/mail.js";
 import { renderInline, renderMarkdown } from "../lib/markdown.js";
 import { htmlResponse, redirect } from "../lib/http.js";
-import { formatDay, stockholmToday, telHref } from "../lib/format.js";
+import { formatDay, formatLocalDateTime, localToIso, monthName, parseLocal, stockholmNow, stockholmToday, telHref } from "../lib/format.js";
 import type { RequestContext } from "../router.js";
 import type { Env } from "../env.js";
 import { layout, picture } from "../views/layout.js";
@@ -94,6 +94,54 @@ function fieldsFor(id: FormId, s: Settings, positions: PositionRow[] = [], commi
         { name: "meddelande", type: "textarea", max: 3000, rows: 5, help: s.ef_message_help, ...lbl(s, "ef_message") },
       ];
   }
+}
+
+/**
+ * Är anmälan till utskott och uppdrag öppen? Styrs under Texter och sidor → Engagera dig → Formuläret:
+ * "Stängd" med ett datum öppnar automatiskt vid den tiden (svensk tid); utan datum står det TBA.
+ */
+export function signupState(s: Settings, now = stockholmNow()): { open: boolean; when: string; opens: string } {
+  const opens = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s.engage_signup_opens) ? s.engage_signup_opens : "";
+  const open = s.engage_signup !== "stangd" || (opens !== "" && opens <= now);
+  return { open, when: opens ? formatLocalDateTime(opens) : s.engage_closed_tba, opens };
+}
+
+/**
+ * Rutan som ersätter formuläret när anmälan är stängd, i fyra utseenden (Texter och sidor → Engagera dig →
+ * Formuläret → Stängd – utseende): mörk ruta, gul banderoll, nedräkning och diskret kort.
+ */
+function signupClosed(s: Settings, when: string, opens: string): SafeHtml {
+  const style = (["mork", "gul", "nedrakning", "diskret"] as const).find((v) => v === s.engage_closed_style) ?? "mork";
+  const title = html`<h2 class="section-title" id="anmalan"${ek(s, "engage_closed_title")}>${s.engage_closed_title}</h2>`;
+  const text = html`<p class="signup-closed-text"${ek(s, "engage_closed_text")}>${fill(s.engage_closed_text, { datum: when })}</p>`;
+  const follow = s.engage_closed_follow ? html`<p class="signup-closed-follow"${ek(s, "engage_closed_follow")}>${renderInline(s.engage_closed_follow)}</p>` : "";
+  const lock = html`<span class="signup-closed-icon" aria-hidden="true">${icon("lock")}</span>`;
+
+  if (style === "nedrakning" && opens) {
+    // Startvärden räknas på servern (fungerar utan JS); site.js räknar sedan ned varje minut.
+    const iso = localToIso(opens);
+    const ms = iso ? Math.max(0, Date.parse(iso) - Date.now()) : 0;
+    const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000), m = Math.floor((ms % 3600000) / 60000);
+    const unit = (n: number, key: SettingKey, part: string) =>
+      html`<div class="countdown-unit"><span class="countdown-num" data-countdown-${part}>${String(n).padStart(2, "0")}</span><span class="countdown-label"${ek(s, key)}>${s[key]}</span></div>`;
+    return html`<div class="signup-closed signup-closed--nedrakning">
+      ${title}${text}
+      <div class="countdown" data-countdown="${iso ?? ""}" role="timer" aria-label="${when}">
+        ${unit(d, "engage_closed_days", "d")}${unit(h, "engage_closed_hours", "h")}${unit(m, "engage_closed_minutes", "m")}
+      </div>
+      ${follow}
+    </div>`;
+  }
+  if (style === "diskret") {
+    const p = parseLocal(opens);
+    return html`<div class="signup-closed signup-closed--diskret">
+      ${p
+        ? html`<div class="open-badge" aria-hidden="true"><span class="open-badge-label"${ek(s, "engage_closed_badge")}>${s.engage_closed_badge}</span><span class="open-badge-day">${p.day}</span><span class="open-badge-month">${monthName(p.month).slice(0, 3)}</span></div>`
+        : lock}
+      <div>${title}${text}${follow}</div>
+    </div>`;
+  }
+  return html`<div class="signup-closed signup-closed--${style === "nedrakning" ? "mork" : style}">${lock}<div>${title}${text}${follow}</div></div>`;
 }
 
 /** Val i formuläret (uppdrag, utskott, "vad som helst") utan dubbletter. */
@@ -274,7 +322,9 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
   const chosen = positions.find((p) => String(p.id) === c.url.searchParams.get("uppdrag"));
   const chosenCommittee = committees.find((cm) => cm.slug === c.url.searchParams.get("utskott"));
   const formValues = values ?? (chosen ? { uppdrag: chosen.title.slice(0, 120) } : chosenCommittee ? { uppdrag: chosenCommittee.name.slice(0, 120) } : {});
-  const formHtml = await formBlock(c, s, "engagemang", fieldsFor("engagemang", s, positions, committees), formValues, errors, topError);
+  const signup = signupState(s);
+  // Formuläret byggs bara när anmälan är öppen (det kräver bl.a. en tidstoken).
+  const formHtml = signup.open ? await formBlock(c, s, "engagemang", fieldsFor("engagemang", s, positions, committees), formValues, errors, topError) : html``;
   const content = html`
     ${pageHeader(s, { kickerKey: "engage_kicker", hero: "engage", titleKey: "engage_title", leadKey: "engage_lead" })}
     ${arrange(s, "engagera-dig", {
@@ -305,8 +355,10 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
           : html`<div class="empty-state empty-state-soft"${ek(s, "engage_positions_empty")}>${paragraphs(s.engage_positions_empty)}</div>`}
       </div>
     </section>`,
-      utskott: () => (committees.length ? committeeSection(s, committees) : ""),
-      formular: () => html`
+      utskott: () => (committees.length ? committeeSection(s, committees, signup) : ""),
+      formular: () =>
+        signup.open
+          ? html`
     <section class="section" aria-labelledby="anmalan">
       <div class="container form-layout">
         <div>
@@ -315,7 +367,8 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
           ${formHtml}
         </div>
       </div>
-    </section>`,
+    </section>`
+          : html`<section class="section signup-closed-section signup-closed-section--${s.engage_closed_style}" aria-labelledby="anmalan"><div class="container">${signupClosed(s, signup.when, signup.opens)}</div></section>`,
     })}`;
   return htmlResponse(c, layout(c, s, { title: s.engage_title, description: s.engage_lead }, content), status);
 }
@@ -326,7 +379,7 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
  * intresseformuläret. Byggt på <details>, så det fungerar även utan JavaScript; site.js stänger övriga kort,
  * skrollar till det öppnade och öppnar kortet direkt om adressen slutar med #utskott-namn.
  */
-function committeeSection(s: Settings, committees: CommitteeRow[]): SafeHtml {
+function committeeSection(s: Settings, committees: CommitteeRow[], signup: { open: boolean; when: string; opens: string }): SafeHtml {
   const mark = (name: string) => name.replace(/utskottet$/i, "").trim().charAt(0).toUpperCase() || name.charAt(0);
   return html`<section class="section section-surface" aria-labelledby="utskotten">
     <div class="container">
@@ -361,7 +414,9 @@ function committeeSection(s: Settings, committees: CommitteeRow[]): SafeHtml {
               <div class="cm-text">
                 ${cm.body ? html`<div class="prose">${renderMarkdown(cm.body)}</div>` : cm.summary ? html`<p>${cm.summary}</p>` : ""}
                 ${cm.commitment ? html`<p class="cm-commitment">${icon("clock", "icon icon-sm")}<span><strong${ek(s, "engage_commitment_label")}>${s.engage_commitment_label}:</strong> ${cm.commitment}</span></p>` : ""}
-                <a class="btn btn-primary" href="/engagera-dig?utskott=${cm.slug}#anmalan"${ek(s, "engage_committee_join")}>${fill(s.engage_committee_join, { utskott: cm.name })}</a>
+                ${signup.open
+                  ? html`<a class="btn btn-primary" href="/engagera-dig?utskott=${cm.slug}#anmalan"${ek(s, "engage_committee_join")}>${fill(s.engage_committee_join, { utskott: cm.name })}</a>`
+                  : html`<a class="btn btn-outline" href="#anmalan"${ek(s, "engage_committee_closed")}>${icon("lock", "icon icon-sm")}${fill(s.engage_committee_closed, { datum: signup.when })}</a>`}
               </div>
             </div>
           </details>`;
@@ -388,6 +443,8 @@ export function submitHandler(id: FormId) {
     if (String(form.get("webbplats") ?? "").trim()) return redirect(`${PATHS[id]}/tack`, 303);
 
     const s = await loadSettings(c.env.DB);
+    // Stängd anmälan: ta inte emot något – visa sidan med rutan "Anmälan är stängd".
+    if (id === "engagemang" && !signupState(s).open) return RENDER[id](c, {}, {}, undefined, 200);
     const positions = id === "engagemang" ? await rows<PositionRow>(positionQuery.open(c.env.DB, stockholmToday())) : [];
     const committees = id === "engagemang" ? await loadCommittees(c.env.DB) : [];
     const { values, errors } = validate(fieldsFor(id, s, positions, committees), form);

@@ -17,9 +17,10 @@
  *   url/email länk respektive e-postadress
  *   image     bild (sparas som nyckel till fillagringen)
  *   choice    ett av några fasta val (`options`), t.ex. bildens beskärning
+ *   datetime  datum och tid i svensk tid, "ÅÅÅÅ-MM-DDTHH:MM" (tomt = inget datum)
  */
 
-export type FieldType = "text" | "textarea" | "lines" | "rich" | "markdown" | "url" | "email" | "image" | "choice";
+export type FieldType = "text" | "textarea" | "lines" | "rich" | "markdown" | "url" | "email" | "image" | "choice" | "datetime";
 
 export interface FieldDef<K extends string = string> {
   readonly key: K;
@@ -63,6 +64,7 @@ const md = field("markdown");
 const url = field("url");
 const email = field("email");
 const image = field("image");
+const datetime = field("datetime");
 const choice = <const K extends string>(key: K, label: string, def: string, options: FieldDef["options"], o: Opts = {}): FieldDef<K> => ({
   key,
   label,
@@ -507,6 +509,30 @@ export const PAGES = [
       text("engage_committee_join", "Knapp: vara med", "Jag vill vara med i {utskott}", { ...small, help: "{utskott} byts ut mot utskottets namn." }),
     ], "Utskotten – namn, kort och lång beskrivning, tidsåtgång och bilder – lägger du in under Styrelse och uppdrag → Utskott i menyn."),
     sec("formular", "Formuläret", [
+      choice("engage_signup", "Anmälan", "oppen", [
+        { value: "oppen", label: "Öppen", hint: "Formuläret visas och intresseanmälningar tas emot" },
+        { value: "stangd", label: "Stängd", hint: "Formuläret ersätts av en ruta som säger att anmälan är stängd och när den öppnar" },
+      ], { required: true }),
+      datetime("engage_signup_opens", "Öppnar automatiskt", "", {
+        help: "Gäller när anmälan är stängd. Välj datum och tid så öppnar anmälan av sig själv då – och datumet visas i rutan. Lämna tomt så står det att anmälan öppnar TBA.",
+      }),
+      choice("engage_closed_style", "Stängd – utseende", "mork", [
+        { value: "mork", label: "Mörk ruta", hint: "Mörk ruta med ett gult lås, rubrik och text" },
+        { value: "gul", label: "Gul banderoll", hint: "Ett brett gult band över hela sidan med stor rubrik – syns tydligt" },
+        { value: "nedrakning", label: "Nedräkning", hint: "Räknar ned dagar, timmar och minuter till att anmälan öppnar (kräver ett datum, annars visas TBA)" },
+        { value: "diskret", label: "Diskret kort", hint: "Ljust kort med en datumbricka – lugnt och enkelt" },
+      ], { required: true }),
+      text("engage_closed_title", "Stängd – rubrik", "Anmälan är stängd"),
+      area("engage_closed_text", "Stängd – text", "Just nu tar vi inte emot intresseanmälningar till utskotten. Ansökan öppnar {datum}.", {
+        help: "{datum} byts ut mot datumet ovan, eller mot texten för okänt datum.",
+      }),
+      text("engage_closed_tba", "Stängd – text när datum saknas", "TBA", { more: true, help: "Visas i stället för datumet, t.ex. ”TBA” eller ”snart”." }),
+      rich("engage_closed_follow", "Stängd – tips", "Följ [@jfkarlstad](https://www.instagram.com/jfkarlstad/) så missar du inte när anmälan öppnar.", { more: true, help: RICH_HELP }),
+      text("engage_closed_days", "Nedräkning: dagar", "dagar", small),
+      text("engage_closed_hours", "Nedräkning: timmar", "timmar", small),
+      text("engage_closed_minutes", "Nedräkning: minuter", "minuter", small),
+      text("engage_closed_badge", "Datumbrickan: etikett", "Öppnar", small),
+      text("engage_committee_closed", "Knappen på utskotten när anmälan är stängd", "Anmälan öppnar {datum}", { ...small, help: "{datum} byts ut som i texten ovan." }),
       text("engage_form_title", "Rubrik", "Anmäl ditt intresse", { required: true }),
       area("engage_form_intro", "Text ovanför formuläret", "Fyll i formuläret så hör någon i styrelsen av sig och berättar mer. Det är inte bindande."),
       text("ef_name", "Fält: namn", "Namn", small),

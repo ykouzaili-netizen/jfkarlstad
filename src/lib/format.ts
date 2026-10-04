@@ -180,3 +180,11 @@ export function formatWhen(utc: string | null | undefined, now = new Date()): st
   const p = parseLocal(local);
   return p ? `${p.day} ${MONTHS_SHORT[p.month - 1]} ${p.year}` : "";
 }
+
+/** Svensk lokal tid 'YYYY-MM-DDTHH:MM' → "15 november 2026 kl. 12.00" (utan klockslag om det är 00:00). */
+export function formatLocalDateTime(local: string | null | undefined): string {
+  const p = parseLocal(local);
+  if (!p) return "";
+  const day = `${p.day} ${MONTHS[p.month - 1]} ${p.year}`;
+  return p.hour || p.minute ? `${day} kl. ${pad(p.hour)}.${pad(p.minute)}` : day;
+}

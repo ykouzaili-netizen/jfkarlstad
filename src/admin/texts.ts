@@ -71,6 +71,9 @@ function toSpec(f: FieldDef): FieldSpec {
   if (f.type === "choice") {
     return { name: f.key, label: f.label, type: "radio", required: f.required, help: f.help, options: (f.options ?? []).map((o) => ({ ...o })) };
   }
+  if (f.type === "datetime") {
+    return { name: f.key, label: f.label, type: "datetime-local", required: f.required, help: f.help };
+  }
   const big = f.type === "markdown";
   const area = f.type === "textarea" || f.type === "lines" || f.type === "rich" || big;
   return {

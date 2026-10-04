@@ -358,6 +358,37 @@ with sync_playwright() as p:
     status, body, _ = get("/om-oss")
     check('href="/engagera-dig#utskott-testutskottet"' in body, "korten på Om oss länkar till utskottet på Engagera dig")
 
+    # ───────── Anmälan stängd / öppnar automatiskt ─────────
+    print("Anmälan stängd")
+    def set_signup(status: str, opens: str) -> None:
+        page.goto(f"{BASE}/admin/texter?sida=engagera-dig&falt=engage_signup")
+        page.locator(f"label:has(input[name=engage_signup][value={status}])").click()
+        page.fill("[name=engage_signup_opens]", opens)
+        page.click("#texter-form .sticky-actions button[type=submit]")
+        page.wait_for_url(re.compile(r"klart="))
+    set_signup("stangd", "")
+    status, body, _ = get("/engagera-dig")
+    check("signup-closed" in body and 'data-form="engagemang"' not in body and "Ansökan öppnar TBA" in body, "stängd anmälan utan datum visar rutan med TBA i stället för formuläret")
+    check("Anmälan öppnar TBA" in body, "utskottens knapp säger att anmälan är stängd")
+    page.goto(f"{BASE}/engagera-dig")
+    before = page.request.post(f"{BASE}/engagera-dig", form={"namn": "Stängd Test", "epost": "stangd@example.se", "uppdrag": "Idrottsutskottet"})
+    page.goto(f"{BASE}/admin/meddelanden")
+    check("Stängd Test" not in page.content(), "inskick tas inte emot medan anmälan är stängd")
+    set_signup("stangd", "2099-03-01T12:00")
+    status, body, _ = get("/engagera-dig")
+    check("Ansökan öppnar 1 mars 2099 kl. 12.00" in body, "med ett datum visas datumet")
+    for style, marker in [("gul", "signup-closed--gul"), ("nedrakning", "data-countdown"), ("diskret", "open-badge")]:
+        page.goto(f"{BASE}/admin/texter?sida=engagera-dig&falt=engage_closed_style")
+        page.locator(f"label:has(input[name=engage_closed_style][value={style}])").click()
+        page.click("#texter-form .sticky-actions button[type=submit]")
+        page.wait_for_url(re.compile(r"klart="))
+        status, body, _ = get("/engagera-dig")
+        check(marker in body, f"utseendet {style} för stängd anmälan visas")
+    set_signup("stangd", "2020-01-01T08:00")
+    status, body, _ = get("/engagera-dig")
+    check('data-form="engagemang"' in body and "signup-closed" not in body, "anmälan öppnar automatiskt när datumet har passerat")
+    set_signup("oppen", "")
+
     # ───────── Sök ─────────
     print("Sök")
     page.goto(f"{BASE}/admin")
