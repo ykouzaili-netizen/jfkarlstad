@@ -1064,3 +1064,43 @@
 
   saveOrder(null);
 })();
+
+// Valfria färgfält (t.ex. Engagera dig → Formuläret): färgväljaren och hexkoden hålls i synk,
+// "Standard" tömmer fältet så att sajtens vanliga färg används.
+(function () {
+  var HEX = /^#[0-9a-f]{6}$/i;
+  function parts(el) {
+    var box = el.closest("[data-color-pick]");
+    return box && { box: box, pick: box.querySelector('input[type="color"]'), text: box.querySelector('input[type="text"]'), clear: box.querySelector("[data-color-clear]") };
+  }
+  function state(p) {
+    var auto = !HEX.test(p.text.value);
+    p.box.classList.toggle("is-auto", auto);
+    p.clear.hidden = p.text.value === "";
+  }
+  function changed(p) {
+    p.text.dispatchEvent(new Event("input", { bubbles: true }));
+    p.text.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  document.addEventListener("input", function (e) {
+    var p = e.target.matches && e.target.matches("[data-color-pick] input") && parts(e.target);
+    if (!p) return;
+    if (e.target === p.pick) {
+      p.text.value = p.pick.value;
+      state(p);
+      changed(p);
+    } else if (e.target === p.text) {
+      if (HEX.test(p.text.value)) p.pick.value = p.text.value.toLowerCase();
+      state(p);
+    }
+  });
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest && e.target.closest("[data-color-clear]");
+    var p = btn && parts(btn);
+    if (!p) return;
+    p.text.value = "";
+    state(p);
+    changed(p);
+    p.text.focus();
+  });
+})();

@@ -115,6 +115,14 @@ export function renderField(f: FieldSpec, value = "", error?: string, ui: FormUi
       <option value="">${ui.select}</option>
       ${(f.options ?? []).map((o) => html`<option value="${o.value}"${value === o.value ? html` selected` : ""}>${o.label}</option>`)}
     </select>`;
+  } else if (f.type === "color") {
+    // Färgväljare + hexkod. Tomt = sajtens vanliga färg; admin.js håller rutorna i synk och "Standard" tömmer fältet.
+    const hex = /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : "";
+    control = html`<div class="color-pick${hex ? "" : " is-auto"}" data-color-pick>
+      <input type="color" value="${hex || "#888888"}" aria-label="${f.label}: välj färg">
+      <input type="text" ${common} value="${value}" placeholder="Standard" maxlength="7" spellcheck="false" autocomplete="off">
+      <button type="button" class="btn btn-outline btn-sm" data-color-clear${hex ? "" : html` hidden`}>Standard</button>
+    </div>`;
   } else {
     control = html`<input type="${f.type}" ${common} value="${value}"${f.autocomplete ? html` autocomplete="${f.autocomplete}"` : ""}${f.type !== "number" && f.max ? html` maxlength="${f.max}"` : ""}${f.type === "number" && f.min !== undefined ? html` min="${f.min}"` : ""}${f.type === "number" && f.max !== undefined ? html` max="${f.max}"` : ""}${f.placeholder ? html` placeholder="${f.placeholder}"` : ""}>`;
   }

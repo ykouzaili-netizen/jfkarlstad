@@ -18,9 +18,10 @@
  *   image     bild (sparas som nyckel till fillagringen)
  *   choice    ett av några fasta val (`options`), t.ex. bildens beskärning
  *   datetime  datum och tid i svensk tid, "ÅÅÅÅ-MM-DDTHH:MM" (tomt = inget datum)
+ *   color     en färg "#rrggbb" (tomt = sajtens vanliga färg)
  */
 
-export type FieldType = "text" | "textarea" | "lines" | "rich" | "markdown" | "url" | "email" | "image" | "choice" | "datetime";
+export type FieldType = "text" | "textarea" | "lines" | "rich" | "markdown" | "url" | "email" | "image" | "choice" | "datetime" | "color";
 
 export interface FieldDef<K extends string = string> {
   readonly key: K;
@@ -65,6 +66,7 @@ const url = field("url");
 const email = field("email");
 const image = field("image");
 const datetime = field("datetime");
+const color = field("color");
 const choice = <const K extends string>(key: K, label: string, def: string, options: FieldDef["options"], o: Opts = {}): FieldDef<K> => ({
   key,
   label,
@@ -514,9 +516,12 @@ export const PAGES = [
         { value: "stangd", label: "Stängd", hint: "Formuläret ersätts av en ruta som säger att anmälan är stängd och när den öppnar" },
       ], { required: true }),
       datetime("engage_signup_opens", "Öppnar automatiskt", "", {
-        help: "Gäller när anmälan är stängd. Välj datum och tid så öppnar anmälan av sig själv då – och datumet visas i rutan. Lämna tomt så står det att anmälan öppnar TBA.",
+        help: "Anmälan öppnar av sig själv vid den här tiden, och datumet visas i rutan för stängd anmälan. Lämna tomt så står det att anmälan öppnar TBA.",
       }),
-      choice("engage_closed_style", "Stängd – utseende", "mork", [
+      datetime("engage_signup_closes", "Stänger automatiskt", "", {
+        help: "Anmälan stänger av sig själv vid den här tiden. Lämna tomt så är den öppen tills du stänger den. Har du fyllt i båda tiderna gäller den som passerades senast.",
+      }),
+      choice("engage_closed_style", "Stängd – utseende", "band-svart", [
         { value: "mork", label: "Mörk ruta", hint: "Mörk ruta med ett gult lås, rubrik och text" },
         { value: "gul", label: "Gul banderoll", hint: "Ett brett gult band över hela sidan med stor rubrik – syns tydligt" },
         { value: "nedrakning", label: "Nedräkning", hint: "Räknar ned dagar, timmar och minuter till att anmälan öppnar (kräver ett datum, annars visas TBA)" },
@@ -530,6 +535,18 @@ export const PAGES = [
         { value: "kombo-ljus", label: "Band med stort datum", hint: "Brett ljust band med en stor datumbricka till vänster" },
         { value: "kombo-svart", label: "Svart band med stort datum", hint: "Brett svart band med en stor gul datumbricka" },
       ], { required: true }),
+      choice("engage_closed_countdown", "Stängd – nedräkning", "pa", [
+        { value: "pa", label: "Visa nedräkning", hint: "Räknar ned dagar, timmar och minuter till att anmälan öppnar (när ett datum är ifyllt)" },
+        { value: "av", label: "Ingen nedräkning", hint: "Bara rubrik, text och datum" },
+      ], { required: true }),
+      color("engage_closed_c_bg", "Stängd – färg: bakgrund", "", { help: "Alla färgfälten är valfria – tomt (”Standard”) = sajtens vanliga färg. Väljer du bara bakgrund får rubrik och text automatiskt svart eller vit färg som syns bra." }),
+      color("engage_closed_c_title", "Stängd – färg: rubrik", ""),
+      color("engage_closed_c_text", "Stängd – färg: text", ""),
+      color("engage_closed_c_link", "Stängd – färg: länkar", ""),
+      color("engage_closed_c_accent", "Stängd – färg: låsets cirkel och datumbrickan", ""),
+      color("engage_closed_c_icon", "Stängd – färg: själva låset", "", { help: "Lämna tomt så blir låset svart eller vitt beroende på vad som syns bäst." }),
+      color("engage_closed_c_box", "Stängd – färg: nedräkningens rutor", ""),
+      color("engage_closed_c_num", "Stängd – färg: nedräkningens siffror", ""),
       text("engage_closed_title", "Stängd – rubrik", "Anmälan är stängd"),
       area("engage_closed_text", "Stängd – text", "Just nu tar vi inte emot intresseanmälningar till utskotten. Ansökan öppnar {datum}.", {
         help: "{datum} byts ut mot datumet ovan, eller mot texten för okänt datum.",
@@ -541,6 +558,15 @@ export const PAGES = [
       text("engage_closed_minutes", "Nedräkning: minuter", "minuter", small),
       text("engage_closed_badge", "Datumbrickan: etikett", "Öppnar", small),
       text("engage_committee_closed", "Knappen på utskotten när anmälan är stängd", "Anmälan öppnar {datum}", { ...small, help: "{datum} byts ut som i texten ovan." }),
+      choice("engage_open_countdown", "Öppen – nedräkning till att anmälan stänger", "pa", [
+        { value: "pa", label: "Visa nedräkning", hint: "Visas ovanför formuläret när du har fyllt i ”Stänger automatiskt”" },
+        { value: "av", label: "Ingen nedräkning", hint: "Anmälan stänger ändå vid tiden du har angett" },
+      ], { required: true }),
+      text("engage_open_countdown_text", "Öppen – text vid nedräkningen", "Anmälan stänger {datum}", { help: "{datum} byts ut mot datumet då anmälan stänger." }),
+      color("engage_open_c_bg", "Öppen – färg: nedräkningens bakgrund", "", { help: "Tomt (”Standard”) = sajtens vanliga färg. Väljer du bara bakgrund blir texten automatiskt svart eller vit." }),
+      color("engage_open_c_text", "Öppen – färg: nedräkningens text", ""),
+      color("engage_open_c_box", "Öppen – färg: nedräkningens rutor", ""),
+      color("engage_open_c_num", "Öppen – färg: nedräkningens siffror", ""),
       text("engage_form_title", "Rubrik", "Anmäl ditt intresse", { required: true }),
       area("engage_form_intro", "Text ovanför formuläret", "Fyll i formuläret så hör någon i styrelsen av sig och berättar mer. Det är inte bindande."),
       text("ef_name", "Fält: namn", "Namn", small),

@@ -471,22 +471,31 @@
   window.addEventListener("hashchange", openFromHash);
 })();
 
-/* Nedräkning till att anmälan öppnar (Engagera dig). Uppdateras varje minut; när tiden är ute laddas sidan
-   om så att formuläret visas. */
+/* Nedräkningar på Engagera dig: till att anmälan öppnar (sidan laddas om vid noll så att formuläret visas)
+   och till att den stänger (ovanför formuläret). */
 (function () {
-  var el = document.querySelector("[data-countdown]");
-  if (!el) return;
-  var target = Date.parse(el.getAttribute("data-countdown") || "");
-  if (!isFinite(target)) return;
-  var d = el.querySelector("[data-countdown-d]"), h = el.querySelector("[data-countdown-h]"), m = el.querySelector("[data-countdown-m]");
+  // Alla nedräkningar på sidan. data-countdown-reload = ladda om vid noll (anmälan öppnar);
+  // annars stannar den på 00 så att den som fyller i formuläret inte tappar sin text.
+  var timers = [];
+  Array.prototype.forEach.call(document.querySelectorAll("[data-countdown]"), function (el) {
+    var target = Date.parse(el.getAttribute("data-countdown") || "");
+    if (!isFinite(target)) return;
+    timers.push({
+      target: target, reload: el.hasAttribute("data-countdown-reload"),
+      d: el.querySelector("[data-countdown-d]"), h: el.querySelector("[data-countdown-h]"), m: el.querySelector("[data-countdown-m]"),
+    });
+  });
+  if (!timers.length) return;
   function two(n) { return (n < 10 ? "0" : "") + n; }
   function tick() {
-    var ms = target - Date.now();
-    if (ms <= 0) { window.location.reload(); return; }
-    d.textContent = two(Math.floor(ms / 86400000));
-    h.textContent = two(Math.floor((ms % 86400000) / 3600000));
-    m.textContent = two(Math.floor((ms % 3600000) / 60000));
+    timers.forEach(function (t) {
+      var ms = Math.max(0, t.target - Date.now());
+      if (ms <= 0 && t.reload && !t.done) { t.done = true; window.location.reload(); return; }
+      t.d.textContent = two(Math.floor(ms / 86400000));
+      t.h.textContent = two(Math.floor((ms % 86400000) / 3600000));
+      t.m.textContent = two(Math.floor((ms % 3600000) / 60000));
+    });
   }
   tick();
-  setInterval(tick, 30000);
+  setInterval(tick, 15000);
 })();

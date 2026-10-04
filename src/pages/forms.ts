@@ -8,6 +8,7 @@ import { checkFormToken, clientIp, formToken, rateLimit, turnstileEnabled, verif
 import { mailConfigured, sendMail } from "../lib/mail.js";
 import { renderInline, renderMarkdown } from "../lib/markdown.js";
 import { htmlResponse, redirect } from "../lib/http.js";
+import { isHex, readableOn } from "../lib/color.js";
 import { formatDay, formatLocalDateTime, localToIso, monthName, parseLocal, stockholmNow, stockholmToday, telHref } from "../lib/format.js";
 import type { RequestContext } from "../router.js";
 import type { Env } from "../env.js";
@@ -98,40 +99,77 @@ function fieldsFor(id: FormId, s: Settings, positions: PositionRow[] = [], commi
 
 /**
  * Är anmälan till utskott och uppdrag öppen? Styrs under Texter och sidor → Engagera dig → Formuläret:
- * "Stängd" med ett datum öppnar automatiskt vid den tiden (svensk tid); utan datum står det TBA.
+ * grundläget (Öppen/Stängd) plus två valfria tider i svensk tid, "Öppnar automatiskt" och "Stänger
+ * automatiskt". Den tid som passerades senast bestämmer; har ingen passerats gäller grundläget.
+ * `opens`/`closes` är bara kommande tider (de som nedräkningarna räknar mot).
  */
-export function signupState(s: Settings, now = stockholmNow()): { open: boolean; when: string; opens: string } {
-  const opens = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s.engage_signup_opens) ? s.engage_signup_opens : "";
-  const open = s.engage_signup !== "stangd" || (opens !== "" && opens <= now);
-  return { open, when: opens ? formatLocalDateTime(opens) : s.engage_closed_tba, opens };
+export interface SignupState {
+  open: boolean;
+  /** Öppningsdatumet i text, eller "TBA" (texten för okänt datum). */
+  when: string;
+  opens: string;
+  closes: string;
+}
+
+export function signupState(s: Settings, now = stockholmNow()): SignupState {
+  const valid = (v: string) => (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) ? v : "");
+  const opensAt = valid(s.engage_signup_opens);
+  const closesAt = valid(s.engage_signup_closes);
+  const passed = ([[opensAt, true], [closesAt, false]] as [string, boolean][]).filter(([at]) => at && at <= now).sort((x, y) => (x[0] < y[0] ? -1 : 1));
+  const open = passed.length ? passed[passed.length - 1]![1] : s.engage_signup !== "stangd";
+  const opens = opensAt > now ? opensAt : "";
+  const closes = closesAt > now ? closesAt : "";
+  return { open, when: opens ? formatLocalDateTime(opens) : s.engage_closed_tba, opens, closes };
 }
 
 /**
- * Rutan som ersätter formuläret när anmälan är stängd, i fyra utseenden (Texter och sidor → Engagera dig →
- * Formuläret → Stängd – utseende): mörk ruta, gul banderoll, nedräkning och diskret kort.
+ * Nedräkning till en tid i svensk tid. Startvärdena räknas på servern (fungerar utan JS); site.js räknar
+ * sedan ned. `reload` = ladda om sidan vid noll (används när anmälan öppnar).
  */
-function signupClosed(s: Settings, when: string, opens: string): SafeHtml {
-  const style = (["mork", "gul", "nedrakning", "diskret", ...Object.keys(CLOSED_VARIANTS)] as const).find((v) => v === s.engage_closed_style) ?? "mork";
+function countdown(s: Settings, local: string, label: string, reload: boolean): SafeHtml {
+  const iso = localToIso(local);
+  if (!iso) return html``;
+  const ms = Math.max(0, Date.parse(iso) - Date.now());
+  const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000), m = Math.floor((ms % 3600000) / 60000);
+  const unit = (n: number, key: SettingKey, part: string) =>
+    html`<div class="countdown-unit"><span class="countdown-num" data-countdown-${part}>${String(n).padStart(2, "0")}</span><span class="countdown-label"${ek(s, key)}>${s[key]}</span></div>`;
+  return html`<div class="countdown" data-countdown="${iso}"${reload ? html` data-countdown-reload` : ""} role="timer" aria-label="${label}">
+    ${unit(d, "engage_closed_days", "d")}${unit(h, "engage_closed_hours", "h")}${unit(m, "engage_closed_minutes", "m")}
+  </div>`;
+}
+
+/** Egna färger (tomt = sajtens färger) blir CSS-variabler och klasser på avsnittet. Värdena är kontrollerade hexkoder. */
+function customColors(c: RequestContext, s: Settings, selector: string, parts: Record<string, string>, autoOn?: { from: string; to: string[] }) {
+  const vars: Record<string, string> = {};
+  for (const [name, value] of Object.entries(parts)) if (isHex(value)) vars[name] = value.toLowerCase();
+  // Bara bakgrunden vald → rubrik och text får svart eller vitt, det som syns bäst.
+  if (autoOn && vars[autoOn.from]) for (const k of autoOn.to) vars[k] ??= readableOn(vars[autoOn.from]!);
+  if (vars.accent && !vars.icon) vars.icon = readableOn(vars.accent);
+  const names = Object.keys(vars);
+  if (!names.length) return { cls: "", style: html`` };
+  const css = names.map((n) => `--sc-${n}:${vars[n]};`).join("");
+  return {
+    cls: names.map((n) => ` sc-c-${n}`).join(""),
+    style: html`<style nonce="${c.nonce}">${selector}{${css}}</style>`,
+  };
+}
+
+/**
+ * Rutan som ersätter formuläret när anmälan är stängd, i flera utseenden (Texter och sidor → Engagera dig →
+ * Formuläret → Stängd – utseende): rutor, banderoller och kort, med lås eller datumbricka och valfri nedräkning.
+ */
+function signupClosed(s: Settings, signup: SignupState): SafeHtml {
+  const { when, opens } = signup;
+  const style = (["mork", "gul", "nedrakning", "diskret", ...Object.keys(CLOSED_VARIANTS)] as const).find((v) => v === s.engage_closed_style) ?? "band-svart";
   const variant = CLOSED_VARIANTS[style];
   const title = html`<h2 class="section-title" id="anmalan"${ek(s, "engage_closed_title")}>${s.engage_closed_title}</h2>`;
   const text = html`<p class="signup-closed-text"${ek(s, "engage_closed_text")}>${fill(s.engage_closed_text, { datum: when })}</p>`;
   const follow = s.engage_closed_follow ? html`<p class="signup-closed-follow"${ek(s, "engage_closed_follow")}>${renderInline(s.engage_closed_follow)}</p>` : "";
   const lock = html`<span class="signup-closed-icon" aria-hidden="true">${icon("lock")}</span>`;
+  const timer = s.engage_closed_countdown !== "av" && opens ? countdown(s, opens, when, true) : "";
 
-  if (style === "nedrakning" && opens) {
-    // Startvärden räknas på servern (fungerar utan JS); site.js räknar sedan ned varje minut.
-    const iso = localToIso(opens);
-    const ms = iso ? Math.max(0, Date.parse(iso) - Date.now()) : 0;
-    const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000), m = Math.floor((ms % 3600000) / 60000);
-    const unit = (n: number, key: SettingKey, part: string) =>
-      html`<div class="countdown-unit"><span class="countdown-num" data-countdown-${part}>${String(n).padStart(2, "0")}</span><span class="countdown-label"${ek(s, key)}>${s[key]}</span></div>`;
-    return html`<div class="signup-closed signup-closed--nedrakning">
-      ${title}${text}
-      <div class="countdown" data-countdown="${iso ?? ""}" role="timer" aria-label="${when}">
-        ${unit(d, "engage_closed_days", "d")}${unit(h, "engage_closed_hours", "h")}${unit(m, "engage_closed_minutes", "m")}
-      </div>
-      ${follow}
-    </div>`;
+  if (style === "nedrakning" && timer) {
+    return html`<div class="signup-closed signup-closed--nedrakning">${title}${text}${timer}${follow}</div>`;
   }
   if (style === "diskret") {
     const p = parseLocal(opens);
@@ -139,19 +177,19 @@ function signupClosed(s: Settings, when: string, opens: string): SafeHtml {
       ${p
         ? html`<div class="open-badge" aria-hidden="true"><span class="open-badge-label"${ek(s, "engage_closed_badge")}>${s.engage_closed_badge}</span><span class="open-badge-day">${p.day}</span><span class="open-badge-month">${monthName(p.month).slice(0, 3)}</span></div>`
         : lock}
-      <div>${title}${text}${follow}</div>
+      <div class="sc-copy">${title}${text}${timer}${follow}</div>
     </div>`;
   }
   if (variant) {
-    // De nya varianterna: banderoller (hela bredden) och kort, med lås eller datumbricka.
+    // Banderoller (hela bredden) och kort, med lås eller datumbricka.
     const p = parseLocal(opens);
     const mark = variant.badge && p
       ? html`<div class="open-badge" aria-hidden="true"><span class="open-badge-label"${ek(s, "engage_closed_badge")}>${s.engage_closed_badge}</span><span class="open-badge-day">${p.day}</span><span class="open-badge-month">${monthName(p.month).slice(0, 3)}</span></div>`
       : lock;
     const photo = style === "band-bild" ? (s.engage_image_1 ? html`<div class="signup-closed-bg" aria-hidden="true">${picture(s.engage_image_1, { alt: "", sizes: "100vw", width: 1600, height: 900 })}</div>` : "") : "";
-    return html`<div class="signup-closed signup-closed--v sc-${style}">${photo}${mark}<div class="sc-copy">${title}${text}${follow}</div></div>`;
+    return html`<div class="signup-closed signup-closed--v sc-${style}">${photo}${mark}<div class="sc-copy">${title}${text}${timer}${follow}</div></div>`;
   }
-  return html`<div class="signup-closed signup-closed--${style === "nedrakning" ? "mork" : style}">${lock}<div>${title}${text}${follow}</div></div>`;
+  return html`<div class="signup-closed signup-closed--${style === "nedrakning" ? "mork" : style}">${lock}<div class="sc-copy">${title}${text}${timer}${follow}</div></div>`;
 }
 
 /** Varianter som byggs av samma delar: banderoll eller kort, med lås eller datumbricka. */
@@ -386,13 +424,45 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
         <div>
           <h2 class="section-title" id="anmalan"${ek(s, "engage_form_title")}>${s.engage_form_title}</h2>
           <p class="form-intro"${ek(s, "engage_form_intro")}>${s.engage_form_intro}</p>
+          ${deadline(c, s, signup)}
           ${formHtml}
         </div>
       </div>
     </section>`
-          : html`<section class="section signup-closed-section signup-closed-section--${s.engage_closed_style}" aria-labelledby="anmalan"><div class="container">${signupClosed(s, signup.when, signup.opens)}</div></section>`,
+          : closedSection(c, s, signup),
     })}`;
   return htmlResponse(c, layout(c, s, { title: s.engage_title, description: s.engage_lead }, content), status);
+}
+
+/** Avsnittet som visas i stället för formuläret när anmälan är stängd, med de egna färgerna. */
+function closedSection(c: RequestContext, s: Settings, signup: SignupState): SafeHtml {
+  const colors = customColors(c, s, ".signup-closed-section", {
+    bg: s.engage_closed_c_bg,
+    title: s.engage_closed_c_title,
+    text: s.engage_closed_c_text,
+    link: s.engage_closed_c_link,
+    accent: s.engage_closed_c_accent,
+    icon: s.engage_closed_c_icon,
+    box: s.engage_closed_c_box,
+    num: s.engage_closed_c_num,
+  }, { from: "bg", to: ["title", "text"] });
+  return html`${colors.style}<section class="section signup-closed-section signup-closed-section--${s.engage_closed_style}${colors.cls}" aria-labelledby="anmalan"><div class="container">${signupClosed(s, signup)}</div></section>`;
+}
+
+/** Nedräkningen ovanför formuläret när anmälan stänger automatiskt. Laddar inte om sidan vid noll – den som skriver ska inte tappa sin text. */
+function deadline(c: RequestContext, s: Settings, signup: SignupState): SafeHtml {
+  if (!signup.closes || s.engage_open_countdown === "av") return html``;
+  const date = formatLocalDateTime(signup.closes);
+  const colors = customColors(c, s, ".signup-deadline", {
+    bg: s.engage_open_c_bg,
+    text: s.engage_open_c_text,
+    box: s.engage_open_c_box,
+    num: s.engage_open_c_num,
+  }, { from: "bg", to: ["text"] });
+  return html`${colors.style}<div class="signup-deadline${colors.cls}">
+    <p class="signup-deadline-text"${ek(s, "engage_open_countdown_text")}>${icon("clock", "icon icon-sm")}<span>${fill(s.engage_open_countdown_text, { datum: date })}</span></p>
+    ${countdown(s, signup.closes, date, false)}
+  </div>`;
 }
 
 /**
@@ -401,7 +471,7 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
  * intresseformuläret. Byggt på <details>, så det fungerar även utan JavaScript; site.js stänger övriga kort,
  * skrollar till det öppnade och öppnar kortet direkt om adressen slutar med #utskott-namn.
  */
-function committeeSection(s: Settings, committees: CommitteeRow[], signup: { open: boolean; when: string; opens: string }): SafeHtml {
+function committeeSection(s: Settings, committees: CommitteeRow[], signup: SignupState): SafeHtml {
   const mark = (name: string) => name.replace(/utskottet$/i, "").trim().charAt(0).toUpperCase() || name.charAt(0);
   return html`<section class="section section-surface" aria-labelledby="utskotten">
     <div class="container">

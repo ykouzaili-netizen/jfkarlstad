@@ -1491,7 +1491,7 @@ main:focus { outline: none; }
 .signup-closed--nedrakning { display: block; max-width: none; text-align: center; padding: clamp(32px, 5vw, 64px) clamp(20px, 4vw, 48px); }
 .signup-closed--nedrakning .signup-closed-text { margin-inline: auto; }
 .countdown { display: flex; justify-content: center; gap: clamp(10px, 2vw, 22px); margin: clamp(24px, 4vw, 36px) 0 8px; }
-.countdown-unit { display: grid; gap: 6px; min-width: clamp(84px, 16vw, 132px); padding: 18px 10px 14px; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--c-on-primary) 9%, transparent); border: 1px solid color-mix(in srgb, var(--c-on-primary) 16%, transparent); }
+.countdown-unit { display: grid; gap: 6px; min-width: clamp(84px, 16vw, 132px); padding: 18px 10px 14px; border-radius: var(--radius-lg); background: color-mix(in srgb, currentColor 9%, transparent); border: 1px solid color-mix(in srgb, currentColor 16%, transparent); text-align: center; }
 .countdown-num { font-family: var(--font-display); font-size: calc(clamp(2.5rem, 1.6rem + 3.4vw, 4.25rem) * var(--display-scale)); line-height: 1; color: var(--c-accent); font-variant-numeric: tabular-nums lining-nums; }
 .countdown-label { font-size: 0.8125rem; font-weight: 600; opacity: 0.8; }
 .signup-closed--nedrakning .signup-closed-follow { margin-top: 18px; }
@@ -1558,6 +1558,46 @@ main:focus { outline: none; }
 .sc-kombo-svart .open-badge-label { background: var(--c-on-accent); color: var(--c-accent); padding: 7px 0; }
 .sc-kombo-svart .signup-closed-text { color: color-mix(in srgb, var(--c-on-primary) 85%, transparent); }
 .sc-kombo-svart .signup-closed-follow { color: color-mix(in srgb, var(--c-on-primary) 70%, transparent); }
+
+/* Nedräkning inne i en ruta, banderoll eller ett kort: vänsterställd och lite mindre */
+.sc-copy .countdown { justify-content: flex-start; margin: clamp(18px, 3vw, 26px) 0 4px; gap: clamp(8px, 1.5vw, 14px); }
+.sc-copy .countdown-unit { min-width: clamp(78px, 14vw, 104px); padding: 14px 8px 11px; }
+.sc-copy .countdown-num { font-size: calc(clamp(2rem, 1.4rem + 2.4vw, 3.25rem) * var(--display-scale)); }
+/* Ljusa utseenden: siffrorna i textfärg (gult på vitt syns för dåligt) */
+:is(.sc-band-vit, .sc-band-rand, .sc-kombo-ljus, .sc-kort-kontur, .signup-closed--diskret) .countdown-num { color: var(--c-text); }
+:is(.signup-closed--gul) .countdown-num { color: var(--c-on-accent); }
+
+/* Egna färger (Texter och sidor → Engagera dig → Formuläret). Klassen sc-c-x finns bara när färgen x är vald. */
+.signup-closed-section.sc-c-bg:is(.signup-closed-section--gul, .signup-closed-section--band-svart, .signup-closed-section--band-vit, .signup-closed-section--band-rand, .signup-closed-section--band-bild, .signup-closed-section--kombo-ljus, .signup-closed-section--kombo-svart) { background-color: var(--sc-bg); }
+.signup-closed-section.sc-c-bg:is(.signup-closed-section--mork, .signup-closed-section--nedrakning, .signup-closed-section--diskret, .signup-closed-section--kort-svart, .signup-closed-section--kort-kontur) .signup-closed { background-color: var(--sc-bg); }
+.signup-closed-section.sc-c-bg.signup-closed-section--kort-kontur .signup-closed { border-color: var(--sc-bg); }
+.signup-closed-section.sc-c-title .section-title { color: var(--sc-title); }
+.signup-closed-section.sc-c-text, .signup-closed-section.sc-c-text .signup-closed,
+.signup-closed-section.sc-c-text :is(.signup-closed-text, .signup-closed-follow, .countdown-label) { color: var(--sc-text); }
+.signup-closed-section.sc-c-link .signup-closed a { color: var(--sc-link); text-decoration-color: currentColor; }
+.signup-closed-section.sc-c-accent .signup-closed-icon { background: var(--sc-accent); }
+.signup-closed-section.sc-c-accent .countdown-num { color: var(--sc-accent); }
+.signup-closed-section.sc-c-accent .open-badge { border-color: var(--sc-accent); }
+.signup-closed-section.sc-c-accent .open-badge-label { background: var(--sc-accent); color: var(--sc-icon); }
+.signup-closed-section.sc-c-accent.signup-closed-section--kombo-svart .open-badge { background: var(--sc-accent); color: var(--sc-icon); }
+.signup-closed-section.sc-c-accent.signup-closed-section--kombo-svart .open-badge-label { background: var(--sc-icon); color: var(--sc-accent); }
+.signup-closed-section.sc-c-icon .signup-closed-icon { color: var(--sc-icon); }
+.signup-closed-section.sc-c-box .countdown-unit { background: var(--sc-box); border-color: transparent; }
+.signup-closed-section.sc-c-num .countdown-num { color: var(--sc-num); }
+
+/* Nedräkning ovanför formuläret när anmälan stänger automatiskt */
+.signup-deadline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; margin: 4px 0 28px; padding: 18px 20px; border-radius: var(--radius-lg); background: var(--c-surface); border: 1px solid var(--c-border); color: var(--c-text); }
+.signup-deadline-text { display: flex; align-items: center; gap: 10px; margin: 0; font-weight: 600; font-size: 1.0625rem; }
+.signup-deadline-text .icon { flex: none; color: inherit; opacity: 0.75; }
+.signup-deadline .countdown { margin: 0; gap: 8px; justify-content: flex-start; }
+.signup-deadline .countdown-unit { min-width: 66px; padding: 9px 6px 7px; gap: 3px; border-radius: var(--radius); }
+.signup-deadline .countdown-num { font-size: 1.75rem; color: var(--c-text); }
+.signup-deadline .countdown-label { font-size: 0.75rem; }
+.signup-deadline.sc-c-bg { background: var(--sc-bg); border-color: transparent; }
+.signup-deadline.sc-c-text { color: var(--sc-text); }
+.signup-deadline.sc-c-text .countdown-num { color: var(--sc-text); }
+.signup-deadline.sc-c-box .countdown-unit { background: var(--sc-box); border-color: transparent; }
+.signup-deadline.sc-c-num .countdown-num { color: var(--sc-num); }
 .sc-kombo-svart a { color: var(--c-accent); }
 
 /* ---------- Prestanda ----------

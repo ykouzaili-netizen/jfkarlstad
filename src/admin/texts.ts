@@ -71,6 +71,9 @@ function toSpec(f: FieldDef): FieldSpec {
   if (f.type === "choice") {
     return { name: f.key, label: f.label, type: "radio", required: f.required, help: f.help, options: (f.options ?? []).map((o) => ({ ...o })) };
   }
+  if (f.type === "color") {
+    return { name: f.key, label: f.label, type: "color", required: f.required, help: f.help, wrapClass: "field-color" };
+  }
   if (f.type === "datetime") {
     return { name: f.key, label: f.label, type: "datetime-local", required: f.required, help: f.help };
   }

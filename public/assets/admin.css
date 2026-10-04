@@ -697,3 +697,10 @@ a.admin-user:hover { background: var(--c-hover); }
 .insta-sync.is-on { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
 .insta-sync.is-on p { margin: 0; }
 .insta-sync.is-on p + p { margin-top: 4px; }
+
+/* Valfria färgfält: färgväljare, hexkod och "Standard" */
+.color-pick { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.color-pick input[type="color"] { width: 56px; height: 44px; padding: 4px; border: 1.5px solid var(--c-border); border-radius: 12px; background: #fff; cursor: pointer; flex: none; }
+.color-pick input[type="text"] { width: 9.5em; font-variant-numeric: tabular-nums; }
+.color-pick.is-auto input[type="color"] { opacity: 0.35; }
+.color-pick [hidden] { display: none; }
