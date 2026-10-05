@@ -3113,7 +3113,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   letter-spacing: -0.025em;
 }
 .wb-fill-unit { white-space: nowrap; }
-.wb-fill .wb-sep { display: inline-block; margin-inline: 0.18em 0.34em; font-size: 0.5em; vertical-align: 0.35em; }
+.wb-fill .wb-sep { display: inline-block; margin-left: 0.28em; font-size: 0.5em; vertical-align: 0.35em; }
 .wb-fill.is-live .wb-fill-word {
   background: linear-gradient(90deg, var(--c-text) 50%, color-mix(in srgb, var(--c-text) 14%, transparent) 50%) no-repeat;
   background-size: 200% 100%;
