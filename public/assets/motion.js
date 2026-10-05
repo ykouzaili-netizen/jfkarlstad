@@ -299,48 +299,6 @@
   async function until(ok) { while (!ok()) await wait(250); }
   function lowerFirst(w) { return /^[A-ZÅÄÖ][a-zåäö]/.test(w) ? w.charAt(0).toLocaleLowerCase("sv") + w.slice(1) : w; }
 
-  // Avgångstavlan: brickorna snurrar genom några slumpade bokstäver innan de stannar på rätt,
-  // brickorna längst till höger lite senare än de till vänster.
-  (FULL ? $$("[data-wb-board]") : []).forEach(function (board) {
-    var words = board.getAttribute("data-words").split("\n").filter(Boolean).map(function (w) { return w.toLocaleUpperCase("sv"); });
-    var chars = $$(".wb-tile-char", board);
-    var cols = chars.length;
-    if (words.length < 2) return;
-    board.classList.add("is-live");
-    var ok = whileVisible(board, 0.4);
-    var ABC = "ABCDEFGHIJKLMNOPRSTUVÅÄÖ";
-    function setChar(el, c) {
-      el.textContent = c;
-      el.classList.remove("is-flip");
-      void el.offsetWidth;
-      el.classList.add("is-flip");
-    }
-    function show(word) {
-      var letters = Array.from(word).slice(0, cols);
-      var pad = Math.floor((cols - letters.length) / 2);
-      return Promise.all(chars.map(function (el, i) {
-        var target = letters[i - pad] || "";
-        if (el.textContent === target) return Promise.resolve();
-        var steps = 4 + i + Math.floor(Math.random() * 3);
-        return (async function () {
-          await wait(i * 35);
-          for (var k = 0; k < steps; k++) {
-            setChar(el, ABC.charAt(Math.floor(Math.random() * ABC.length)));
-            await wait(72);
-          }
-          setChar(el, target);
-        })();
-      }));
-    }
-    (async function () {
-      for (var w = 1; ; w = (w + 1) % words.length) {
-        await wait(2600);
-        await until(ok);
-        await show(words[w]);
-      }
-    })();
-  });
-
   // Paragrafen: ordet raderas och nästa skrivs, och paragrafnumret räknas upp.
   (FULL ? $$("[data-wb-law]") : []).forEach(function (box) {
     var words = box.getAttribute("data-words").split("\n").filter(Boolean).map(lowerFirst);
@@ -363,38 +321,6 @@
       }
     })();
   });
-
-  // Stämpeln: när papperet kommer in i bild landar stämplarna en i taget.
-  (FULL ? $$("[data-wb-stamps]") : []).forEach(function (paper) {
-    var stamps = $$(".wb-stamp", paper);
-    paper.classList.add("is-live");
-    var io = new IntersectionObserver(function (es) {
-      if (!es[0].isIntersecting) return;
-      io.disconnect();
-      stamps.forEach(function (s, i) {
-        window.setTimeout(function () {
-          s.classList.add("is-stamped");
-          // Papperet gungar till när stämpeln slår i (en bit in i animationen).
-          window.setTimeout(function () {
-            paper.classList.remove("is-thud");
-            void paper.offsetWidth;
-            paper.classList.add("is-thud");
-          }, 260);
-        }, 250 + i * 420);
-      });
-    }, { threshold: 0.45 });
-    io.observe(paper);
-  });
-
-  // Zoom
-  var zoom = FULL ? document.querySelector("[data-wb-zoom]") : null;
-  var zoomSec = zoom && zoom.closest(".wordband");
-  var zoomWords = zoom ? $$(".wb-zoom-word", zoom) : [];
-  var zoomN = zoomSec && zoomSec.querySelector("[data-wb-zoom-n]");
-  if (zoom && zoomWords.length > 1) {
-    zoomSec.classList.add("is-live");
-    zoomSec.style.setProperty("--n", String(zoomWords.length));
-  } else zoom = null;
 
   /* ---------- 6. Allt som följer skrollningen ---------- */
 
@@ -467,23 +393,6 @@
           w.style.setProperty("--d", d.toFixed(3));
           w.classList.toggle("is-on", d < 0.5);
         });
-      }
-    }
-
-    if (zoom) {
-      var zr = zoomSec.getBoundingClientRect();
-      if (zr.bottom > -50 && zr.top < vh + 50) {
-        var za = clamp(-zr.top / ((zr.height - vh) || 1), 0, 1) * (zoomWords.length - 1);
-        zoomWords.forEach(function (w, k) {
-          var tt = za - k, z, o;
-          if (tt < -0.4) { z = 0.5; o = 0; }
-          else if (tt < 0) { var e1 = 1 - Math.pow(-tt / 0.4, 2); z = 0.5 + 0.5 * e1; o = e1; }          // växer fram
-          else if (tt < 0.5 || k === zoomWords.length - 1) { z = 1 + Math.min(tt, 0.5) * 0.12; o = 1; } // står kvar
-          else { var e2 = clamp((tt - 0.5) / 0.4, 0, 1); z = 1.06 * Math.pow(10, e2 * e2); o = 1 - e2; }  // flyger igenom
-          w.style.setProperty("--z", z.toFixed(4));
-          w.style.setProperty("--o", o.toFixed(3));
-        });
-        zoomN.textContent = two(Math.min(zoomWords.length, Math.round(za) + 1));
       }
     }
 

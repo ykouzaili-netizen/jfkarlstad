@@ -2956,8 +2956,16 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   overflow: hidden;
   padding-block: clamp(36px, 6vw, 96px);
   background: var(--c-bg);
+  color: var(--c-text);
   user-select: none;
 }
+/* Textstorlek (Texter och sidor → Startsidan → Rullande ord) */
+.wb-size-liten { --wb-scale: 0.7; }
+.wb-size-mindre { --wb-scale: 0.85; }
+.wb-size-storre { --wb-scale: 1.15; }
+.wb-size-stor { --wb-scale: 1.3; }
+/* I smala mobiler får de större storlekarna inte trycka orden utanför skärmen */
+@media (max-width: 639px) { .wb-size-storre, .wb-size-stor { --wb-scale: 1.08; } }
 .wb-row { white-space: nowrap; line-height: 1.04; }
 .wb-row + .wb-row { margin-top: 0.08em; }
 .wb-track {
@@ -2967,7 +2975,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   padding-inline: 0.16em;
   font-family: var(--font-display);
   font-weight: var(--display-weight);
-  font-size: calc(clamp(3rem, 1.2rem + 7.4vw, 9rem) * var(--display-scale));
+  font-size: calc(clamp(3rem, 1.2rem + 7.4vw, 9rem) * var(--display-scale) * var(--wb-scale, 1));
   letter-spacing: -0.03em;
   will-change: transform;
 }
@@ -2986,7 +2994,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .wb-swap-lead {
   font-family: var(--font-display);
   font-style: italic;
-  font-size: calc(clamp(1.375rem, 1rem + 1.5vw, 2.25rem) * var(--display-scale));
+  font-size: calc(clamp(1.375rem, 1rem + 1.5vw, 2.25rem) * var(--display-scale) * var(--wb-scale, 1));
   color: var(--c-muted);
 }
 .wb-swap-slot {
@@ -2995,7 +3003,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   margin-top: 0.08em;
   font-family: var(--font-display);
   font-weight: var(--display-weight);
-  font-size: calc(clamp(3rem, 1.2rem + 8vw, 10rem) * var(--display-scale));
+  font-size: calc(clamp(3rem, 1.2rem + 8vw, 10rem) * var(--display-scale) * var(--wb-scale, 1));
   line-height: 1.14;
   letter-spacing: -0.03em;
   width: var(--wb-w, auto);
@@ -3003,7 +3011,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 }
 .wb-swap-window { display: flex; justify-content: center; align-items: flex-start; height: 1.14em; overflow: hidden; }
 .wb-swap-track { display: flex; flex-direction: column; align-items: center; flex: none; transition: transform 0.9s var(--ease-out); }
-.wb-swap-word { display: block; width: max-content; white-space: nowrap; }
+.wb-swap-word { display: block; width: max-content; white-space: nowrap; padding-bottom: 0.4em; } /* luften döljer föregående ords nedstaplar (j, g, p) */
 .wb-swap-slot::after {
   content: "";
   position: absolute;
@@ -3029,7 +3037,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   position: relative;
   font-family: var(--font-display);
   font-weight: var(--display-weight);
-  font-size: calc(clamp(2.75rem, 1rem + 6.6vw, 8rem) * var(--display-scale));
+  font-size: calc(clamp(2.75rem, 1rem + 6.6vw, 8rem) * var(--display-scale) * var(--wb-scale, 1));
   line-height: 1.12;
   letter-spacing: -0.03em;
   white-space: nowrap;
@@ -3069,72 +3077,6 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .is-live .wb-spot-n { opacity: 0; transform: translate3d(-10px, 0, 0); transition: opacity 0.4s var(--ease), transform 0.5s var(--ease-out); }
 .is-live .is-on .wb-spot-n { opacity: 1; transform: none; }
 
-/* Avgångstavlan: en svart bricka per bokstav med guldfärgade versaler. Bokstäverna snurrar fram (motion.js). */
-.wb--tavla { padding-block: clamp(56px, 9vw, 128px); }
-.wb-board { display: grid; justify-items: center; text-align: center; }
-.wb-board-lead {
-  margin-bottom: clamp(16px, 2.4vw, 28px);
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: calc(clamp(1.375rem, 1rem + 1.5vw, 2.25rem) * var(--display-scale));
-  color: var(--c-muted);
-}
-.wb-board-row {
-  --gap: clamp(3px, 0.55vw, 8px);
-  --tile: min(5.5rem, calc((100vw - 2 * var(--gutter) - (var(--cols) - 1) * var(--gap)) / var(--cols)));
-  display: flex;
-  justify-content: center;
-  gap: var(--gap);
-}
-.wb-cols-1 { --cols: 1; }
-.wb-cols-2 { --cols: 2; }
-.wb-cols-3 { --cols: 3; }
-.wb-cols-4 { --cols: 4; }
-.wb-cols-5 { --cols: 5; }
-.wb-cols-6 { --cols: 6; }
-.wb-cols-7 { --cols: 7; }
-.wb-cols-8 { --cols: 8; }
-.wb-cols-9 { --cols: 9; }
-.wb-cols-10 { --cols: 10; }
-.wb-cols-11 { --cols: 11; }
-.wb-cols-12 { --cols: 12; }
-.wb-cols-13 { --cols: 13; }
-.wb-cols-14 { --cols: 14; }
-.wb-tile {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: var(--tile);
-  height: calc(var(--tile) * 1.34);
-  overflow: hidden;
-  border-radius: calc(var(--tile) * 0.12);
-  background: var(--c-primary);
-  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.35), 0 12px 24px -14px rgb(0 0 0 / 0.55);
-  perspective: 320px;
-}
-/* Övre halvan lite ljusare och en skarv i mitten, som på en riktig fällbricka */
-.wb-tile::before { content: ""; position: absolute; inset: 0 0 50% 0; background: rgb(255 255 255 / 0.06); }
-.wb-tile::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: max(1px, calc(var(--tile) * 0.03));
-  background: rgb(0 0 0 / 0.6);
-  z-index: 1;
-}
-.wb-tile-char {
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: calc(var(--tile) * 0.74);
-  line-height: 1;
-  color: var(--c-accent);
-  backface-visibility: hidden;
-}
-@keyframes wb-flap { from { transform: rotateX(-88deg); opacity: 0.35; } to { transform: none; opacity: 1; } }
-.wb-tile-char.is-flip { animation: wb-flap 75ms linear; }
-
 /* Paragrafen: en rad som i en lagbok. Ordet skrivs ut bokstav för bokstav med en blinkande markör. */
 .wb--paragraf { padding-block: clamp(64px, 10vw, 150px); }
 .wb-law-line {
@@ -3144,7 +3086,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   text-wrap: balance;
   font-family: var(--font-display);
   font-weight: var(--display-weight);
-  font-size: calc(clamp(2.125rem, 1rem + 4.4vw, 5.5rem) * var(--display-scale));
+  font-size: calc(clamp(2.125rem, 1rem + 4.4vw, 5.5rem) * var(--display-scale) * var(--wb-scale, 1));
   line-height: 1.14;
   letter-spacing: -0.02em;
 }
@@ -3161,118 +3103,6 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .wb-law:not(.is-live) .wb-law-caret { display: none; }
 @keyframes wb-blink { 50% { opacity: 0; } }
 .wb-law.is-live:not(.is-typing) .wb-law-caret { animation: wb-blink 1s steps(1) infinite; }
-
-/* Stämpeln: orden stämplas på ett papper med linjer, i svart och guld. */
-.wb--stampel { padding-block: clamp(56px, 9vw, 128px); }
-.wb-paper {
-  position: relative;
-  max-width: 980px;
-  margin-inline: auto;
-  padding: clamp(40px, 6vw, 76px) clamp(20px, 5vw, 64px);
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: clamp(18px, 2.6vw, 34px) clamp(16px, 3vw, 40px);
-  overflow: hidden;
-  border-radius: 8px;
-  background: repeating-linear-gradient(transparent 0 31px, color-mix(in srgb, var(--c-text) 6%, transparent) 31px 32px), var(--c-surface);
-  box-shadow: var(--shadow);
-}
-.wb-paper::before {
-  content: "§";
-  position: absolute;
-  right: 0.12em;
-  top: 50%;
-  transform: translateY(-50%);
-  font-family: var(--font-display);
-  font-size: clamp(8rem, 18vw, 15rem);
-  line-height: 1;
-  color: color-mix(in srgb, var(--c-text) 4%, transparent);
-  pointer-events: none;
-}
-.wb-stamp {
-  --r: -5deg;
-  --ink: var(--c-text);
-  position: relative;
-  padding: 0.3em 0.62em;
-  border: 0.11em solid var(--ink);
-  border-radius: 0.2em;
-  box-shadow: inset 0 0 0 0.12em var(--c-surface), inset 0 0 0 0.19em var(--ink);
-  color: var(--ink);
-  font-family: var(--font-body);
-  font-weight: 800;
-  font-size: clamp(1.125rem, 0.75rem + 2.2vw, 2.625rem);
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  opacity: 0.86;
-  transform: rotate(var(--r));
-}
-.wb-stamp-1 { --r: -6deg; }
-.wb-stamp-2 { --r: 4deg; --ink: color-mix(in srgb, var(--c-accent) 70%, var(--c-text)); }
-.wb-stamp-3 { --r: -2deg; }
-.wb-stamp-4 { --r: 7deg; }
-.wb-stamp-5 { --r: -4deg; --ink: color-mix(in srgb, var(--c-accent) 70%, var(--c-text)); }
-.wb-stamp-6 { --r: 3deg; }
-.wb-paper.is-live .wb-stamp { opacity: 0; }
-@keyframes wb-stamp {
-  0% { opacity: 0; transform: rotate(calc(var(--r) - 14deg)) scale(2.6); }
-  62% { opacity: 0.95; transform: rotate(var(--r)) scale(0.93); }
-  100% { opacity: 0.86; transform: rotate(var(--r)) scale(1); }
-}
-.wb-paper.is-live .wb-stamp.is-stamped { animation: wb-stamp 0.42s cubic-bezier(0.5, 0, 0.75, 0) both; opacity: 0.86; }
-@keyframes wb-thud { 30% { transform: translate3d(0, 3px, 0) scale(0.997); } }
-.wb-paper.is-thud { animation: wb-thud 0.22s var(--ease-out); }
-
-/* Zoom: mörk scen. Rörligt: ett ord i taget växer fram mitt på skärmen och man flyger igenom det. */
-.wb--zoom {
-  padding-block: clamp(64px, 9vw, 128px);
-  overflow: clip;
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-}
-/* Glöden ligger på scenen (en skärm hög), inte på hela det långa avsnittet */
-.wb-zoom-stage { padding-inline: var(--gutter); background: radial-gradient(ellipse 60% 55% at 50% 50%, color-mix(in srgb, var(--c-accent) 16%, transparent), transparent 70%); }
-.wb-zoom-words {
-  max-width: 1100px;
-  margin-inline: auto;
-  text-align: center;
-  text-wrap: balance;
-  font-family: var(--font-display);
-  font-weight: var(--display-weight);
-  font-size: calc(clamp(2.25rem, 1rem + 4.4vw, 5.5rem) * var(--display-scale));
-  line-height: 1.12;
-  letter-spacing: -0.025em;
-}
-.wb-zoom-words .wb-sep { margin-inline: 0.3em; font-size: 0.5em; vertical-align: 0.35em; }
-.wb-zoom-count { display: none; }
-.wb--zoom.is-live { padding: 0; height: calc(var(--n, 6) * 70vh + 100vh); }
-.is-live .wb-zoom-stage { position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; place-items: center; overflow: hidden; }
-.is-live .wb-zoom-words { display: grid; max-width: none; }
-.is-live .wb-zoom-words .wb-sep { display: none; }
-.is-live .wb-zoom-word {
-  grid-area: 1 / 1;
-  place-self: center;
-  white-space: nowrap;
-  font-size: calc(clamp(3.75rem, 1rem + 12vw, 11rem) * var(--display-scale));
-  opacity: var(--o, 0);
-  transform: scale(var(--z, 1));
-  will-change: transform, opacity;
-}
-.is-live .wb-zoom-count {
-  display: block;
-  position: absolute;
-  left: 50%;
-  bottom: clamp(24px, 5vh, 48px);
-  transform: translateX(-50%);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  color: var(--c-accent);
-  font-variant-numeric: tabular-nums;
-}
 
 /* ---------- Startsidans bakgrundsbild: långsam kameraåkning ----------
    Först zoomar bilden sakta ut (som tidigare), sedan glider den fram och tillbaka i en halv minut.

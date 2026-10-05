@@ -1,4 +1,4 @@
-import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
+import { html, paragraphs, raw, safeUrl, type SafeHtml } from "../lib/html.js";
 import { ek, loadSettings, type Settings, arrange } from "../lib/settings.js";
 import { eventQuery, instagramQuery, jobQuery, newsQuery, partnerQuery, type EventRow, type InstagramPostRow, type NewsRow, type PartnerRow } from "../lib/content.js";
 import { instagramConfigured, parseProfile, parseStatus, PROFILE_SETTING, STATUS_SETTING, syncInstagram, type InstagramProfile, type SyncStatus } from "../lib/instagram.js";
@@ -10,6 +10,7 @@ import { joinButton, layout, mediaUrl, picture } from "../views/layout.js";
 import { arrowLink, emptyState, eventCard, newsCard, partnerCard, partnerLogo, sectionHead } from "../views/components.js";
 import { htmlResponse } from "../lib/http.js";
 import { ec } from "../lib/settings.js";
+import { isHex, readableOn } from "../lib/color.js";
 
 export async function homePage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
@@ -29,7 +30,7 @@ export async function homePage(c: RequestContext): Promise<Response> {
     ${arrange(s, "startsida", {
       partners: () => partnersSection(s, partners, openJobs),
       varden: () => values(s),
-      ordband: () => wordBand(s),
+      ordband: () => wordBand(c, s),
       intro: () => intro(s),
       evenemang: () => eventsSection(s, events),
       nyheter: (prev) => newsSection(s, news, prev === "evenemang"),
@@ -114,7 +115,7 @@ function lowerFirst(w: string): string {
   return /^\p{Lu}\p{Ll}/u.test(w) ? w[0]!.toLocaleLowerCase("sv") + w.slice(1) : w;
 }
 
-const WORDBAND_STYLES = ["rullband", "ordbyte", "stralkastare", "tavla", "paragraf", "stampel", "zoom"] as const;
+const WORDBAND_STYLES = ["rullband", "ordbyte", "stralkastare", "paragraf"] as const;
 
 /**
  * Rullande ord – stora ord som blickfång, i ett av fem utseenden (Texter och sidor → Startsidan → Rullande ord).
@@ -122,7 +123,7 @@ const WORDBAND_STYLES = ["rullband", "ordbyte", "stralkastare", "tavla", "paragr
  * varje utseende som en snygg stillbild. Avsnittet är dekor – orden står redan i texterna runt omkring –
  * så det döljs för skärmläsare.
  */
-function wordBand(s: Settings): SafeHtml {
+function wordBand(c: RequestContext, s: Settings): SafeHtml {
   const words = s.wordband_words.split("\n").map((w) => w.trim()).filter(Boolean);
   if (!words.length) return html``;
   const style = pick(s.wordband_style, WORDBAND_STYLES, "rullband");
@@ -148,37 +149,34 @@ function wordBand(s: Settings): SafeHtml {
         (w, i) => html`<li class="wb-spot-word"><span class="wb-spot-n">${two(i)}</span><span class="wb-spot-text">${w}</span></li>`,
       )}</ol></div>`;
       break;
-    case "tavla": {
-      // En bricka per bokstav i det längsta ordet. Utan JS står det första ordet på tavlan.
-      const cols = Math.min(14, Math.max(...words.map((w) => [...w].length)));
-      const first = [...words[0]!.toLocaleUpperCase("sv")];
-      const pad = Math.floor((cols - first.length) / 2);
-      inner = html`<div class="container wb-board" data-wb-board data-cols="${cols}" data-words="${words.join("\n")}">
-        <p class="wb-board-lead"${ek(s, "wordband_lead")}>${s.wordband_lead}</p>
-        <p class="wb-board-row wb-cols-${cols}">${Array.from({ length: cols }, (_, i) => html`<span class="wb-tile"><span class="wb-tile-char">${first[i - pad] ?? ""}</span></span>`)}</p>
-      </div>`;
-      break;
-    }
     case "paragraf":
       inner = html`<div class="container wb-law" data-wb-law data-words="${words.join("\n")}">
         <p class="wb-law-line"><span class="wb-law-n"><span data-wb-law-n>1</span> §</span> <span${ek(s, "wordband_lead")}>${s.wordband_lead}</span> <span class="wb-law-word" data-wb-law-word>${lowerFirst(words[0]!)}</span><span class="wb-law-caret"></span>.</p>
       </div>`;
       break;
-    case "stampel":
-      inner = html`<div class="container"><div class="wb-paper" data-wb-stamps>${words.map(
-        (w, i) => html`<span class="wb-stamp wb-stamp-${(i % 6) + 1}">${w}</span>`,
-      )}</div></div>`;
-      break;
-    case "zoom":
-      inner = html`<div class="wb-zoom-stage"><p class="wb-zoom-words" data-wb-zoom>${words.map(
-        (w, i) => html`<span class="wb-zoom-word">${w}</span>${i < words.length - 1 ? html`<span class="wb-sep">§</span>` : ""}`,
-      )}</p><p class="wb-zoom-count" aria-hidden="true"><span data-wb-zoom-n>01</span> / ${two(words.length - 1)}</p></div>`;
-      break;
     default:
       inner = html`<div class="wb-row" data-wordband="-1"><div class="wb-track">${sepWords(repeated(0, 18), "wb-word")}</div></div>
         <div class="wb-row wb-row-outline" data-wordband="1"><div class="wb-track">${sepWords(repeated(Math.floor(words.length / 2), 18), "wb-word")}</div></div>`;
   }
-  return html`<section class="wordband wb--${style}" aria-hidden="true"${ek(s, "wordband_words")}>${inner}</section>`;
+  const size = pick(s.wordband_size, ["liten", "mindre", "standard", "storre", "stor"] as const, "standard");
+  return html`${wordBandColors(c, s)}<section class="wordband wb--${style} wb-size-${size}" aria-hidden="true"${ek(s, "wordband_words")}>${inner}</section>`;
+}
+
+/**
+ * Egna färger för Rullande ord (tomt = sajtens färger). Avsnittet får egna värden på sajtens färgvariabler,
+ * så allt inuti – konturer, linjer, § och den dämpade texten – följer med utan särskilda regler.
+ */
+function wordBandColors(c: RequestContext, s: Settings): SafeHtml {
+  const hex = (v: string) => (isHex(v) ? v.toLowerCase() : "");
+  const bg = hex(s.wordband_c_bg);
+  const text = hex(s.wordband_c_text) || (bg ? readableOn(bg) : "");
+  const accent = hex(s.wordband_c_accent);
+  if (!bg && !text && !accent) return html``;
+  let css = "";
+  if (bg) css += `--c-bg:${bg};`;
+  if (text) css += `--c-text:${text};--c-muted:color-mix(in srgb,${text} 74%,transparent);`;
+  if (accent) css += `--c-accent:${accent};`;
+  return html`<style nonce="${c.nonce}">.wordband{${raw(css)}}</style>`;
 }
 
 function values(s: Settings): SafeHtml {
