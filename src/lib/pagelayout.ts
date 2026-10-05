@@ -155,8 +155,15 @@ export function blockOrder(layout: SiteLayout, pageId: string): string[] {
   const def = PAGE_LAYOUTS[pageId];
   if (!def) return [];
   const known = def.blocks.map((b) => b.id);
-  const saved = (layout.order.get(pageId) ?? []).filter((id) => known.includes(id));
-  return [...new Set([...saved, ...known])];
+  const order = [...new Set((layout.order.get(pageId) ?? []).filter((id) => known.includes(id)))];
+  // Avsnitt som saknas i den sparade ordningen (t.ex. ett nytt avsnitt som lagts till efter att styrelsen
+  // sorterade sidan) hamnar direkt efter avsnittet som står före dem i standardordningen – inte sist.
+  known.forEach((id, i) => {
+    if (order.includes(id)) return;
+    const prev = known.slice(0, i).reverse().find((p) => order.includes(p));
+    order.splice(prev ? order.indexOf(prev) + 1 : 0, 0, id);
+  });
+  return order;
 }
 
 export function isBlockHidden(layout: SiteLayout, pageId: string, blockId: string): boolean {
