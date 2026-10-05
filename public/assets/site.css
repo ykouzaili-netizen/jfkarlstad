@@ -2976,6 +2976,52 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .wb-row-outline .wb-track { transform: translate3d(-28%, 0, 0); }
 .wb-sep { color: var(--c-accent); font-size: 0.55em; -webkit-text-stroke: 0; }
 
+/* ---------- Startsidans bakgrundsbild: långsam kameraåkning ----------
+   Först zoomar bilden sakta ut (som tidigare), sedan glider den fram och tillbaka i en halv minut.
+   Rörelsen är liten (några procent) så att det som valts under "Vilken del av bilden ska synas bäst?" syns hela tiden. */
+
+@keyframes hero-intro { from { transform: scale(1.14); } to { transform: scale(1.06); } }
+@keyframes hero-drift {
+  0% { transform: scale(1.06) translate3d(0, 0, 0); }
+  35% { transform: scale(1.05) translate3d(-1.5%, -0.6%, 0); }
+  70% { transform: scale(1.08) translate3d(1.3%, 0.4%, 0); }
+  100% { transform: scale(1.06) translate3d(-0.4%, 0.8%, 0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* Introt slutar exakt där åkningen börjar, och "alternate" går tillbaka samma väg – inga hopp. */
+  [data-motion="full"] .hero.has-image .hero-bg { animation: hero-intro 6s var(--ease-out) both, hero-drift 34s ease-in-out 6s infinite alternate; }
+  .hero.is-covered .hero-bg { animation-play-state: paused; }
+}
+
+/* ---------- Datumbrickor: bladet vänds som i en almanacka ----------
+   När ett evenemang kommer fram, och när man håller musen över kortet, vänds dagen fram uppifrån. */
+
+@keyframes m-flip {
+  0% { transform: perspective(400px) rotateX(-92deg); opacity: 0; }
+  55% { opacity: 1; }
+  78% { transform: perspective(400px) rotateX(12deg); }
+  100% { transform: perspective(400px) rotateX(0); }
+}
+:is(.date-badge, .float-date) { transform-origin: 50% 0; backface-visibility: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  [data-motion="full"] .rv.is-in .date-badge { animation: m-flip 0.9s var(--ease-out) calc(var(--rv-delay, 0s) + 0.25s) backwards; }
+  [data-motion="full"] .hero .float-date { animation: m-flip 0.9s var(--ease-out) 1.55s backwards; }
+  [data-motion="full"] .event-card:hover .date-badge { animation: m-flip 0.75s var(--ease-out); }
+  [data-motion="full"] .hero-next:hover .float-date { animation: m-flip 0.75s var(--ease-out); }
+}
+
+/* ---------- Genvägsmenyn: rubriken man hoppar till markeras med en gul överstrykningspenna ---------- */
+
+.jump-mark {
+  background: linear-gradient(color-mix(in srgb, var(--c-accent) 65%, transparent), color-mix(in srgb, var(--c-accent) 65%, transparent)) no-repeat 0 90% / 0% 0.4em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-size 0.8s var(--ease-out);
+}
+.jump-mark.is-on { background-size: 100% 0.4em; }
+/* Strecket försvinner åt höger, som om pennan lyfts */
+.jump-mark.is-off { background-position: 100% 90%; background-size: 0% 0.4em; transition-duration: 0.9s; transition-timing-function: var(--ease-io); }
+
 /* ---------- Sidhuvudet: göms när man skrollar ned, kommer tillbaka direkt när man skrollar upp ---------- */
 
 :is([data-motion="full"], [data-motion="lugn"]) .site-header {

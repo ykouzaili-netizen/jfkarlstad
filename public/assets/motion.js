@@ -185,7 +185,49 @@
     });
   }
 
-  /* ---------- 4. Allt som följer skrollningen ---------- */
+  /* ---------- 4. Genvägsmenyn: markera rubriken man hoppar till ---------- */
+
+  /** Lägger en gul överstrykning under rubriken när man har kommit fram, och tar bort den efter en stund. */
+  function markHeading(h) {
+    if (!h) return;
+    var mark = h.querySelector(":scope > .jump-mark");
+    if (!mark) {
+      mark = document.createElement("span");
+      mark.className = "jump-mark";
+      while (h.firstChild) mark.appendChild(h.firstChild);
+      h.appendChild(mark);
+    }
+    mark.classList.remove("is-on", "is-off");
+    void mark.offsetWidth; // börja om om man klickar igen
+    mark.classList.add("is-on");
+    window.clearTimeout(mark._t);
+    mark._t = window.setTimeout(function () {
+      mark.classList.add("is-off");
+      mark._t = window.setTimeout(function () { mark.classList.remove("is-on", "is-off"); }, 950);
+    }, 1900);
+  }
+
+  /** Väntar tills skrollningen har stannat (scrollend där det finns, annars en kort paus). */
+  function whenScrollStops(fn) {
+    var done = false, timer;
+    function finish() { if (done) return; done = true; window.removeEventListener("scroll", reset); fn(); }
+    function reset() { window.clearTimeout(timer); timer = window.setTimeout(finish, 160); }
+    if ("onscrollend" in window) window.addEventListener("scrollend", finish, { once: true });
+    window.addEventListener("scroll", reset, { passive: true });
+    reset();
+    window.setTimeout(finish, 2500);
+  }
+
+  $$("[data-section-nav] a[href^='#'], main a[href^='#']:not([href='#'])").forEach(function (a) {
+    a.addEventListener("click", function () {
+      var target = document.getElementById(a.getAttribute("href").slice(1));
+      if (!target) return;
+      var h = /^H[1-4]$/.test(target.tagName) ? target : target.querySelector("h2, h3");
+      if (h) whenScrollStops(function () { markHeading(h); });
+    });
+  });
+
+  /* ---------- 5. Allt som följer skrollningen ---------- */
 
   var header = document.querySelector("[data-header]");
   var hero = FULL ? document.querySelector("main > .hero") : null;
