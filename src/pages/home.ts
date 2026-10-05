@@ -29,6 +29,7 @@ export async function homePage(c: RequestContext): Promise<Response> {
     ${arrange(s, "startsida", {
       partners: () => partnersSection(s, partners, openJobs),
       varden: () => values(s),
+      ordband: () => wordBand(s),
       intro: () => intro(s),
       evenemang: () => eventsSection(s, events),
       nyheter: (prev) => newsSection(s, news, prev === "evenemang"),
@@ -77,7 +78,7 @@ function hero(s: Settings, next: EventRow | undefined): SafeHtml {
     <div class="container hero-inner">
       <div class="hero-copy">
         ${s.hero_eyebrow ? html`<p class="eyebrow"${ek(s, "hero_eyebrow")}><span class="eyebrow-dot" aria-hidden="true"></span>${s.hero_eyebrow}</p>` : ""}
-        <h1 class="hero-title" id="hero-titel"${ek(s, "hero_title")}>${s.hero_title}</h1>
+        <h1 class="hero-title" id="hero-titel"${ek(s, "hero_title")}>${splitWords(s.hero_title)}</h1>
         <p class="hero-lead"${ek(s, "hero_subtitle")}>${s.hero_subtitle}</p>
         <div class="hero-actions">
           ${joinButton(s, { className: "btn btn-primary btn-lg", labelKey: "hero_button_label" })}
@@ -92,6 +93,36 @@ function hero(s: Settings, next: EventRow | undefined): SafeHtml {
         : ""}
     </div>
     <a class="hero-scroll" href="#efter-toppen"${ek(s, "hero_scroll")}><span class="hero-scroll-label">${s.hero_scroll}</span><span class="hero-scroll-icon" aria-hidden="true">${icon("arrowDown", "icon icon-sm")}</span></a>
+  </section>`;
+}
+
+/**
+ * Rubriken ord för ord, så att orden kan glida upp ett i taget när sidan öppnas (se "Rörelse" i site.css).
+ * Mellanslagen ligger kvar mellan orden, så skärmläsare och kopiering läser rubriken som vanligt.
+ */
+function splitWords(text: string): SafeHtml[] {
+  return text
+    .trim()
+    .split(/\s+/)
+    .map((w, i) => html`${i ? " " : ""}<span class="hw"><span>${w}</span></span>`);
+}
+
+/**
+ * Rullande ord: två rader med stora ord som glider åt var sitt håll när man skrollar (motion.js).
+ * Bara dekor (orden står redan i texterna runt omkring), så avsnittet döljs för skärmläsare.
+ */
+function wordBand(s: Settings): SafeHtml {
+  const words = s.wordband_words.split("\n").map((w) => w.trim()).filter(Boolean);
+  if (!words.length) return html``;
+  // Varje rad upprepar orden så att den alltid är bredare än skärmen, även när den har glidit.
+  const reps = Math.max(3, Math.ceil(12 / words.length));
+  const row = (offset: number) => {
+    const list = [...words.slice(offset), ...words.slice(0, offset)];
+    return Array.from({ length: reps }, () => list).flat().map((w) => html`<span class="wb-word">${w}</span><span class="wb-sep">§</span>`);
+  };
+  return html`<section class="wordband" aria-hidden="true"${ek(s, "wordband_words")}>
+    <div class="wb-row" data-wordband="-1"><div class="wb-track">${row(0)}</div></div>
+    <div class="wb-row wb-row-outline" data-wordband="1"><div class="wb-track">${row(Math.floor(words.length / 2))}</div></div>
   </section>`;
 }
 

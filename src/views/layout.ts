@@ -1,5 +1,5 @@
 import { html, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ek, HEADING_FONTS, headingFont, imageFits, isMarked, siteLayout, themeCss, type Settings } from "../lib/settings.js";
+import { ek, HEADING_FONTS, headingFont, imageFits, isMarked, motionLevel, siteLayout, themeCss, type Settings } from "../lib/settings.js";
 import { textStyleCss } from "../lib/pagelayout.js";
 import { imageFitCss } from "../lib/imagefit.js";
 import { telHref } from "../lib/format.js";
@@ -8,7 +8,7 @@ import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "32";
+export const ASSET_VERSION = "33";
 
 export interface PageMeta {
   title: string;
@@ -200,10 +200,14 @@ export function layout(c: RequestContext, s: Settings, meta: PageMeta, content: 
     // JSON i <script> – escapa "<" så att ingen sträng kan avsluta script-taggen.
     (obj) => raw(`<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, "\\u003c")}</script>`),
   );
+  // Rörelse (Utseende → Rörelse). I adminpanelens förhandsvisning visas allt direkt, så att det går att klicka på texterna.
+  const motion = c.preview || c.editMap ? "av" : motionLevel(s);
+  // Mjuka sidbyten (View Transitions) går inte att slå av med en klass, så regeln skickas bara med när rörelse är på.
+  const transitions = motion === "av" ? "" : "@media (prefers-reduced-motion:no-preference){@view-transition{navigation:auto}}";
   const bodyClass = [c.preview ? "is-preview" : "", c.editMap ? "is-editmap" : "", meta.overlayHeader ? "has-overlay-header" : ""].filter(Boolean).join(" ");
 
   const doc = html`<!doctype html>
-<html lang="sv">
+<html lang="sv" data-motion="${motion}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -225,8 +229,9 @@ ${favicon(s)}
 <link rel="preload" href="/assets/fonts/montserrat.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${HEADING_FONTS[headingFont(s)].file}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css?v=${ASSET_VERSION}">
-<style nonce="${c.nonce}">${raw(themeCss(s) + imageFitCss(imageFits(s)) + textStyleCss(siteLayout(s).styles))}</style>
+<style nonce="${c.nonce}">${raw(themeCss(s) + imageFitCss(imageFits(s)) + textStyleCss(siteLayout(s).styles) + transitions)}</style>
 <script src="/assets/site.js?v=${ASSET_VERSION}" defer></script>
+${motion === "av" ? "" : html`<script src="/assets/motion.js?v=${ASSET_VERSION}" defer></script>`}
 ${ld}
 </head>
 <body${bodyClass ? html` class="${bodyClass}"` : ""}>

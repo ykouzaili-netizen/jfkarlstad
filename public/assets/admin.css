@@ -706,3 +706,4 @@ a.admin-user:hover { background: var(--c-hover); }
 .color-pick input[type="text"] { width: 9.5em; font-variant-numeric: tabular-nums; }
 .color-pick.is-auto input[type="color"] { opacity: 0.35; }
 .color-pick [hidden] { display: none; }
+#rorelse .choice-grid { margin-block: 14px; }

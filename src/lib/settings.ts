@@ -17,6 +17,8 @@ const EXTRA_DEFAULTS = {
   /** Checklistan för styrelseskifte (JSON). */
   handover_state: "",
   font_heading: "playfair",
+  /** Rörelse och animationer: "full" (standard), "lugn" (bara mjuka toningar) eller "av". */
+  motion_level: "full",
   color_background: "#fff7d6",
   color_accent: "#f1cc4d",
   color_button: "#f1cc4d",
@@ -60,6 +62,18 @@ export const HEADING_FONTS = {
   },
 } as const;
 export type HeadingFont = keyof typeof HEADING_FONTS;
+
+export type MotionLevel = "full" | "lugn" | "av";
+
+export const MOTION_LEVELS: Record<MotionLevel, { label: string; hint: string }> = {
+  full: { label: "Full", hint: "Rubriker och bilder glider fram när man skrollar, och sidbyten tonar mjukt över" },
+  lugn: { label: "Lugn", hint: "Innehållet tonar fram mjukt – inget glider eller rör sig" },
+  av: { label: "Av", hint: "Allt visas direkt, utan animationer" },
+};
+
+export function motionLevel(s: Settings): MotionLevel {
+  return s.motion_level === "lugn" || s.motion_level === "av" ? s.motion_level : "full";
+}
 
 export function headingFont(s: Settings): HeadingFont {
   return s.font_heading === "cormorant" ? "cormorant" : "playfair";

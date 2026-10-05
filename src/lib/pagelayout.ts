@@ -37,6 +37,7 @@ export const PAGE_LAYOUTS: Record<string, PageLayoutDef> = {
     blocks: [
       { id: "partners" },
       { id: "varden" },
+      { id: "ordband" },
       { id: "intro" },
       { id: "evenemang" },
       { id: "nyheter" },

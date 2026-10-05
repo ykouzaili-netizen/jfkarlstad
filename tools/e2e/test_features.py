@@ -7,7 +7,7 @@ import re
 import time
 import urllib.request
 
-from common import BASE, OUT, check, done, login, test_image, sync_playwright
+from common import BASE, OUT, check, done, login, plain, test_image, sync_playwright
 
 
 def get(path: str, ua: str = "Mozilla/5.0 (Macintosh) Test") -> tuple[int, str, dict]:
@@ -102,11 +102,11 @@ with sync_playwright() as p:
     page.wait_for_url(re.compile(r"klart=texter&andring="))
     check(page.locator(".undo-box").count() == 1, "kvitto med Ångra-knapp efter sparning")
     status, body, _ = get("/")
-    check("En helt ny rubrik för testet" in body, "ny rubrik syns på webbplatsen")
+    check("En helt ny rubrik för testet" in plain(body), "ny rubrik syns på webbplatsen")
     page.click(".undo-box button[type=submit]")
     page.wait_for_url(re.compile(r"klart=angrat"))
     status, body, _ = get("/")
-    check("En helt ny rubrik för testet" not in body, "Ångra återställer rubriken")
+    check("En helt ny rubrik för testet" not in plain(body), "Ångra återställer rubriken")
     page.goto(f"{BASE}/admin/texter/historik?nyckel=hero_title")
     versions = page.locator(".version-item").count()
     check(versions >= 4, f"historiken visar versionerna ({versions} rader)")
@@ -115,7 +115,7 @@ with sync_playwright() as p:
     page.locator(".version-item:has-text('En helt ny rubrik') form button").first.click()
     page.wait_for_url(re.compile(r"klart=aterstallt-text"))
     status, body, _ = get("/")
-    check("En helt ny rubrik för testet" in body, "en tidigare version kan återställas")
+    check("En helt ny rubrik för testet" in plain(body), "en tidigare version kan återställas")
     page.screenshot(path=str(OUT / "historik.png"))
     # Tillbaka till originalet
     page.once("dialog", lambda d: d.accept())
@@ -184,9 +184,9 @@ with sync_playwright() as p:
     # ───────── Sidans uppbyggnad ─────────
     print("Sidans uppbyggnad")
     page.goto(f"{BASE}/admin/texter?sida=startsida")
-    check(page.locator(".sec-group").count() == 7, "startsidans avsnitt kan flyttas (handtag på sju avsnitt)")
+    check(page.locator(".sec-group").count() == 8, "startsidans avsnitt kan flyttas (handtag på åtta avsnitt)")
     page.locator('.sec-group[data-block="instagram"] [data-drag-handle]').focus()
-    for _ in range(6):
+    for _ in range(7):
         page.keyboard.press("ArrowUp")
     check(page.input_value("[data-block-order]").startswith("instagram,"), "piltangenterna flyttar avsnittet")
     g = page.locator('.sec-group[data-block="varden"]')

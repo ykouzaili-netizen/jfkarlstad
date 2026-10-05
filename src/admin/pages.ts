@@ -1,5 +1,5 @@
 import { html, paragraphs, raw, type SafeHtml } from "../lib/html.js";
-import { DEFAULT_SETTINGS, HEADING_FONTS, THEME_KEYS, headingFont, loadSettings, type SettingKey, type Settings } from "../lib/settings.js";
+import { DEFAULT_SETTINGS, HEADING_FONTS, MOTION_LEVELS, THEME_KEYS, headingFont, loadSettings, motionLevel, type MotionLevel, type SettingKey, type Settings } from "../lib/settings.js";
 import { contrastRatio, isHex, readableOn } from "../lib/color.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec } from "../lib/forms.js";
 import { eventDate, formatDate, formatDateTimeShort, stockholmNow } from "../lib/format.js";
@@ -201,9 +201,10 @@ export async function appearancePage(c: RequestContext, session: Session, overri
   const warnings = contrastWarnings(s);
   const logo = mediaUrl(s.logo_key);
   const current = headingFont(s);
+  const motion = motionLevel(s);
 
   const content = html`
-    ${adminHead("Utseende", { lead: "Färger, rubriktypsnitt och logotyp för hela webbplatsen. Ändringarna slår igenom direkt när du sparar." })}
+    ${adminHead("Utseende", { lead: "Färger, rubriktypsnitt, rörelse och logotyp för hela webbplatsen. Ändringarna slår igenom direkt när du sparar." })}
     <form class="admin-form" id="utseende-form" method="post" action="/admin/utseende" enctype="multipart/form-data" novalidate data-theme-editor data-dirty-check>
       ${csrfField(session)}
       ${Object.keys(errors).length ? html`<div class="alert alert-error" role="alert">${Object.values(errors).join(" ")}</div>` : ""}
@@ -243,6 +244,20 @@ export async function appearancePage(c: RequestContext, session: Session, overri
             <p class="field-help">Brödtexten använder alltid Montserrat.</p>
           </section>
 
+          <section class="admin-card" id="rorelse">
+            <h2 class="card-heading">Rörelse och animationer</h2>
+            <p class="field-help">Hur mycket webbplatsen rör sig när besökaren skrollar och byter sida. Besökare som har valt ”minska rörelse” i sin telefon eller dator ser alltid en stilla webbplats.</p>
+            <div class="choice-grid" role="radiogroup" aria-label="Rörelse och animationer">
+              ${(Object.keys(MOTION_LEVELS) as MotionLevel[]).map(
+                (k) => html`<label class="choice">
+                  <input type="radio" name="motion_level" value="${k}"${motion === k ? html` checked` : ""}>
+                  <span class="choice-body"><span class="choice-label">${MOTION_LEVELS[k].label}${k === "full" ? " (standard)" : ""}</span><span class="choice-hint">${MOTION_LEVELS[k].hint}</span></span>
+                </label>`,
+              )}
+            </div>
+            <p class="field-help">Förhandsvisningen här bredvid visar sidan utan rörelse. <a href="/" target="_blank" rel="noopener">Öppna webbplatsen i en ny flik</a> för att se hur det rör sig efter att du har sparat.</p>
+          </section>
+
           <section class="admin-card" id="logotyp">
             <h2 class="card-heading">Logotyp</h2>
             <div class="upload-box">
@@ -257,7 +272,7 @@ export async function appearancePage(c: RequestContext, session: Session, overri
           </section>
           <div class="admin-form-actions sticky-actions">
             <button class="btn btn-primary btn-lg" type="submit">Spara utseende</button>
-            <button class="btn btn-outline" type="submit" name="aterstall" value="1" formnovalidate data-confirm-click="Återställa alla färger och typsnittet till standard? Logotypen påverkas inte.">Återställ till standard</button>
+            <button class="btn btn-outline" type="submit" name="aterstall" value="1" formnovalidate data-confirm-click="Återställa alla färger, typsnittet och rörelsen till standard? Logotypen påverkas inte.">Återställ till standard</button>
           </div>
         </div>
 
@@ -272,8 +287,8 @@ export async function appearanceSubmit(c: RequestContext, session: Session): Pro
   if (!checkCsrf(c, session, form)) return redirect("/admin/utseende?fel=csrf", 303);
 
   if (form.get("aterstall")) {
-    await c.env.DB.prepare(`DELETE FROM settings WHERE key IN (${[...THEME_KEYS, "font_heading"].map(() => "?").join(",")})`).bind(...THEME_KEYS, "font_heading").run();
-    await audit(c.env, session, "återställde", "utseende", null, "Färger och typsnitt till standard");
+    await c.env.DB.prepare(`DELETE FROM settings WHERE key IN (${[...THEME_KEYS, "font_heading", "motion_level"].map(() => "?").join(",")})`).bind(...THEME_KEYS, "font_heading", "motion_level").run();
+    await audit(c.env, session, "återställde", "utseende", null, "Färger, typsnitt och rörelse till standard");
     return redirect("/admin/utseende?klart=aterstallt", 303);
   }
 
@@ -290,6 +305,8 @@ export async function appearanceSubmit(c: RequestContext, session: Session): Pro
   }
   const font = String(form.get("font_heading") ?? "playfair");
   updates.push(["font_heading", font === "cormorant" ? "cormorant" : "playfair"]);
+  const motion = String(form.get("motion_level") ?? "full");
+  updates.push(["motion_level", motion in MOTION_LEVELS ? motion : "full"]);
 
   const s = await loadSettings(c.env.DB);
   const res = await handleUpload(c.env, form, "logo", "image", "logo", session.user.email);
@@ -299,7 +316,7 @@ export async function appearanceSubmit(c: RequestContext, session: Session): Pro
   if (Object.keys(errors).length) return appearancePage(c, session, override, errors, 422);
   // Den gamla logotypen ligger kvar i bildbanken och kan väljas igen.
   await saveSettings(c.env.DB, session, updates);
-  await audit(c.env, session, "ändrade", "utseende", null, `Färger: ${THEME_KEYS.map((k) => override[k]).join(", ")}; rubriker: ${font}`);
+  await audit(c.env, session, "ändrade", "utseende", null, `Färger: ${THEME_KEYS.map((k) => override[k]).join(", ")}; rubriker: ${font}; rörelse: ${motion}`);
   return redirect("/admin/utseende?klart=sparat", 303);
 }
 

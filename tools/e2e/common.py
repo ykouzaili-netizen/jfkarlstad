@@ -26,6 +26,11 @@ def check(cond: bool, what: str) -> None:
         failures.append(what)
 
 
+def plain(body: str) -> str:
+    """Sidans text utan taggar (startsidans rubrik delas t.ex. upp ord för ord i HTML:en)."""
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", body))
+
+
 def done() -> None:
     print()
     if failures:

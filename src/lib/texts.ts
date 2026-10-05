@@ -174,6 +174,12 @@ export const PAGES = [
       text("value_3_title", "Värdeord 3 – rubrik", "Studentliv", { required: true }),
       area("value_3_text", "Värdeord 3 – text", "Inspark, sittningar, banketter och idrott. Det som gör studietiden till mer än tentor.", { required: true }),
     ]),
+    sec("ordband", "Rullande ord", [
+      list("wordband_words", "Orden", "Juridik\nGemenskap\nKarriär\nSkatterätt\nNätverk\nPåverkan", {
+        required: true,
+        help: "Ett ord eller ett kort uttryck per rad, gärna 4–8 stycken. De glider i sidled i stor stil när besökaren skrollar förbi.",
+      }),
+    ], "Stora ord som glider åt var sitt håll när man skrollar – ett blickfång mellan avsnitten. Vill ni inte ha det döljer ni avsnittet."),
     sec("intro", "”Vilka är JFK?”", [
       text("intro_title", "Rubrik", "Vilka är JFK?", { required: true }),
       area("intro_text", "Text", "Juridiska Föreningen i Karlstad är en partipolitiskt och religiöst obunden ideell studentförening, grundad 2011. Vi finns till för dig som läser juristprogrammet eller masterprogrammet i skatterätt vid Handelshögskolan på Karlstads universitet.\n\nVi bevakar utbildningens kvalitet, skapar kontakter med framtida arbetsgivare och ordnar allt från föreläsningar och arbetsmarknadsdagar till sittningar och idrott – så att du får de bästa förutsättningarna både i studierna och i studentlivet.", { required: true, help: "Lämna en tom rad mellan styckena." }),
