@@ -228,6 +228,7 @@ export const PAGES = [
       text("insta_follow_label", "Knapp", "Följ oss", { ...small, help: "Kontots namn (t.ex. @jfkarlstad) läggs till automatiskt efter texten." }),
       choice("insta_style", "Utseende", "karusell", [
         { value: "karusell", label: "Bildspel", hint: "Profilen överst och inläggen i ett bildspel som man bläddrar i sidled" },
+        { value: "band", label: "Mörkt band", hint: "Profil och knapp till vänster, bildspelet till höger på mörk bakgrund" },
         { value: "rutnat", label: "Rutnät", hint: "Som en Instagramprofil: profilen överst och inläggen i tre kolumner" },
         { value: "mosaik", label: "Mosaik", hint: "Det senaste inlägget stort, de andra mindre runt omkring" },
       ], { required: true }),
@@ -434,6 +435,7 @@ export const PAGES = [
       url("instagram_sport_url", "JFK Idrott på Instagram – länk", "https://www.instagram.com/jfk_idrott/"),
       text("instagram_sport_handle", "JFK Idrott på Instagram – visningsnamn", "@jfk_idrott"),
       choice("sport_style", "Utseende", "band", [
+        { value: "band", label: "Rullande bildband", hint: "Bilderna glider sakta från höger till vänster ovanför aktiviteterna. Stannar när man pekar på en bild" },
         { value: "bildspel", label: "Stort bildspel", hint: "En bild i taget över hela bredden som tonar över till nästa, med rubriken ovanpå" },
         { value: "delad", label: "Text och bildspel bredvid varandra", hint: "Text och aktiviteter till vänster, bilderna tonar över till höger" },
         { value: "kort", label: "Aktivitetskort med bild", hint: "Varje aktivitet blir ett kort med en egen bild, och korten rullar i sidled" },
