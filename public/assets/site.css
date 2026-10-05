@@ -2976,7 +2976,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .wb-row-outline .wb-track { transform: translate3d(-28%, 0, 0); }
 .wb-sep { color: var(--c-accent); font-size: 0.55em; -webkit-text-stroke: 0; }
 
-/* ---------- Rullande ord: fyra andra utseenden ----------
+/* ---------- Rullande ord: fler utseenden ----------
    Grunden (utan .is-live) är en stillbild som fungerar utan JavaScript, i Lugn/Av och med "minska rörelse".
    motion.js sätter .is-live och styr rörelsen på nivån Full. */
 
@@ -3069,61 +3069,210 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .is-live .wb-spot-n { opacity: 0; transform: translate3d(-10px, 0, 0); transition: opacity 0.4s var(--ease), transform 0.5s var(--ease-out); }
 .is-live .is-on .wb-spot-n { opacity: 1; transform: none; }
 
-/* Korsade band: ett gult och ett svart band som lutar åt var sitt håll och rullar åt var sitt håll. */
-.wb--band { padding-block: clamp(84px, 11vw, 168px); overflow: clip; }
-.wb-ribbons { position: relative; display: grid; }
-.wb-ribbon {
-  grid-area: 1 / 1;
-  align-self: center;
-  width: 130%;
-  margin-left: -15%;
-  padding-block: 0.55em;
+/* Avgångstavlan: en svart bricka per bokstav med guldfärgade versaler. Bokstäverna snurrar fram (motion.js). */
+.wb--tavla { padding-block: clamp(56px, 9vw, 128px); }
+.wb-board { display: grid; justify-items: center; text-align: center; }
+.wb-board-lead {
+  margin-bottom: clamp(16px, 2.4vw, 28px);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: calc(clamp(1.375rem, 1rem + 1.5vw, 2.25rem) * var(--display-scale));
+  color: var(--c-muted);
+}
+.wb-board-row {
+  --gap: clamp(3px, 0.55vw, 8px);
+  --tile: min(5.5rem, calc((100vw - 2 * var(--gutter) - (var(--cols) - 1) * var(--gap)) / var(--cols)));
+  display: flex;
+  justify-content: center;
+  gap: var(--gap);
+}
+.wb-cols-1 { --cols: 1; }
+.wb-cols-2 { --cols: 2; }
+.wb-cols-3 { --cols: 3; }
+.wb-cols-4 { --cols: 4; }
+.wb-cols-5 { --cols: 5; }
+.wb-cols-6 { --cols: 6; }
+.wb-cols-7 { --cols: 7; }
+.wb-cols-8 { --cols: 8; }
+.wb-cols-9 { --cols: 9; }
+.wb-cols-10 { --cols: 10; }
+.wb-cols-11 { --cols: 11; }
+.wb-cols-12 { --cols: 12; }
+.wb-cols-13 { --cols: 13; }
+.wb-cols-14 { --cols: 14; }
+.wb-tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--tile);
+  height: calc(var(--tile) * 1.34);
   overflow: hidden;
+  border-radius: calc(var(--tile) * 0.12);
+  background: var(--c-primary);
+  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.35), 0 12px 24px -14px rgb(0 0 0 / 0.55);
+  perspective: 320px;
+}
+/* Övre halvan lite ljusare och en skarv i mitten, som på en riktig fällbricka */
+.wb-tile::before { content: ""; position: absolute; inset: 0 0 50% 0; background: rgb(255 255 255 / 0.06); }
+.wb-tile::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: max(1px, calc(var(--tile) * 0.03));
+  background: rgb(0 0 0 / 0.6);
+  z-index: 1;
+}
+.wb-tile-char {
   font-family: var(--font-body);
   font-weight: 700;
-  font-size: clamp(1.125rem, 0.7rem + 2.2vw, 2.5rem);
+  font-size: calc(var(--tile) * 0.74);
   line-height: 1;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
+  color: var(--c-accent);
+  backface-visibility: hidden;
 }
-.wb-ribbon-a { background: var(--c-accent); color: var(--c-on-accent); transform: translateY(-48%) rotate(-3deg); }
-.wb-ribbon-b { background: var(--c-primary); color: var(--c-on-primary); transform: translateY(48%) rotate(3deg); box-shadow: 0 20px 40px -20px rgb(0 0 0 / 0.45); }
-.wb-ribbon-track { display: inline-flex; align-items: center; gap: 0.7em; padding-left: 0.7em; translate: var(--sx, 0px) 0; }
-.wb-ribbon-b .wb-ribbon-track { translate: calc(var(--sx, 0px) * -1 - 12%) 0; }
-.wb-ribbon .wb-sep { font-family: var(--font-display); font-size: 1.1em; letter-spacing: 0; }
-.wb-ribbon-a .wb-sep { color: var(--c-on-accent); opacity: 0.45; }
-.wb-ribbon-b .wb-sep { color: var(--c-accent); }
-@keyframes wb-marquee { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
-.wb-ribbons.is-live .wb-ribbon-track { animation: wb-marquee 48s linear infinite; animation-play-state: paused; }
-.wb-ribbons.is-live .wb-ribbon-b .wb-ribbon-track { animation-direction: reverse; animation-duration: 56s; }
-.wb-ribbons.is-playing .wb-ribbon-track { animation-play-state: running; }
+@keyframes wb-flap { from { transform: rotateX(-88deg); opacity: 0.35; } to { transform: none; opacity: 1; } }
+.wb-tile-char.is-flip { animation: wb-flap 75ms linear; }
 
-/* Fyllning: orden står som en mening och fylls med färg i läsriktningen medan man skrollar. */
-.wb--fyllning { padding-block: clamp(64px, 10vw, 150px); }
-.wb-fill {
-  max-width: 17ch;
+/* Paragrafen: en rad som i en lagbok. Ordet skrivs ut bokstav för bokstav med en blinkande markör. */
+.wb--paragraf { padding-block: clamp(64px, 10vw, 150px); }
+.wb-law-line {
+  max-width: 22ch;
   margin-inline: auto;
   text-align: center;
   text-wrap: balance;
   font-family: var(--font-display);
   font-weight: var(--display-weight);
-  font-size: calc(clamp(2.5rem, 1rem + 5.4vw, 6.75rem) * var(--display-scale));
-  line-height: 1.1;
+  font-size: calc(clamp(2.125rem, 1rem + 4.4vw, 5.5rem) * var(--display-scale));
+  line-height: 1.14;
+  letter-spacing: -0.02em;
+}
+.wb-law-n { color: color-mix(in srgb, var(--c-accent) 72%, var(--c-text)); white-space: nowrap; }
+.wb-law-word { font-style: italic; }
+.wb-law-caret {
+  display: inline-block;
+  width: max(2px, 0.055em);
+  height: 0.86em;
+  margin-left: 0.05em;
+  vertical-align: -0.06em;
+  background: var(--c-accent);
+}
+.wb-law:not(.is-live) .wb-law-caret { display: none; }
+@keyframes wb-blink { 50% { opacity: 0; } }
+.wb-law.is-live:not(.is-typing) .wb-law-caret { animation: wb-blink 1s steps(1) infinite; }
+
+/* Stämpeln: orden stämplas på ett papper med linjer, i svart och guld. */
+.wb--stampel { padding-block: clamp(56px, 9vw, 128px); }
+.wb-paper {
+  position: relative;
+  max-width: 980px;
+  margin-inline: auto;
+  padding: clamp(40px, 6vw, 76px) clamp(20px, 5vw, 64px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(18px, 2.6vw, 34px) clamp(16px, 3vw, 40px);
+  overflow: hidden;
+  border-radius: 8px;
+  background: repeating-linear-gradient(transparent 0 31px, color-mix(in srgb, var(--c-text) 6%, transparent) 31px 32px), var(--c-surface);
+  box-shadow: var(--shadow);
+}
+.wb-paper::before {
+  content: "§";
+  position: absolute;
+  right: 0.12em;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-display);
+  font-size: clamp(8rem, 18vw, 15rem);
+  line-height: 1;
+  color: color-mix(in srgb, var(--c-text) 4%, transparent);
+  pointer-events: none;
+}
+.wb-stamp {
+  --r: -5deg;
+  --ink: var(--c-text);
+  position: relative;
+  padding: 0.3em 0.62em;
+  border: 0.11em solid var(--ink);
+  border-radius: 0.2em;
+  box-shadow: inset 0 0 0 0.12em var(--c-surface), inset 0 0 0 0.19em var(--ink);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: clamp(1.125rem, 0.75rem + 2.2vw, 2.625rem);
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0.86;
+  transform: rotate(var(--r));
+}
+.wb-stamp-1 { --r: -6deg; }
+.wb-stamp-2 { --r: 4deg; --ink: color-mix(in srgb, var(--c-accent) 70%, var(--c-text)); }
+.wb-stamp-3 { --r: -2deg; }
+.wb-stamp-4 { --r: 7deg; }
+.wb-stamp-5 { --r: -4deg; --ink: color-mix(in srgb, var(--c-accent) 70%, var(--c-text)); }
+.wb-stamp-6 { --r: 3deg; }
+.wb-paper.is-live .wb-stamp { opacity: 0; }
+@keyframes wb-stamp {
+  0% { opacity: 0; transform: rotate(calc(var(--r) - 14deg)) scale(2.6); }
+  62% { opacity: 0.95; transform: rotate(var(--r)) scale(0.93); }
+  100% { opacity: 0.86; transform: rotate(var(--r)) scale(1); }
+}
+.wb-paper.is-live .wb-stamp.is-stamped { animation: wb-stamp 0.42s cubic-bezier(0.5, 0, 0.75, 0) both; opacity: 0.86; }
+@keyframes wb-thud { 30% { transform: translate3d(0, 3px, 0) scale(0.997); } }
+.wb-paper.is-thud { animation: wb-thud 0.22s var(--ease-out); }
+
+/* Zoom: mörk scen. Rörligt: ett ord i taget växer fram mitt på skärmen och man flyger igenom det. */
+.wb--zoom {
+  padding-block: clamp(64px, 9vw, 128px);
+  overflow: clip;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+/* Glöden ligger på scenen (en skärm hög), inte på hela det långa avsnittet */
+.wb-zoom-stage { padding-inline: var(--gutter); background: radial-gradient(ellipse 60% 55% at 50% 50%, color-mix(in srgb, var(--c-accent) 16%, transparent), transparent 70%); }
+.wb-zoom-words {
+  max-width: 1100px;
+  margin-inline: auto;
+  text-align: center;
+  text-wrap: balance;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: calc(clamp(2.25rem, 1rem + 4.4vw, 5.5rem) * var(--display-scale));
+  line-height: 1.12;
   letter-spacing: -0.025em;
 }
-.wb-fill-unit { white-space: nowrap; }
-.wb-fill .wb-sep { display: inline-block; margin-left: 0.28em; font-size: 0.5em; vertical-align: 0.35em; }
-.wb-fill.is-live .wb-fill-word {
-  background: linear-gradient(90deg, var(--c-text) 50%, color-mix(in srgb, var(--c-text) 14%, transparent) 50%) no-repeat;
-  background-size: 200% 100%;
-  background-position: calc((1 - var(--f, 0)) * 100%) 0;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.wb-zoom-words .wb-sep { margin-inline: 0.3em; font-size: 0.5em; vertical-align: 0.35em; }
+.wb-zoom-count { display: none; }
+.wb--zoom.is-live { padding: 0; height: calc(var(--n, 6) * 70vh + 100vh); }
+.is-live .wb-zoom-stage { position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; place-items: center; overflow: hidden; }
+.is-live .wb-zoom-words { display: grid; max-width: none; }
+.is-live .wb-zoom-words .wb-sep { display: none; }
+.is-live .wb-zoom-word {
+  grid-area: 1 / 1;
+  place-self: center;
+  white-space: nowrap;
+  font-size: calc(clamp(3.75rem, 1rem + 12vw, 11rem) * var(--display-scale));
+  opacity: var(--o, 0);
+  transform: scale(var(--z, 1));
+  will-change: transform, opacity;
 }
-.wb-fill.is-live .wb-sep { opacity: 0.2; transition: opacity 0.4s var(--ease), transform 0.5s var(--ease-out); transform: scale(0.6); }
-.wb-fill.is-live .wb-sep.is-lit { opacity: 1; transform: none; }
+.is-live .wb-zoom-count {
+  display: block;
+  position: absolute;
+  left: 50%;
+  bottom: clamp(24px, 5vh, 48px);
+  transform: translateX(-50%);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--c-accent);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ---------- Startsidans bakgrundsbild: långsam kameraåkning ----------
    Först zoomar bilden sakta ut (som tidigare), sedan glider den fram och tillbaka i en halv minut.

@@ -109,7 +109,12 @@ function splitWords(text: string): SafeHtml[] {
 
 const pick = <T extends string>(value: string, allowed: readonly T[], fallback: T): T => ((allowed as readonly string[]).includes(value) ? (value as T) : fallback);
 
-const WORDBAND_STYLES = ["rullband", "ordbyte", "stralkastare", "band", "fyllning"] as const;
+/** "Juridik" → "juridik" mitt i en mening, men förkortningar som "KAU" lämnas orörda. */
+function lowerFirst(w: string): string {
+  return /^\p{Lu}\p{Ll}/u.test(w) ? w[0]!.toLocaleLowerCase("sv") + w.slice(1) : w;
+}
+
+const WORDBAND_STYLES = ["rullband", "ordbyte", "stralkastare", "tavla", "paragraf", "stampel", "zoom"] as const;
 
 /**
  * Rullande ord – stora ord som blickfång, i ett av fem utseenden (Texter och sidor → Startsidan → Rullande ord).
@@ -143,16 +148,31 @@ function wordBand(s: Settings): SafeHtml {
         (w, i) => html`<li class="wb-spot-word"><span class="wb-spot-n">${two(i)}</span><span class="wb-spot-text">${w}</span></li>`,
       )}</ol></div>`;
       break;
-    case "band":
-      inner = html`<div class="wb-ribbons" data-wb-ribbons>
-        <div class="wb-ribbon wb-ribbon-a"><div class="wb-ribbon-track">${sepWords(repeated(0, 16), "wb-ribbon-word")}${sepWords(repeated(0, 16), "wb-ribbon-word")}</div></div>
-        <div class="wb-ribbon wb-ribbon-b"><div class="wb-ribbon-track">${sepWords(repeated(2 % words.length, 16), "wb-ribbon-word")}${sepWords(repeated(2 % words.length, 16), "wb-ribbon-word")}</div></div>
+    case "tavla": {
+      // En bricka per bokstav i det längsta ordet. Utan JS står det första ordet på tavlan.
+      const cols = Math.min(14, Math.max(...words.map((w) => [...w].length)));
+      const first = [...words[0]!.toLocaleUpperCase("sv")];
+      const pad = Math.floor((cols - first.length) / 2);
+      inner = html`<div class="container wb-board" data-wb-board data-cols="${cols}" data-words="${words.join("\n")}">
+        <p class="wb-board-lead"${ek(s, "wordband_lead")}>${s.wordband_lead}</p>
+        <p class="wb-board-row wb-cols-${cols}">${Array.from({ length: cols }, (_, i) => html`<span class="wb-tile"><span class="wb-tile-char">${first[i - pad] ?? ""}</span></span>`)}</p>
       </div>`;
       break;
-    case "fyllning":
-      inner = html`<div class="container"><p class="wb-fill" data-wb-fill>${words.map(
-        (w, i) => html`<span class="wb-fill-unit"><span class="wb-fill-word">${w}</span>${i < words.length - 1 ? html`<span class="wb-sep">§</span>` : ""}</span> `,
-      )}</p></div>`;
+    }
+    case "paragraf":
+      inner = html`<div class="container wb-law" data-wb-law data-words="${words.join("\n")}">
+        <p class="wb-law-line"><span class="wb-law-n"><span data-wb-law-n>1</span> §</span> <span${ek(s, "wordband_lead")}>${s.wordband_lead}</span> <span class="wb-law-word" data-wb-law-word>${lowerFirst(words[0]!)}</span><span class="wb-law-caret"></span>.</p>
+      </div>`;
+      break;
+    case "stampel":
+      inner = html`<div class="container"><div class="wb-paper" data-wb-stamps>${words.map(
+        (w, i) => html`<span class="wb-stamp wb-stamp-${(i % 6) + 1}">${w}</span>`,
+      )}</div></div>`;
+      break;
+    case "zoom":
+      inner = html`<div class="wb-zoom-stage"><p class="wb-zoom-words" data-wb-zoom>${words.map(
+        (w, i) => html`<span class="wb-zoom-word">${w}</span>${i < words.length - 1 ? html`<span class="wb-sep">§</span>` : ""}`,
+      )}</p><p class="wb-zoom-count" aria-hidden="true"><span data-wb-zoom-n>01</span> / ${two(words.length - 1)}</p></div>`;
       break;
     default:
       inner = html`<div class="wb-row" data-wordband="-1"><div class="wb-track">${sepWords(repeated(0, 18), "wb-word")}</div></div>

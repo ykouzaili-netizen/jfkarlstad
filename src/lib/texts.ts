@@ -179,14 +179,16 @@ export const PAGES = [
         { value: "rullband", label: "Rullande rader", hint: "Två rader med stora ord som glider åt var sitt håll när man skrollar" },
         { value: "ordbyte", label: "Ordbyte", hint: "”JFK står för …” – det sista ordet byts ut av sig självt, som på en avgångstavla" },
         { value: "stralkastare", label: "Strålkastare", hint: "Orden står under varandra och lyser upp ett i taget medan man skrollar" },
-        { value: "band", label: "Korsade band", hint: "Två lutande band i gult och svart som rullar åt var sitt håll" },
-        { value: "fyllning", label: "Fyllning", hint: "Orden fylls med färg ett efter ett i takt med att man skrollar" },
+        { value: "tavla", label: "Avgångstavlan", hint: "Bokstäverna snurrar fram på svarta brickor, som på en tågstation" },
+        { value: "paragraf", label: "Paragrafen", hint: "Som en lagtext: ”1 § JFK står för …” – orden skrivs ut som på en skrivmaskin" },
+        { value: "stampel", label: "Stämpeln", hint: "Orden stämplas ett efter ett på ett papper när man skrollar dit" },
+        { value: "zoom", label: "Zoom", hint: "Mörk scen där ett ord i taget växer fram och man flyger rakt igenom det när man skrollar" },
       ], { required: true, help: "Rörelsen syns på webbplatsen men inte i förhandsvisningen här bredvid." }),
       list("wordband_words", "Orden", "Juridik\nGemenskap\nKarriär\nSkatterätt\nNätverk\nPåverkan", {
         required: true,
         help: "Ett ord eller ett kort uttryck per rad, gärna 4–8 stycken.",
       }),
-      text("wordband_lead", "Text före orden", "JFK står för", { more: true, help: "Används bara i utseendet Ordbyte, t.ex. ”JFK står för” eller ”Hos oss hittar du”." }),
+      text("wordband_lead", "Text före orden", "JFK står för", { more: true, help: "Används i Ordbyte, Avgångstavlan och Paragrafen, t.ex. ”JFK står för” eller ”Hos oss hittar du”." }),
     ], "Stora ord som blickfång mellan avsnitten. Vill ni inte ha dem döljer ni avsnittet."),
     sec("intro", "”Vilka är JFK?”", [
       text("intro_title", "Rubrik", "Vilka är JFK?", { required: true }),
@@ -226,7 +228,6 @@ export const PAGES = [
       text("insta_follow_label", "Knapp", "Följ oss", { ...small, help: "Kontots namn (t.ex. @jfkarlstad) läggs till automatiskt efter texten." }),
       choice("insta_style", "Utseende", "karusell", [
         { value: "karusell", label: "Bildspel", hint: "Profilen överst och inläggen i ett bildspel som man bläddrar i sidled" },
-        { value: "band", label: "Mörkt band", hint: "Profil och knapp till vänster, bildspelet till höger på mörk bakgrund" },
         { value: "rutnat", label: "Rutnät", hint: "Som en Instagramprofil: profilen överst och inläggen i tre kolumner" },
         { value: "mosaik", label: "Mosaik", hint: "Det senaste inlägget stort, de andra mindre runt omkring" },
       ], { required: true }),
@@ -433,7 +434,6 @@ export const PAGES = [
       url("instagram_sport_url", "JFK Idrott på Instagram – länk", "https://www.instagram.com/jfk_idrott/"),
       text("instagram_sport_handle", "JFK Idrott på Instagram – visningsnamn", "@jfk_idrott"),
       choice("sport_style", "Utseende", "band", [
-        { value: "band", label: "Rullande bildband", hint: "Bilderna glider sakta från höger till vänster ovanför aktiviteterna. Stannar när man pekar på en bild" },
         { value: "bildspel", label: "Stort bildspel", hint: "En bild i taget över hela bredden som tonar över till nästa, med rubriken ovanpå" },
         { value: "delad", label: "Text och bildspel bredvid varandra", hint: "Text och aktiviteter till vänster, bilderna tonar över till höger" },
         { value: "kort", label: "Aktivitetskort med bild", hint: "Varje aktivitet blir ett kort med en egen bild, och korten rullar i sidled" },
