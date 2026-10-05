@@ -124,6 +124,18 @@ function heroFields<const P extends string>(p: P) {
   ] as const;
 }
 
+/**
+ * Egna färger för ett avsnitt på startsidan (tomt = sajtens färger). `p` är prefixet, t.ex. "home_partners" →
+ * home_partners_c_bg, home_partners_c_text, home_partners_c_accent. Läses av blockColors() i pages/home.ts.
+ */
+function blockColorFields<const P extends string>(p: P) {
+  return [
+    color(`${p}_c_bg` as `${P}_c_bg`, "Färg: bakgrund", "", { help: "Färgfälten är valfria – tomt (”Standard”) = sajtens vanliga färg. Väljer du bara bakgrund får rubrik och text automatiskt svart eller vit färg som syns bra. Korten i avsnittet behåller sina vanliga färger så att de alltid är lätta att läsa." }),
+    color(`${p}_c_text` as `${P}_c_text`, "Färg: rubrik och text", ""),
+    color(`${p}_c_accent` as `${P}_c_accent`, "Färg: detaljer", "", { help: "Understrykningar, ikoner, avsnittsnummer och liknande detaljer." }),
+  ] as const;
+}
+
 export const PAGES = [
   page("startsida", "Startsidan", "/", [
     sec("toppen", "Toppen av sidan", [
@@ -164,6 +176,7 @@ export const PAGES = [
       text("home_partners_all", "Länk till alla partners", "Alla partners", small),
       text("home_partners_strip", "Etikett för övriga partners", "Samarbetspartners", small),
       text("home_partners_jobs", "Länk till lediga jobb", "Lediga jobb och praktik", small),
+      ...blockColorFields("home_partners"),
     ], "Partnerna själva ändrar du under Partners i menyn."),
     sec("varden", "Värdeorden", [
       text("values_title", "Rubrik", "Mer än en studentförening", { required: true }),
@@ -173,6 +186,7 @@ export const PAGES = [
       area("value_2_text", "Värdeord 2 – text", "Arbetsmarknadsdagar, lunchföreläsningar och nära kontakt med några av Sveriges ledande byråer.", { required: true }),
       text("value_3_title", "Värdeord 3 – rubrik", "Studentliv", { required: true }),
       area("value_3_text", "Värdeord 3 – text", "Inspark, sittningar, banketter och idrott. Det som gör studietiden till mer än tentor.", { required: true }),
+      ...blockColorFields("home_values"),
     ]),
     sec("ordband", "Rullande ord", [
       choice("wordband_style", "Utseende", "rullband", [
@@ -211,16 +225,19 @@ export const PAGES = [
       text("stat_3_label", "Siffra 3 – förklaring", "i styrelsen"),
       text("stat_4_value", "Siffra 4", "6"),
       text("stat_4_label", "Siffra 4 – förklaring", "utskott"),
+      ...blockColorFields("home_intro"),
     ]),
     sec("evenemang", "Kommande evenemang", [
       text("home_events_title", "Rubrik", "Kommande evenemang", { required: true }),
       text("home_events_link", "Länk till kalendern", "Se hela kalendern", small),
       rich("home_events_empty", "Text när inga evenemang finns", "Inga evenemang är inlagda just nu. Följ oss på [Instagram](https://www.instagram.com/jfkarlstad/) så missar du inget.", { more: true, help: RICH_HELP }),
+      ...blockColorFields("home_events"),
     ], "Själva evenemangen lägger du in under Event i menyn."),
     sec("nyheter", "Senaste nytt", [
       text("home_news_title", "Rubrik", "Senaste nytt", { required: true }),
       text("home_news_link", "Länk till alla nyheter", "Alla nyheter", small),
       text("home_news_empty", "Text när inga nyheter finns", "Inga nyheter ännu.", { more: true }),
+      ...blockColorFields("home_news"),
     ], "Nyheterna skriver du under Nyheter i menyn."),
     sec("paverka", "JF Påverka-rutan", [
       text("home_paverka_kicker", "Liten etikett", "JF Påverka", small),
@@ -228,6 +245,7 @@ export const PAGES = [
       area("paverka_text", "Text", "Med JF Påverka kan du lämna synpunkter på utbildningen och föreningen, rapportera problem eller föreslå ett eget initiativ. Allt tas upp på nästa styrelsemöte – och du kan vara anonym.", { required: true }),
       text("home_paverka_button", "Text på knappen", "Gör din röst hörd", small),
       text("home_paverka_note", "Liten text under knappen", "Du kan vara anonym", { more: true }),
+      ...blockColorFields("home_paverka"),
     ]),
     sec("instagram", "Instagram", [
       text("home_insta_title", "Rubrik", "Följ oss på Instagram", { required: true }),

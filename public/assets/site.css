@@ -494,6 +494,34 @@ main:focus { outline: none; }
 .page-title { font-size: calc(clamp(2.25rem, 1.6rem + 3vw, 4rem) * var(--display-scale)); line-height: 1.05; letter-spacing: -0.025em; }
 .page-lead { margin-top: 18px; font-size: 1.25rem; color: var(--c-muted); max-width: 52ch; }
 
+/* ---------- Egna färger per avsnitt ----------
+   Avsnitt med egna färger (Texter och sidor → Startsidan → avsnittet) får egna värden på färgvariablerna i en
+   <style> inuti avsnittet (blockColors/scopedColors i pages/home.ts). Korten i avsnittet återställs här till
+   sajtens färger, så att en mörk bakgrund aldrig ger vit text på ett vitt kort. */
+:root {
+  --site-bg: var(--c-bg);
+  --site-surface: var(--c-surface);
+  --site-text: var(--c-text);
+  --site-muted: var(--c-muted);
+  --site-border: var(--c-border);
+  --site-hover: var(--c-hover);
+}
+.has-colors { background: var(--c-bg); color: var(--c-text); }
+.has-colors :is(.card, .value-card, .partner-card, .stat, .cta-panel) {
+  --c-bg: var(--site-bg);
+  --c-surface: var(--site-surface);
+  --c-text: var(--site-text);
+  --c-muted: var(--site-muted);
+  --c-border: var(--site-border);
+  --c-hover: var(--site-hover);
+  color: var(--c-text);
+}
+/* Statistikrutorna har egna färger (gul, svart) – de ska inte få kortets textfärg ovanpå */
+.has-colors .stat:nth-child(1) { color: var(--c-on-accent); }
+.has-colors .stat:nth-child(2) { color: var(--c-on-primary); }
+.has-colors .cta-panel { color: var(--c-on-primary); }
+.bg-is-accent .stat:nth-child(1) { background: var(--site-surface); color: var(--site-text); }
+
 /* ---------- Hero: helskärmsbild ---------- */
 /* Bilden fyller hela första skärmen. Sidhuvudet ligger genomskinligt ovanpå (se "Sidhuvud över bild" nedan).
    Texten är alltid vit – en mörk ton över bilden (svag/medel/stark, väljs i adminpanelen) gör den läsbar. */
