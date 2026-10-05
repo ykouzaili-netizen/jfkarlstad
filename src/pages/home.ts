@@ -107,23 +107,58 @@ function splitWords(text: string): SafeHtml[] {
     .map((w, i) => html`${i ? " " : ""}<span class="hw"><span>${w}</span></span>`);
 }
 
+const pick = <T extends string>(value: string, allowed: readonly T[], fallback: T): T => ((allowed as readonly string[]).includes(value) ? (value as T) : fallback);
+
+const WORDBAND_STYLES = ["rullband", "ordbyte", "stralkastare", "band", "fyllning"] as const;
+
 /**
- * Rullande ord: två rader med stora ord som glider åt var sitt håll när man skrollar (motion.js).
- * Bara dekor (orden står redan i texterna runt omkring), så avsnittet döljs för skärmläsare.
+ * Rullande ord – stora ord som blickfång, i ett av fem utseenden (Texter och sidor → Startsidan → Rullande ord).
+ * Rörelsen sköts av motion.js och bara på nivån Full. Utan den (Lugn, Av, minska rörelse, ingen JS) visas
+ * varje utseende som en snygg stillbild. Avsnittet är dekor – orden står redan i texterna runt omkring –
+ * så det döljs för skärmläsare.
  */
 function wordBand(s: Settings): SafeHtml {
   const words = s.wordband_words.split("\n").map((w) => w.trim()).filter(Boolean);
   if (!words.length) return html``;
-  // Varje rad upprepar orden så att den alltid är bredare än skärmen, även när den har glidit.
-  const reps = Math.max(3, Math.ceil(12 / words.length));
-  const row = (offset: number) => {
+  const style = pick(s.wordband_style, WORDBAND_STYLES, "rullband");
+  const two = (i: number) => String(i + 1).padStart(2, "0");
+  // Upprepar orden så att ett band alltid är bredare än skärmen.
+  const repeated = (offset: number, min: number) => {
     const list = [...words.slice(offset), ...words.slice(0, offset)];
-    return Array.from({ length: reps }, () => list).flat().map((w) => html`<span class="wb-word">${w}</span><span class="wb-sep">§</span>`);
+    return Array.from({ length: Math.max(2, Math.ceil(min / words.length)) }, () => list).flat();
   };
-  return html`<section class="wordband" aria-hidden="true"${ek(s, "wordband_words")}>
-    <div class="wb-row" data-wordband="-1"><div class="wb-track">${row(0)}</div></div>
-    <div class="wb-row wb-row-outline" data-wordband="1"><div class="wb-track">${row(Math.floor(words.length / 2))}</div></div>
-  </section>`;
+  const sepWords = (list: string[], cls: string) => list.map((w) => html`<span class="${cls}">${w}</span><span class="wb-sep">§</span>`);
+
+  let inner: SafeHtml;
+  switch (style) {
+    case "ordbyte":
+      inner = html`<div class="container wb-swap" data-wb-swap>
+        <p class="wb-swap-lead"${ek(s, "wordband_lead")}>${s.wordband_lead}</p>
+        <p class="wb-swap-slot"><span class="wb-swap-window"><span class="wb-swap-track">${words.map((w) => html`<span class="wb-swap-word">${w}</span>`)}</span></span></p>
+        <p class="wb-swap-count"><span data-wb-swap-n>01</span> / ${two(words.length - 1)}</p>
+      </div>`;
+      break;
+    case "stralkastare":
+      inner = html`<div class="wb-spot-stage"><ol class="wb-spot-list" data-wb-spot>${words.map(
+        (w, i) => html`<li class="wb-spot-word"><span class="wb-spot-n">${two(i)}</span><span class="wb-spot-text">${w}</span></li>`,
+      )}</ol></div>`;
+      break;
+    case "band":
+      inner = html`<div class="wb-ribbons" data-wb-ribbons>
+        <div class="wb-ribbon wb-ribbon-a"><div class="wb-ribbon-track">${sepWords(repeated(0, 16), "wb-ribbon-word")}${sepWords(repeated(0, 16), "wb-ribbon-word")}</div></div>
+        <div class="wb-ribbon wb-ribbon-b"><div class="wb-ribbon-track">${sepWords(repeated(2 % words.length, 16), "wb-ribbon-word")}${sepWords(repeated(2 % words.length, 16), "wb-ribbon-word")}</div></div>
+      </div>`;
+      break;
+    case "fyllning":
+      inner = html`<div class="container"><p class="wb-fill" data-wb-fill>${words.map(
+        (w, i) => html`<span class="wb-fill-unit"><span class="wb-fill-word">${w}</span>${i < words.length - 1 ? html`<span class="wb-sep">§</span>` : ""}</span> `,
+      )}</p></div>`;
+      break;
+    default:
+      inner = html`<div class="wb-row" data-wordband="-1"><div class="wb-track">${sepWords(repeated(0, 18), "wb-word")}</div></div>
+        <div class="wb-row wb-row-outline" data-wordband="1"><div class="wb-track">${sepWords(repeated(Math.floor(words.length / 2), 18), "wb-word")}</div></div>`;
+  }
+  return html`<section class="wordband wb--${style}" aria-hidden="true"${ek(s, "wordband_words")}>${inner}</section>`;
 }
 
 function values(s: Settings): SafeHtml {
@@ -286,7 +321,6 @@ function mosaicCount(wanted: number, available: number, size: string): number {
   return Math.min(wanted, available);
 }
 
-const pick = <T extends string>(value: string, allowed: readonly T[], fallback: T): T => ((allowed as readonly string[]).includes(value) ? (value as T) : fallback);
 
 /**
  * Instagram-avsnittet: profilruta (profilbild, namn, presentation, siffror och Följ-knapp) och de senaste

@@ -2976,6 +2976,155 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .wb-row-outline .wb-track { transform: translate3d(-28%, 0, 0); }
 .wb-sep { color: var(--c-accent); font-size: 0.55em; -webkit-text-stroke: 0; }
 
+/* ---------- Rullande ord: fyra andra utseenden ----------
+   Grunden (utan .is-live) är en stillbild som fungerar utan JavaScript, i Lugn/Av och med "minska rörelse".
+   motion.js sätter .is-live och styr rörelsen på nivån Full. */
+
+/* Ordbyte: "JFK står för …" där sista ordet byts ut. Den gula linjen under ordet är en tidslinje. */
+.wb--ordbyte { padding-block: clamp(56px, 9vw, 128px); }
+.wb-swap { display: grid; justify-items: center; text-align: center; }
+.wb-swap-lead {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: calc(clamp(1.375rem, 1rem + 1.5vw, 2.25rem) * var(--display-scale));
+  color: var(--c-muted);
+}
+.wb-swap-slot {
+  position: relative;
+  max-width: 100%;
+  margin-top: 0.08em;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: calc(clamp(3rem, 1.2rem + 8vw, 10rem) * var(--display-scale));
+  line-height: 1.14;
+  letter-spacing: -0.03em;
+  width: var(--wb-w, auto);
+  transition: width 0.8s var(--ease-out);
+}
+.wb-swap-window { display: flex; justify-content: center; align-items: flex-start; height: 1.14em; overflow: hidden; }
+.wb-swap-track { display: flex; flex-direction: column; align-items: center; flex: none; transition: transform 0.9s var(--ease-out); }
+.wb-swap-word { display: block; width: max-content; white-space: nowrap; }
+.wb-swap-slot::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.06em;
+  height: max(3px, 0.045em);
+  border-radius: 99px;
+  background: var(--c-accent);
+  transform-origin: 0 50%;
+}
+@keyframes wb-timer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.wb-swap.is-live .wb-swap-slot.is-ticking::after { animation: wb-timer var(--wb-int, 2.6s) linear both; }
+.wb-swap.is-paused .wb-swap-slot::after { animation-play-state: paused !important; }
+.wb-swap-count { margin-top: 26px; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.16em; color: var(--c-muted); font-variant-numeric: tabular-nums; }
+.wb-swap:not(.is-live) .wb-swap-count { display: none; }
+
+/* Strålkastare: orden under varandra. Rörligt: avsnittet blir högt, scenen står still och orden glider
+   genom ljuset – ordet i mitten är fyllt, de andra konturer. */
+.wb--stralkastare { padding-block: clamp(56px, 8vw, 112px); overflow: clip; }
+.wb-spot-list { list-style: none; display: grid; justify-items: center; }
+.wb-spot-word {
+  position: relative;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: calc(clamp(2.75rem, 1rem + 6.6vw, 8rem) * var(--display-scale));
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+.wb-spot-n {
+  position: absolute;
+  right: 100%;
+  top: 0.55em;
+  margin-right: 0.6em;
+  font-family: var(--font-body);
+  font-size: max(0.75rem, 0.12em);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--c-accent);
+}
+.wb--stralkastare.is-live { padding: 0; height: calc(var(--n, 6) * 42vh + 100vh); }
+.is-live .wb-spot-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+}
+.is-live .wb-spot-list { will-change: transform; }
+.is-live .wb-spot-word {
+  color: transparent;
+  -webkit-text-stroke: max(1px, 0.012em) color-mix(in srgb, var(--c-text) 45%, transparent);
+  opacity: calc(1 - min(var(--d, 0), 2.4) * 0.3);
+  transform: scale(calc(1 - min(var(--d, 0), 1.6) * 0.1));
+  transition: color 0.45s var(--ease), -webkit-text-stroke-color 0.45s var(--ease);
+}
+.is-live .wb-spot-word.is-on { color: var(--c-text); -webkit-text-stroke-color: transparent; }
+.is-live .wb-spot-n { opacity: 0; transform: translate3d(-10px, 0, 0); transition: opacity 0.4s var(--ease), transform 0.5s var(--ease-out); }
+.is-live .is-on .wb-spot-n { opacity: 1; transform: none; }
+
+/* Korsade band: ett gult och ett svart band som lutar åt var sitt håll och rullar åt var sitt håll. */
+.wb--band { padding-block: clamp(84px, 11vw, 168px); overflow: clip; }
+.wb-ribbons { position: relative; display: grid; }
+.wb-ribbon {
+  grid-area: 1 / 1;
+  align-self: center;
+  width: 130%;
+  margin-left: -15%;
+  padding-block: 0.55em;
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: clamp(1.125rem, 0.7rem + 2.2vw, 2.5rem);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.wb-ribbon-a { background: var(--c-accent); color: var(--c-on-accent); transform: translateY(-48%) rotate(-3deg); }
+.wb-ribbon-b { background: var(--c-primary); color: var(--c-on-primary); transform: translateY(48%) rotate(3deg); box-shadow: 0 20px 40px -20px rgb(0 0 0 / 0.45); }
+.wb-ribbon-track { display: inline-flex; align-items: center; gap: 0.7em; padding-left: 0.7em; translate: var(--sx, 0px) 0; }
+.wb-ribbon-b .wb-ribbon-track { translate: calc(var(--sx, 0px) * -1 - 12%) 0; }
+.wb-ribbon .wb-sep { font-family: var(--font-display); font-size: 1.1em; letter-spacing: 0; }
+.wb-ribbon-a .wb-sep { color: var(--c-on-accent); opacity: 0.45; }
+.wb-ribbon-b .wb-sep { color: var(--c-accent); }
+@keyframes wb-marquee { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
+.wb-ribbons.is-live .wb-ribbon-track { animation: wb-marquee 48s linear infinite; animation-play-state: paused; }
+.wb-ribbons.is-live .wb-ribbon-b .wb-ribbon-track { animation-direction: reverse; animation-duration: 56s; }
+.wb-ribbons.is-playing .wb-ribbon-track { animation-play-state: running; }
+
+/* Fyllning: orden står som en mening och fylls med färg i läsriktningen medan man skrollar. */
+.wb--fyllning { padding-block: clamp(64px, 10vw, 150px); }
+.wb-fill {
+  max-width: 17ch;
+  margin-inline: auto;
+  text-align: center;
+  text-wrap: balance;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: calc(clamp(2.5rem, 1rem + 5.4vw, 6.75rem) * var(--display-scale));
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+.wb-fill-unit { white-space: nowrap; }
+.wb-fill .wb-sep { display: inline-block; margin-inline: 0.18em 0.34em; font-size: 0.5em; vertical-align: 0.35em; }
+.wb-fill.is-live .wb-fill-word {
+  background: linear-gradient(90deg, var(--c-text) 50%, color-mix(in srgb, var(--c-text) 14%, transparent) 50%) no-repeat;
+  background-size: 200% 100%;
+  background-position: calc((1 - var(--f, 0)) * 100%) 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.wb-fill.is-live .wb-sep { opacity: 0.2; transition: opacity 0.4s var(--ease), transform 0.5s var(--ease-out); transform: scale(0.6); }
+.wb-fill.is-live .wb-sep.is-lit { opacity: 1; transform: none; }
+
 /* ---------- Startsidans bakgrundsbild: långsam kameraåkning ----------
    Först zoomar bilden sakta ut (som tidigare), sedan glider den fram och tillbaka i en halv minut.
    Rörelsen är liten (några procent) så att det som valts under "Vilken del av bilden ska synas bäst?" syns hela tiden. */

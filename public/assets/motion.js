@@ -227,7 +227,79 @@
     });
   });
 
-  /* ---------- 5. Allt som följer skrollningen ---------- */
+  /* ---------- 5. Rullande ord: utseendena Ordbyte, Strålkastare, Korsade band och Fyllning ---------- */
+
+  function two(n) { return (n < 10 ? "0" : "") + n; }
+
+  // Ordbyte: sista ordet byts var 2,6 sekund medan avsnittet syns. En kopia av första ordet sist i listan
+  // gör att bytet tillbaka till början också glider uppåt.
+  (FULL ? $$("[data-wb-swap]") : []).forEach(function (box) {
+    var slot = box.querySelector(".wb-swap-slot");
+    var track = box.querySelector(".wb-swap-track");
+    var counter = box.querySelector("[data-wb-swap-n]");
+    var n = track.children.length;
+    if (n < 2) return;
+    track.appendChild(track.children[0].cloneNode(true));
+    var INTERVAL = 2600, i = 0, inView = false;
+    box.classList.add("is-live");
+    box.style.setProperty("--wb-int", INTERVAL + "ms");
+    function fit() { slot.style.setProperty("--wb-w", track.children[i].offsetWidth + "px"); }
+    function tick() { slot.classList.remove("is-ticking"); void slot.offsetWidth; slot.classList.add("is-ticking"); }
+    function show() {
+      track.style.transform = "translate3d(0," + (-i * 100 / (n + 1)).toFixed(4) + "%,0)";
+      fit();
+      counter.textContent = two((i % n) + 1);
+      tick();
+    }
+    // Framme vid kopian: hoppa osynligt tillbaka till det riktiga första ordet.
+    function rewind() {
+      if (i !== n) return;
+      track.style.transition = "none";
+      i = 0;
+      track.style.transform = "translate3d(0,0,0)";
+      void track.offsetWidth;
+      track.style.transition = "";
+    }
+    track.addEventListener("transitionend", function (e) { if (e.target === track) rewind(); });
+    window.setInterval(function () {
+      if (!inView || document.hidden) return;
+      rewind(); // om transitionend uteblev (t.ex. i en bakgrundsflik)
+      i++;
+      show();
+    }, INTERVAL);
+    new IntersectionObserver(function (es) {
+      inView = es[0].isIntersecting;
+      box.classList.toggle("is-paused", !inView);
+    }, { threshold: 0.3 }).observe(box);
+    show();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    window.addEventListener("resize", fit);
+  });
+
+  // Strålkastare
+  var spot = FULL ? document.querySelector("[data-wb-spot]") : null;
+  var spotSec = spot && spot.closest(".wordband");
+  var spotWords = spot ? $$(".wb-spot-word", spot) : [];
+  var spotLine = 0;
+  if (spot && spotWords.length > 1) {
+    spotSec.classList.add("is-live");
+    spotSec.style.setProperty("--n", String(spotWords.length));
+  } else spot = null;
+
+  // Korsade band: rullar bara när de syns; skrollningen ger en extra knuff åt var sitt håll.
+  var ribbons = FULL ? document.querySelector("[data-wb-ribbons]") : null;
+  if (ribbons) {
+    ribbons.classList.add("is-live");
+    new IntersectionObserver(function (es) { ribbons.classList.toggle("is-playing", es[0].isIntersecting && !document.hidden); }).observe(ribbons);
+  }
+
+  // Fyllning
+  var fill = FULL ? document.querySelector("[data-wb-fill]") : null;
+  var fillWords = fill ? $$(".wb-fill-word", fill) : [];
+  var fillSeps = fill ? $$(".wb-sep", fill) : [];
+  if (fill) fill.classList.add("is-live");
+
+  /* ---------- 6. Allt som följer skrollningen ---------- */
 
   var header = document.querySelector("[data-header]");
   var hero = FULL ? document.querySelector("main > .hero") : null;
@@ -249,6 +321,7 @@
       // Är toppen högre än skärmen stannar den först när dess nederkant syns, så att inget döljs.
       hero.style.setProperty("--hero-top", Math.min(0, vh - heroH) + "px");
     }
+    if (spot) spotLine = spotWords[0].offsetHeight;
     var long = document.documentElement.scrollHeight > vh * 2.6;
     root.classList.toggle("has-progress", !!header && long && !hero);
   }
@@ -285,6 +358,37 @@
       var x = dir < 0 ? -4 - p * 22 : -30 + p * 22;
       track.style.transform = "translate3d(" + x.toFixed(3) + "%,0,0)";
     });
+
+    if (spot) {
+      var sr = spotSec.getBoundingClientRect();
+      if (sr.bottom > -50 && sr.top < vh + 50) {
+        // 0 när scenen fastnar upptill, 1 när den släpper – då har alla ord passerat mitten.
+        var a = clamp(-sr.top / ((sr.height - vh) || 1), 0, 1) * (spotWords.length - 1);
+        spot.style.transform = "translate3d(0," + (((spotWords.length - 1) / 2 - a) * spotLine).toFixed(2) + "px,0)";
+        spotWords.forEach(function (w, k) {
+          var d = Math.abs(k - a);
+          w.style.setProperty("--d", d.toFixed(3));
+          w.classList.toggle("is-on", d < 0.5);
+        });
+      }
+    }
+
+    if (ribbons) {
+      var rr = ribbons.getBoundingClientRect();
+      if (rr.bottom > 0 && rr.top < vh) ribbons.style.setProperty("--sx", ((vh - rr.top) * -0.18).toFixed(1) + "px");
+    }
+
+    if (fill) {
+      var fr = fill.getBoundingClientRect();
+      if (fr.bottom > -50 && fr.top < vh + 50) {
+        // Fylls medan texten går från nedre delen av skärmen upp till strax ovanför mitten.
+        var fp = clamp((vh * 0.85 - fr.top) / (fr.height + vh * 0.4), 0, 1) * fillWords.length;
+        fillWords.forEach(function (w, k) {
+          w.style.setProperty("--f", clamp(fp - k, 0, 1).toFixed(3));
+          if (fillSeps[k]) fillSeps[k].classList.toggle("is-lit", fp >= k + 1);
+        });
+      }
+    }
 
     lastY = y;
   }

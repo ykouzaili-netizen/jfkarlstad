@@ -175,11 +175,19 @@ export const PAGES = [
       area("value_3_text", "Värdeord 3 – text", "Inspark, sittningar, banketter och idrott. Det som gör studietiden till mer än tentor.", { required: true }),
     ]),
     sec("ordband", "Rullande ord", [
+      choice("wordband_style", "Utseende", "rullband", [
+        { value: "rullband", label: "Rullande rader", hint: "Två rader med stora ord som glider åt var sitt håll när man skrollar" },
+        { value: "ordbyte", label: "Ordbyte", hint: "”JFK står för …” – det sista ordet byts ut av sig självt, som på en avgångstavla" },
+        { value: "stralkastare", label: "Strålkastare", hint: "Orden står under varandra och lyser upp ett i taget medan man skrollar" },
+        { value: "band", label: "Korsade band", hint: "Två lutande band i gult och svart som rullar åt var sitt håll" },
+        { value: "fyllning", label: "Fyllning", hint: "Orden fylls med färg ett efter ett i takt med att man skrollar" },
+      ], { required: true, help: "Rörelsen syns på webbplatsen men inte i förhandsvisningen här bredvid." }),
       list("wordband_words", "Orden", "Juridik\nGemenskap\nKarriär\nSkatterätt\nNätverk\nPåverkan", {
         required: true,
-        help: "Ett ord eller ett kort uttryck per rad, gärna 4–8 stycken. De glider i sidled i stor stil när besökaren skrollar förbi.",
+        help: "Ett ord eller ett kort uttryck per rad, gärna 4–8 stycken.",
       }),
-    ], "Stora ord som glider åt var sitt håll när man skrollar – ett blickfång mellan avsnitten. Vill ni inte ha det döljer ni avsnittet."),
+      text("wordband_lead", "Text före orden", "JFK står för", { more: true, help: "Används bara i utseendet Ordbyte, t.ex. ”JFK står för” eller ”Hos oss hittar du”." }),
+    ], "Stora ord som blickfång mellan avsnitten. Vill ni inte ha dem döljer ni avsnittet."),
     sec("intro", "”Vilka är JFK?”", [
       text("intro_title", "Rubrik", "Vilka är JFK?", { required: true }),
       area("intro_text", "Text", "Juridiska Föreningen i Karlstad är en partipolitiskt och religiöst obunden ideell studentförening, grundad 2011. Vi finns till för dig som läser juristprogrammet eller masterprogrammet i skatterätt vid Handelshögskolan på Karlstads universitet.\n\nVi bevakar utbildningens kvalitet, skapar kontakter med framtida arbetsgivare och ordnar allt från föreläsningar och arbetsmarknadsdagar till sittningar och idrott – så att du får de bästa förutsättningarna både i studierna och i studentlivet.", { required: true, help: "Lämna en tom rad mellan styckena." }),
