@@ -19,6 +19,8 @@ const EXTRA_DEFAULTS = {
   font_heading: "playfair",
   /** Rörelse och animationer: "full" (standard), "lugn" (bara mjuka toningar) eller "av". */
   motion_level: "full",
+  /** Introt med logotypen när man kommer till startsidan: "pa" (standard) eller "av". */
+  intro_enabled: "pa",
   color_background: "#fff7d6",
   color_accent: "#f1cc4d",
   color_button: "#f1cc4d",

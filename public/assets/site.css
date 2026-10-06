@@ -494,6 +494,39 @@ main:focus { outline: none; }
 .page-title { font-size: calc(clamp(2.25rem, 1.6rem + 3vw, 4rem) * var(--display-scale)); line-height: 1.05; letter-spacing: -0.025em; }
 .page-lead { margin-top: 18px; font-size: 1.25rem; color: var(--c-muted); max-width: 52ch; }
 
+/* ---------- Introt på startsidan (intro-check.js + intro.js) ----------
+   intro-on: skärmen är svart från första bildrutan. intro-run: animationen går – toppens egna animationer väntar
+   och sidan skrollar inte. Reserv: om skriptet aldrig kommer igång tonar skärmen bort av sig själv. */
+.intro { display: none; }
+.intro-on .intro {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: var(--c-primary);
+  animation: intro-failsafe 0.5s ease 4.5s forwards;
+}
+.intro-on .intro.is-playing { animation: none; }
+@keyframes intro-failsafe { to { opacity: 0; visibility: hidden; } }
+.intro-run, .intro-run body { overflow: hidden; }
+.intro-run .hero, .intro-run .hero * { animation-play-state: paused !important; }
+.intro-logo { width: min(64vmin, 360px); height: auto; overflow: visible; }
+.intro-logo :is(path, circle) { transform-box: fill-box; transform-origin: 50% 50%; }
+.intro-logo .i-bokstav { transform-origin: 50% 100%; }
+/* Vågen dämpad som i originalet – genomskinligheten ligger i färgen, så att animationen kan tona till full styrka */
+.intro-logo .i-stomme, .intro-logo .i-skal { fill: rgb(218 218 218 / 0.3); }
+.intro-logo .i-trad { fill: none; stroke: rgb(218 218 218 / 0.45); stroke-width: 0.5; }
+.intro-logo .i-krans { fill: #f5d729; }
+.intro-logo .i-jfk { fill: #fff; }
+.intro-logo .i-bagtext { fill: rgb(255 255 255 / 0.9); }
+.intro-logo .i-dot { fill: #f5d729; }
+.intro-logo .i-ring { stroke: #f5d729; stroke-width: 1.2; opacity: 0; }
+/* Innan animationen startat: inget av logotypen syns (WAAPI tar över med fill: both) */
+.intro-logo :is(.i-stomme, .i-skal, .i-blad, .i-tecken, .i-dot) { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .intro-on .intro { display: none; } }
+@media print { .intro { display: none !important; } }
+
 /* ---------- Bildspel (Texter och sidor → bildfältet → Visa som: Bildspel) ----------
    Bilderna ligger i samma ruta ovanpå varandra; bara den aktiva syns. Utan JavaScript, med rörelse "Av"
    eller "minska rörelse" visas den första bilden och står still. site.js tonar över var sjätte sekund. */

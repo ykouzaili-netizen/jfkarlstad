@@ -255,6 +255,7 @@ export async function appearancePage(c: RequestContext, session: Session, overri
                 </label>`,
               )}
             </div>
+            <label class="check-field intro-toggle"><input type="checkbox" name="intro_enabled" value="pa"${s.intro_enabled !== "av" ? html` checked` : ""}><span><strong>Intro med logotypen</strong> när någon kommer till startsidan – logotypen ritas fram på svart bakgrund i drygt två sekunder och tonar sedan över till sidan. Visas bara när man kommer utifrån (inte när man klickar sig tillbaka) och kan hoppas över med ett klick. <a href="/?intro" target="_blank" rel="noopener">Visa introt</a></span></label>
             <p class="field-help">Förhandsvisningen här bredvid visar sidan utan rörelse. <a href="/" target="_blank" rel="noopener">Öppna webbplatsen i en ny flik</a> för att se hur det rör sig efter att du har sparat.</p>
           </section>
 
@@ -287,7 +288,7 @@ export async function appearanceSubmit(c: RequestContext, session: Session): Pro
   if (!checkCsrf(c, session, form)) return redirect("/admin/utseende?fel=csrf", 303);
 
   if (form.get("aterstall")) {
-    await c.env.DB.prepare(`DELETE FROM settings WHERE key IN (${[...THEME_KEYS, "font_heading", "motion_level"].map(() => "?").join(",")})`).bind(...THEME_KEYS, "font_heading", "motion_level").run();
+    await c.env.DB.prepare(`DELETE FROM settings WHERE key IN (${[...THEME_KEYS, "font_heading", "motion_level", "intro_enabled"].map(() => "?").join(",")})`).bind(...THEME_KEYS, "font_heading", "motion_level", "intro_enabled").run();
     await audit(c.env, session, "återställde", "utseende", null, "Färger, typsnitt och rörelse till standard");
     return redirect("/admin/utseende?klart=aterstallt", 303);
   }
@@ -307,6 +308,7 @@ export async function appearanceSubmit(c: RequestContext, session: Session): Pro
   updates.push(["font_heading", font === "cormorant" ? "cormorant" : "playfair"]);
   const motion = String(form.get("motion_level") ?? "full");
   updates.push(["motion_level", motion in MOTION_LEVELS ? motion : "full"]);
+  updates.push(["intro_enabled", form.get("intro_enabled") === "pa" ? "pa" : "av"]);
 
   const s = await loadSettings(c.env.DB);
   const res = await handleUpload(c.env, form, "logo", "image", "logo", session.user.email);

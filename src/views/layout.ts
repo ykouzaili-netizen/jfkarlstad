@@ -8,7 +8,7 @@ import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "44";
+export const ASSET_VERSION = "45";
 
 export interface PageMeta {
   title: string;
@@ -223,6 +223,8 @@ export function layout(c: RequestContext, s: Settings, meta: PageMeta, content: 
   const motion = c.preview || c.editMap ? "av" : motionLevel(s);
   // Mjuka sidbyten (View Transitions) går inte att slå av med en klass, så regeln skickas bara med när rörelse är på.
   const transitions = motion === "av" ? "" : "@media (prefers-reduced-motion:no-preference){@view-transition{navigation:auto}}";
+  // Introt (Utseende → Rörelse): bara på startsidan, aldrig i förhandsvisningen och inte när rörelse är av.
+  const intro = isHome && motion !== "av" && s.intro_enabled !== "av";
   const bodyClass = [c.preview ? "is-preview" : "", c.editMap ? "is-editmap" : "", meta.overlayHeader ? "has-overlay-header" : ""].filter(Boolean).join(" ");
 
   const doc = html`<!doctype html>
@@ -249,11 +251,13 @@ ${favicon(s)}
 <link rel="preload" href="${HEADING_FONTS[headingFont(s)].file}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css?v=${ASSET_VERSION}">
 <style nonce="${c.nonce}">${raw(themeCss(s) + blockColorCss(s) + imageFitCss(imageFits(s)) + textStyleCss(siteLayout(s).styles) + transitions)}</style>
+${intro ? html`<script src="/assets/intro-check.js?v=${ASSET_VERSION}"></script><script src="/assets/intro.js?v=${ASSET_VERSION}" defer></script>` : ""}
 <script src="/assets/site.js?v=${ASSET_VERSION}" defer></script>
 ${motion === "av" ? "" : html`<script src="/assets/motion.js?v=${ASSET_VERSION}" defer></script>`}
 ${ld}
 </head>
 <body${bodyClass ? html` class="${bodyClass}"` : ""}>
+${intro ? html`<div class="intro" data-intro="/assets/intro-logo.svg?v=${ASSET_VERSION}" aria-hidden="true"></div>` : ""}
 <a class="skip-link" href="#innehall">Hoppa till innehållet</a>
 ${header(c, s)}
 <main id="innehall" tabindex="-1">
