@@ -1105,14 +1105,21 @@
   });
 })();
 
-// Kontrastvarning vid egna färger: för varje grupp av färgfält (…_c_bg med …_c_text och/eller …_c_title)
-// räknas kontrasten ut enligt WCAG medan man väljer. Varningen visas bara när texten blir svårläst.
+// Egna färger i Texter och sidor:
+//  1. Snabbval – sajtens färger (Utseende) som rutor att klicka på vid varje färgfält.
+//  2. Fråga i stället för automatik – byter man bakgrund (eller detaljfärg) och andra färger i avsnittet
+//     då blir svåra att se, frågar panelen om de ska anpassas och visar exakt vad som ändras. Inget ändras utan ja.
+//  3. Kontrastvarning – visas när rubrik eller text blir svårläst med de färger som faktiskt är valda.
 (function () {
   var form = document.getElementById("texter-form");
   if (!form) return;
   var HEX = /^#[0-9a-f]{6}$/i;
+  var INK = "#141414", PAPER = "#ffffff";
   var siteBg = form.getAttribute("data-site-bg") || "#ffffff";
-  var siteText = form.getAttribute("data-site-text") || "#141414";
+  var siteText = form.getAttribute("data-site-text") || INK;
+  var siteAccent = form.getAttribute("data-site-accent") || "#f1cc4d";
+  var palette = [];
+  try { palette = JSON.parse(form.getAttribute("data-site-palette") || "[]"); } catch (e) { palette = []; }
 
   function lum(hex) {
     var c = [1, 3, 5].map(function (i) {
@@ -1125,44 +1132,192 @@
     var x = lum(a), y = lum(b);
     return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
   }
-  // Samma regel som servern (readableOn): svart eller vit text, det som syns bäst.
-  function readableOn(bg) { return ratio(bg, "#141414") >= ratio(bg, "#ffffff") ? "#141414" : "#ffffff"; }
-  function val(name) {
-    var el = form.querySelector('input[type="text"][name="' + name + '"]');
-    return el && HEX.test(el.value) ? el.value.toLowerCase() : "";
+  function readableOn(bg) { return ratio(bg, INK) >= ratio(bg, PAPER) ? INK : PAPER; }
+  function nameOf(hex) {
+    if (hex === INK) return "svart";
+    if (hex === PAPER) return "vit";
+    for (var i = 0; i < palette.length; i++) if (palette[i][1] === hex) return palette[i][0].toLowerCase();
+    return hex;
   }
-  function has(name) { return !!form.querySelector('input[type="text"][name="' + name + '"]'); }
   var fmt = function (n) { return n.toFixed(1).replace(".", ","); };
 
+  function input(name) { return form.querySelector('input[type="text"][name="' + name + '"]'); }
+  function val(name) {
+    var el = input(name);
+    return el && HEX.test(el.value) ? el.value.toLowerCase() : "";
+  }
+  function wrapOf(el) { return el.closest(".field, .field-color") || el.parentNode; }
+  function labelOf(name) {
+    var l = wrapOf(input(name)).querySelector(".field-label");
+    var txt = l ? l.childNodes[0].textContent : name;
+    // "Stängd – färg: själva låset" → "Själva låset"
+    txt = txt.replace(/^.*?färg:\s*/i, "").trim();
+    return txt.charAt(0).toUpperCase() + txt.slice(1);
+  }
+  var applying = false;
+  function setColor(name, hex) {
+    var el = input(name);
+    if (!el) return;
+    el.value = hex;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  /* ---------- 1. Snabbval ---------- */
+  form.querySelectorAll("[data-color-pick]").forEach(function (pick) {
+    var text = pick.querySelector('input[type="text"]');
+    if (!text || !palette.length) return;
+    var row = document.createElement("div");
+    row.className = "color-swatches";
+    row.setAttribute("role", "group");
+    row.setAttribute("aria-label", "Sajtens färger");
+    var lbl = document.createElement("span");
+    lbl.className = "color-swatches-label";
+    lbl.textContent = "Sajtens färger:";
+    row.appendChild(lbl);
+    palette.forEach(function (p) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "color-swatch";
+      b.title = p[0] + " (" + p[1] + ")";
+      b.setAttribute("aria-label", "Använd " + p[0].toLowerCase() + " " + p[1]);
+      b.setAttribute("data-swatch", p[1]);
+      b.style.backgroundColor = p[1];
+      b.addEventListener("click", function () { setColor(text.name, p[1]); });
+      row.appendChild(b);
+    });
+    pick.after(row);
+  });
+  function markSwatches() {
+    form.querySelectorAll(".color-swatches").forEach(function (row) {
+      var text = row.previousElementSibling && row.previousElementSibling.querySelector('input[type="text"]');
+      var v = text && HEX.test(text.value) ? text.value.toLowerCase() : "";
+      row.querySelectorAll("[data-swatch]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-swatch") === v)); });
+    });
+  }
+
+  /* ---------- Grupper: …_c_bg tillsammans med avsnittets övriga färgfält ---------- */
+  var TEXTLIKE = ["text", "title", "link"];
   var groups = Array.prototype.slice.call(form.querySelectorAll('input[type="text"][name$="_c_bg"]')).map(function (el) {
     var prefix = el.name.slice(0, -5);
-    var parts = ["text", "title"].filter(function (k) { return has(prefix + "_c_" + k); });
-    var last = form.querySelector('input[type="text"][name="' + prefix + "_c_" + (parts[parts.length - 1] || "bg") + '"]').closest(".field, .field-color") || el;
-    var box = document.createElement("p");
-    box.className = "alert alert-warn contrast-hint";
-    box.setAttribute("role", "status");
-    box.hidden = true;
-    last.after(box);
-    return { prefix: prefix, parts: parts, box: box };
+    var has = function (k) { return !!input(prefix + "_c_" + k); };
+    var textParts = TEXTLIKE.filter(has);
+    var lastName = prefix + "_c_" + (textParts[textParts.length - 1] || "bg");
+    var warn = document.createElement("p");
+    warn.className = "alert alert-warn contrast-hint";
+    warn.setAttribute("role", "status");
+    warn.hidden = true;
+    wrapOf(input(lastName)).after(warn);
+    return { prefix: prefix, textParts: textParts, hasAccent: has("accent"), hasIcon: has("icon"), warn: warn, ask: null };
   });
 
+  /* ---------- 2. Fråga om anpassning ---------- */
+  function proposals(g, changed) {
+    var out = [];
+    if (changed === "bg") {
+      var bg = val(g.prefix + "_c_bg");
+      if (!bg) return out;
+      var target = readableOn(bg);
+      g.textParts.forEach(function (k) {
+        var name = g.prefix + "_c_" + k;
+        if (ratio(val(name) || siteText, bg) < 4.5) out.push({ name: name, hex: target });
+      });
+      if (g.hasAccent) {
+        var an = g.prefix + "_c_accent";
+        if (ratio(val(an) || siteAccent, bg) < 1.6) out.push({ name: an, hex: target, why: "syns inte mot bakgrunden" });
+      }
+    } else if (changed === "accent" && g.hasIcon) {
+      var acc = val(g.prefix + "_c_accent");
+      var icon = g.prefix + "_c_icon";
+      if (acc && ratio(val(icon) || readableOn(siteAccent), acc) < 3) out.push({ name: icon, hex: readableOn(acc) });
+    }
+    return out.filter(function (p) { return val(p.name) !== p.hex; });
+  }
+  function closeAsk(g) { if (g.ask) { g.ask.remove(); g.ask = null; } }
+  function ask(g, changed) {
+    closeAsk(g);
+    var list = proposals(g, changed);
+    if (!list.length) return;
+    var box = document.createElement("div");
+    box.className = "color-ask";
+    box.setAttribute("role", "group");
+    box.setAttribute("aria-label", "Anpassa färgerna");
+    var q = document.createElement("p");
+    q.className = "color-ask-q";
+    q.textContent = changed === "bg"
+      ? "Vill du anpassa de andra färgerna i avsnittet så att de syns mot den nya bakgrunden?"
+      : "Vill du anpassa låset så att det syns mot den nya färgen?";
+    box.appendChild(q);
+    var ul = document.createElement("ul");
+    list.forEach(function (p) {
+      var li = document.createElement("li");
+      var dot = document.createElement("span");
+      dot.className = "color-ask-dot";
+      dot.style.backgroundColor = p.hex;
+      li.appendChild(dot);
+      li.appendChild(document.createTextNode(labelOf(p.name) + " blir " + nameOf(p.hex)));
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    var actions = document.createElement("div");
+    actions.className = "color-ask-actions";
+    var yes = document.createElement("button");
+    yes.type = "button";
+    yes.className = "btn btn-primary btn-sm";
+    yes.textContent = "Ja, anpassa";
+    var no = document.createElement("button");
+    no.type = "button";
+    no.className = "btn btn-outline btn-sm";
+    no.textContent = "Nej, behåll som det är";
+    yes.addEventListener("click", function () {
+      applying = true;
+      list.forEach(function (p) { setColor(p.name, p.hex); });
+      applying = false;
+      closeAsk(g);
+      refresh();
+      var first = input(list[0].name);
+      if (first) first.focus();
+    });
+    no.addEventListener("click", function () {
+      closeAsk(g);
+      var el = input(g.prefix + "_c_" + changed);
+      if (el) el.focus();
+    });
+    actions.appendChild(yes);
+    actions.appendChild(no);
+    box.appendChild(actions);
+    g.ask = box;
+    // Under fältet som ändrades
+    var anchor = wrapOf(input(g.prefix + "_c_" + changed));
+    var sw = anchor.querySelector(".color-swatches");
+    anchor.appendChild(box);
+    if (sw) sw.after(box);
+  }
+
+  /* ---------- 3. Kontrastvarning (bara de färger som faktiskt är valda) ---------- */
   function check(g) {
-    var bgSet = val(g.prefix + "_c_bg");
-    var bg = bgSet || siteBg;
+    var bg = val(g.prefix + "_c_bg") || siteBg;
     var worst = null;
-    g.parts.forEach(function (k) {
-      var t = val(g.prefix + "_c_" + k) || (bgSet ? readableOn(bgSet) : siteText);
-      var r = ratio(t, bg);
+    g.textParts.forEach(function (k) {
+      var r = ratio(val(g.prefix + "_c_" + k) || siteText, bg);
       if (!worst || r < worst.r) worst = { r: r, k: k };
     });
-    if (!worst || worst.r >= 4.5) { g.box.hidden = true; return; }
-    var what = worst.k === "title" ? "Rubriken" : "Texten";
-    g.box.textContent = what + " blir svårläst – kontrasten mot bakgrunden är " + fmt(worst.r) + ":1 (minst 4,5:1 behövs). " +
-      "Välj en ljusare eller mörkare färg, eller tryck ”Standard” på textfärgen så blir den automatiskt svart eller vit.";
-    g.box.hidden = false;
+    if (!worst || worst.r >= 4.5) { g.warn.hidden = true; return; }
+    g.warn.textContent = labelOf(g.prefix + "_c_" + worst.k) + " blir svårläst – kontrasten mot bakgrunden är " + fmt(worst.r) +
+      ":1 (minst 4,5:1 behövs). Välj en ljusare eller mörkare färg, eller klicka på svart eller vit bland sajtens färger.";
+    g.warn.hidden = false;
   }
-  function all() { groups.forEach(check); }
-  form.addEventListener("input", function (e) { if (e.target.name && /_c_[a-z]+$/.test(e.target.name)) all(); });
-  form.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("[data-color-clear]")) setTimeout(all, 0); });
-  all();
+  function refresh() { groups.forEach(check); markSwatches(); }
+
+  form.addEventListener("input", function (e) {
+    if (e.target.name && /_c_[a-z]+$/.test(e.target.name)) refresh();
+  });
+  form.addEventListener("change", function (e) {
+    var m = e.target.name && e.target.name.match(/^(.*)_c_(bg|accent)$/);
+    if (!m || applying || e.target.type !== "text") return;
+    var g = groups.filter(function (x) { return x.prefix === m[1]; })[0];
+    if (g) ask(g, m[2]);
+  });
+  form.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("[data-color-clear]")) setTimeout(refresh, 0); });
+  refresh();
 })();

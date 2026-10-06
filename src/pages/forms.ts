@@ -8,7 +8,7 @@ import { checkFormToken, clientIp, formToken, rateLimit, turnstileEnabled, verif
 import { mailConfigured, sendMail } from "../lib/mail.js";
 import { renderInline, renderMarkdown } from "../lib/markdown.js";
 import { htmlResponse, redirect } from "../lib/http.js";
-import { isHex, readableOn } from "../lib/color.js";
+import { isHex } from "../lib/color.js";
 import { formatDay, formatLocalDateTime, localToIso, monthName, parseLocal, stockholmNow, stockholmToday, telHref } from "../lib/format.js";
 import type { RequestContext } from "../router.js";
 import type { Env } from "../env.js";
@@ -139,12 +139,9 @@ function countdown(s: Settings, local: string, label: string, reload: boolean): 
 }
 
 /** Egna färger (tomt = sajtens färger) blir CSS-variabler och klasser på avsnittet. Värdena är kontrollerade hexkoder. */
-function customColors(c: RequestContext, s: Settings, selector: string, parts: Record<string, string>, autoOn?: { from: string; to: string[] }) {
+function customColors(c: RequestContext, s: Settings, selector: string, parts: Record<string, string>) {
   const vars: Record<string, string> = {};
   for (const [name, value] of Object.entries(parts)) if (isHex(value)) vars[name] = value.toLowerCase();
-  // Bara bakgrunden vald → rubrik och text får svart eller vitt, det som syns bäst.
-  if (autoOn && vars[autoOn.from]) for (const k of autoOn.to) vars[k] ??= readableOn(vars[autoOn.from]!);
-  if (vars.accent && !vars.icon) vars.icon = readableOn(vars.accent);
   const names = Object.keys(vars);
   if (!names.length) return { cls: "", style: html`` };
   const css = names.map((n) => `--sc-${n}:${vars[n]};`).join("");
@@ -445,7 +442,7 @@ function closedSection(c: RequestContext, s: Settings, signup: SignupState): Saf
     icon: s.engage_closed_c_icon,
     box: s.engage_closed_c_box,
     num: s.engage_closed_c_num,
-  }, { from: "bg", to: ["title", "text"] });
+  });
   return html`${colors.style}<section class="section signup-closed-section signup-closed-section--${s.engage_closed_style}${colors.cls}" aria-labelledby="anmalan"><div class="container">${signupClosed(s, signup)}</div></section>`;
 }
 
@@ -458,7 +455,7 @@ function deadline(c: RequestContext, s: Settings, signup: SignupState): SafeHtml
     text: s.engage_open_c_text,
     box: s.engage_open_c_box,
     num: s.engage_open_c_num,
-  }, { from: "bg", to: ["text"] });
+  });
   return html`${colors.style}<div class="signup-deadline${colors.cls}">
     <p class="signup-deadline-text"${ek(s, "engage_open_countdown_text")}>${icon("clock", "icon icon-sm")}<span>${fill(s.engage_open_countdown_text, { datum: date })}</span></p>
     ${countdown(s, signup.closes, date, false)}

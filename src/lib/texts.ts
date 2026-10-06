@@ -130,7 +130,7 @@ function heroFields<const P extends string>(p: P) {
  */
 function blockColorFields<const P extends string>(p: P) {
   return [
-    color(`${p}_c_bg` as `${P}_c_bg`, "Färg: bakgrund", "", { help: "Färgfälten är valfria – tomt (”Standard”) = sajtens vanliga färg. Väljer du bara bakgrund får rubrik och text automatiskt svart eller vit färg som syns bra. Korten i avsnittet behåller sina vanliga färger så att de alltid är lätta att läsa." }),
+    color(`${p}_c_bg` as `${P}_c_bg`, "Färg: bakgrund", "", { help: "Färgfälten är valfria – tomt (”Standard”) = sajtens vanliga färg. Klicka på en av sajtens färger eller välj en egen. När du byter bakgrund frågar panelen om text och detaljer ska anpassas så att de syns. Korten i avsnittet behåller sina vanliga färger." }),
     color(`${p}_c_text` as `${P}_c_text`, "Färg: rubrik och text", ""),
     color(`${p}_c_accent` as `${P}_c_accent`, "Färg: detaljer", "", { help: "Understrykningar, ikoner, avsnittsnummer och liknande detaljer." }),
   ] as const;
@@ -220,7 +220,7 @@ export const PAGES = [
         { value: "storre", label: "Lite större" },
         { value: "stor", label: "Stor" },
       ], { required: true }),
-      color("wordband_c_bg", "Färg: bakgrund", "", { help: "Alla färgfälten är valfria – tomt (”Standard”) = sajtens vanliga färg. Väljer du bara bakgrund får orden automatiskt svart eller vit färg som syns bra." }),
+      color("wordband_c_bg", "Färg: bakgrund", "", { help: "Alla färgfälten är valfria – tomt (”Standard”) = sajtens vanliga färg. När du byter bakgrund frågar panelen om orden och detaljerna ska anpassas så att de syns." }),
       color("wordband_c_text", "Färg: orden", ""),
       color("wordband_c_accent", "Färg: §-tecken och detaljer", "", { help: "Paragraftecknen, linjen under ordet i Ordbyte, numren i Strålkastare och markören i Paragrafen." }),
       text("wordband_lead", "Text före orden", "JFK står för", { more: true, help: "Används i Ordbyte och Paragrafen, t.ex. ”JFK står för” eller ”Hos oss hittar du”." }),
@@ -608,12 +608,12 @@ export const PAGES = [
         { value: "pa", label: "Visa nedräkning", hint: "Räknar ned dagar, timmar och minuter till att anmälan öppnar (när ett datum är ifyllt)" },
         { value: "av", label: "Ingen nedräkning", hint: "Bara rubrik, text och datum" },
       ], { required: true }),
-      color("engage_closed_c_bg", "Stängd – färg: bakgrund", "", { help: "Alla färgfälten är valfria – tomt (”Standard”) = sajtens vanliga färg. Väljer du bara bakgrund får rubrik och text automatiskt svart eller vit färg som syns bra." }),
+      color("engage_closed_c_bg", "Stängd – färg: bakgrund", "", { help: "Alla färgfälten är valfria – tomt (”Standard”) = sajtens vanliga färg. När du byter bakgrund frågar panelen om rubrik, text och länkar ska anpassas så att de syns." }),
       color("engage_closed_c_title", "Stängd – färg: rubrik", ""),
       color("engage_closed_c_text", "Stängd – färg: text", ""),
       color("engage_closed_c_link", "Stängd – färg: länkar", ""),
       color("engage_closed_c_accent", "Stängd – färg: låsets cirkel och datumbrickan", ""),
-      color("engage_closed_c_icon", "Stängd – färg: själva låset", "", { help: "Lämna tomt så blir låset svart eller vitt beroende på vad som syns bäst." }),
+      color("engage_closed_c_icon", "Stängd – färg: själva låset", "", { help: "Lämna tomt för sajtens vanliga färg. När du byter färg på cirkeln frågar panelen om låset ska anpassas så att det syns." }),
       color("engage_closed_c_box", "Stängd – färg: nedräkningens rutor", ""),
       color("engage_closed_c_num", "Stängd – färg: nedräkningens siffror", ""),
       text("engage_closed_title", "Stängd – rubrik", "Anmälan är stängd"),
@@ -632,7 +632,7 @@ export const PAGES = [
         { value: "av", label: "Ingen nedräkning", hint: "Anmälan stänger ändå vid tiden du har angett" },
       ], { required: true }),
       text("engage_open_countdown_text", "Öppen – text vid nedräkningen", "Anmälan stänger {datum}", { help: "{datum} byts ut mot datumet då anmälan stänger." }),
-      color("engage_open_c_bg", "Öppen – färg: nedräkningens bakgrund", "", { help: "Tomt (”Standard”) = sajtens vanliga färg. Väljer du bara bakgrund blir texten automatiskt svart eller vit." }),
+      color("engage_open_c_bg", "Öppen – färg: nedräkningens bakgrund", "", { help: "Tomt (”Standard”) = sajtens vanliga färg. När du byter bakgrund frågar panelen om texten ska anpassas så att den syns." }),
       color("engage_open_c_text", "Öppen – färg: nedräkningens text", ""),
       color("engage_open_c_box", "Öppen – färg: nedräkningens rutor", ""),
       color("engage_open_c_num", "Öppen – färg: nedräkningens siffror", ""),

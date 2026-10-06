@@ -709,3 +709,35 @@ a.admin-user:hover { background: var(--c-hover); }
 #rorelse .choice-grid { margin-block: 14px; }
 /* Kontrastvarning under färgfälten (admin.js) – samma utseende som övriga varningar */
 .contrast-hint { margin: -4px 0 18px; font-size: 0.875rem; line-height: 1.5; }
+
+/* Snabbval med sajtens färger under färgfälten (admin.js) */
+.color-swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.color-swatches-label { font-size: 0.8125rem; color: var(--c-muted); margin-right: 2px; }
+.color-swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 0.18);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.color-swatch:hover { transform: scale(1.12); }
+.color-swatch:focus-visible { outline: 3px solid var(--c-text); outline-offset: 2px; }
+.color-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--c-surface), 0 0 0 4px var(--c-text); }
+
+/* Frågan om de andra färgerna ska anpassas */
+.color-ask {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--c-border);
+  border-left: 4px solid var(--c-accent);
+  border-radius: 12px;
+  background: var(--c-surface);
+  box-shadow: var(--shadow-sm);
+}
+.color-ask-q { font-weight: 600; font-size: 0.9375rem; }
+.color-ask ul { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 4px; font-size: 0.875rem; }
+.color-ask li { display: flex; align-items: center; gap: 8px; }
+.color-ask-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgb(0 0 0 / 0.2); flex: none; }
+.color-ask-actions { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -1,5 +1,5 @@
 import { html, type SafeHtml } from "../lib/html.js";
-import { isHex } from "../lib/color.js";
+import { isHex, luminance } from "../lib/color.js";
 import { DEFAULT_SETTINGS, loadSettings, siteLayout, type SettingKey, type Settings } from "../lib/settings.js";
 import { PAGES, FIELD_INDEX, findPage, type FieldDef, type PageDef, type SectionDef } from "../lib/texts.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec } from "../lib/forms.js";
@@ -69,8 +69,26 @@ export async function saveSettings(
 // ───────────────────────── Hjälpfunktioner ─────────────────────────
 
 /** Sajtens färg (eller standardfärgen) – kontrastvarningen vid färgfälten räknar med den när ett fält står på "Standard". */
-function siteHex(s: Settings, key: "color_background" | "color_text"): string {
+type ThemeKey = "color_background" | "color_surface" | "color_text" | "color_primary" | "color_accent" | "color_button";
+function siteHex(s: Settings, key: ThemeKey): string {
   return isHex(s[key]) ? s[key].toLowerCase() : DEFAULT_SETTINGS[key];
+}
+
+/** Sajtens färger (Utseende) som snabbval vid färgfälten, som JSON: [[namn, "#rrggbb"], …]. Dubbletter tas bort. */
+function sitePalette(s: Settings): string {
+  const named: [string, string][] = [
+    ["Bakgrund", siteHex(s, "color_background")],
+    ["Kort och ytor", siteHex(s, "color_surface")],
+    ["Text", siteHex(s, "color_text")],
+    ["Primärfärg", siteHex(s, "color_primary")],
+    ["Accentfärg", siteHex(s, "color_accent")],
+    ["Knappar", siteHex(s, "color_button")],
+  ];
+  // Vit och svart som extra val, men bara om paletten inte redan har en nästan vit eller nästan svart färg.
+  if (!named.some(([, hex]) => luminance(hex) > 0.9)) named.push(["Vit", "#ffffff"]);
+  if (!named.some(([, hex]) => luminance(hex) < 0.02)) named.push(["Svart", "#141414"]);
+  const seen = new Set<string>();
+  return JSON.stringify(named.filter(([, hex]) => !seen.has(hex) && seen.add(hex)));
 }
 
 function toSpec(f: FieldDef): FieldSpec {
@@ -297,7 +315,7 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
       : ""}
     ${undoBox}
     <div class="editor-with-preview">
-      <form class="admin-form" id="texter-form" method="post" action="/admin/texter?sida=${page.id}" enctype="multipart/form-data" novalidate data-dirty-check data-accordion data-site-bg="${siteHex(s, "color_background")}" data-site-text="${siteHex(s, "color_text")}">
+      <form class="admin-form" id="texter-form" method="post" action="/admin/texter?sida=${page.id}" enctype="multipart/form-data" novalidate data-dirty-check data-accordion data-site-bg="${siteHex(s, "color_background")}" data-site-text="${siteHex(s, "color_text")}" data-site-accent="${siteHex(s, "color_accent")}" data-site-palette="${sitePalette(s)}">
         ${csrfField(session)}
         ${errorSummary(errors, page.sections.flatMap((sec) => textFields(sec).map(toSpec)))}
         <input type="hidden" name="__sida_id" value="${page.id}">

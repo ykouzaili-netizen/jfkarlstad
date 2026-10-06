@@ -1,6 +1,6 @@
 import { applyLayoutRow, arrangeBlocks, emptyLayout, type BlockRender, type SiteLayout } from "./pagelayout.js";
 import { FIT_PREFIX, parseFit, type ImageFit } from "./imagefit.js";
-import { contrastRatio, isHex, readableOn } from "./color.js";
+import { isHex, readableOn } from "./color.js";
 
 import { ALL_FIELDS, editUrlFor, FIELD_INDEX, type TextKey } from "./texts.js";
 import { raw, type SafeHtml } from "./html.js";
@@ -172,8 +172,9 @@ export const BLOCK_COLORS: Record<string, Record<string, string>> = {
 };
 
 /**
- * Färgerna för ett avsnitt, eller null om inga är valda. Bara bakgrund vald → texten blir svart eller vit.
- * Ligger bakgrunden för nära detaljfärgen (t.ex. gul på gul) tar detaljerna textfärgen (klassen bg-is-accent).
+ * Färgerna för ett avsnitt, eller null om inga är valda. Ingenting räknas om automatiskt: det som styrelsen
+ * har valt används. Vill man anpassa text och detaljer efter en ny bakgrund föreslår adminpanelen det
+ * (admin.js) och frågar först.
  */
 export function blockColors(s: Settings, pageId: string, blockId: string): { cls: string; css: string } | null {
   const prefix = BLOCK_COLORS[pageId]?.[blockId];
@@ -183,21 +184,15 @@ export function blockColors(s: Settings, pageId: string, blockId: string): { cls
     return isHex(v) ? v.toLowerCase() : "";
   };
   const bg = get("bg");
-  const text = get("text") || (bg ? readableOn(bg) : "");
-  let accent = get("accent");
+  const text = get("text");
+  const accent = get("accent");
   if (!bg && !text && !accent) return null;
   const name = `hb-${pageId}-${blockId}`;
-  let cls = ` ${name} has-colors`;
-  const site = isHex(s.color_accent) ? s.color_accent.toLowerCase() : DEFAULT_SETTINGS.color_accent;
-  if (bg && contrastRatio(bg, accent || site) < 1.6) {
-    accent = text;
-    cls += " bg-is-accent";
-  }
   let vars = "";
   if (bg) vars += `--c-bg:${bg};--c-surface:${bg};`;
   if (text) vars += `--c-text:${text};--c-muted:color-mix(in srgb,${text} 74%,transparent);--c-border:color-mix(in srgb,${text} 14%,transparent);--c-hover:color-mix(in srgb,${text} 8%,transparent);`;
   if (accent) vars += `--c-accent:${accent};--c-on-accent:${readableOn(accent)};`;
-  return { cls, css: `.${name}{${vars}}` };
+  return { cls: ` ${name} has-colors`, css: `.${name}{${vars}}` };
 }
 
 /** CSS för alla avsnitt med egna färger (skrivs i sidans <style> i layout.ts). Värdena är kontrollerade hexkoder. */

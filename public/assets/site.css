@@ -522,7 +522,6 @@ main:focus { outline: none; }
   --c-hover: var(--site-hover);
   color: var(--c-text);
 }
-.bg-is-accent .stat:nth-child(1) { background: var(--site-surface); color: var(--site-text); }
 /* Avsnitt som annars ligger tätt under sidans topp behöver luft ovanför sig när de får en egen bakgrund */
 .has-colors.section-tight-top { padding-top: var(--section-y); }
 
