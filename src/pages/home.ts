@@ -84,7 +84,7 @@ function hero(s: Settings, next: EventRow | undefined): SafeHtml {
     <div class="hero-media"${ek(s, "hero_image_key")}>
       ${img
         ? mobileImg
-          ? html`<picture class="hero-picture"><source media="(max-aspect-ratio: 1/1)" srcset="${mediaUrl(mobileImg, "sm")} 800w, ${mediaUrl(mobileImg)} 2000w" sizes="100vw">${picture(img, { alt: s.hero_image_alt || s.hero_image_mobile_alt, className: "hero-bg", sizes: "100vw", width: 2560, height: 1440, eager: true })}</picture>`
+          ? html`<picture class="hero-picture"><source media="(max-aspect-ratio: 1/1) and (max-width: 1023px)" srcset="${mediaUrl(mobileImg, "sm")} 800w, ${mediaUrl(mobileImg)} 2000w" sizes="100vw">${picture(img, { alt: s.hero_image_alt || s.hero_image_mobile_alt, className: "hero-bg", sizes: "100vw", width: 2560, height: 1440, eager: true })}</picture>`
           : picture(img, { alt: s.hero_image_alt, className: "hero-bg", sizes: "100vw", width: 2560, height: 1440, eager: true })
         : html`<div class="hero-fallback" aria-hidden="true"><span class="hero-fallback-glyph">§</span></div>`}
     </div>

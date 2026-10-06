@@ -305,7 +305,24 @@
     var out = box.querySelector("[data-wb-law-word]");
     var num = box.querySelector("[data-wb-law-n]");
     if (words.length < 2) return;
+    var line = box.querySelector(".wb-law-line");
     box.classList.add("is-live");
+    // Meningen står på en rad. Storleken räknas ut så att den längsta varianten (längsta ordet och högsta
+    // paragrafnumret) får plats – då ändras aldrig höjden när orden byts och sidan nedanför står still.
+    function fit() {
+      var keepWord = out.textContent, keepNum = num.textContent;
+      line.style.setProperty("--law-fit", "1");
+      num.textContent = String(words.length);
+      var widest = 0;
+      words.forEach(function (w) { out.textContent = w; widest = Math.max(widest, line.scrollWidth); });
+      out.textContent = keepWord;
+      num.textContent = keepNum;
+      var room = box.clientWidth - parseFloat(getComputedStyle(box).paddingLeft) - parseFloat(getComputedStyle(box).paddingRight);
+      line.style.setProperty("--law-fit", Math.min(1, room / (widest || 1) * 0.98).toFixed(4));
+    }
+    fit();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    window.addEventListener("resize", fit);
     var ok = whileVisible(box, 0.4);
     (async function () {
       for (var w = 1, n = 1; ; w = (w + 1) % words.length) {

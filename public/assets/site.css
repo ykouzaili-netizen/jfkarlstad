@@ -563,7 +563,7 @@ main:focus { outline: none; }
    En liggande bild som fyller en stående skärm beskärs kraftigt på sidorna, så personer i kanterna försvinner.
    "Visa hela bilden" (standard): fotot visas i sin helhet överst och smälter ned i en suddig, mörkare kopia
    av sig själv som fyller resten av toppen. "Fyll skärmen": som på datorn, med vald del i sidled. */
-@media (max-aspect-ratio: 1/1) {
+@media (max-aspect-ratio: 1/1) and (max-width: 1023px) {
   .hero-mfocus-vanster { --hero-x: 18%; }
   .hero-mfocus-hoger { --hero-x: 82%; }
 
@@ -591,7 +591,7 @@ main:focus { outline: none; }
   /* Rörelsen (långsam åkning, ridå) läggs på bakgrunden i stället, så att fotot aldrig beskärs */
   .has-curtain .hero-fit-hela .hero-media { transform: none; }
 }
-@media (max-aspect-ratio: 1/1) and (prefers-reduced-motion: no-preference) {
+@media (max-aspect-ratio: 1/1) and (max-width: 1023px) and (prefers-reduced-motion: no-preference) {
   [data-motion="full"] .hero-fit-hela .hero-backdrop-img { animation: hero-backdrop-drift 30s ease-in-out infinite alternate; }
 }
 @keyframes hero-backdrop-drift { from { transform: scale(1.25); } to { transform: scale(1.35) translate3d(-3%, 2%, 0); } }
@@ -3161,6 +3161,13 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   font-size: calc(clamp(2.125rem, 1rem + 4.4vw, 5.5rem) * var(--display-scale) * var(--wb-scale, 1));
   line-height: 1.14;
   letter-spacing: -0.02em;
+}
+/* Rörligt: alltid en rad, i en storlek som motion.js räknar ut så att den längsta varianten får plats */
+.wb-law.is-live .wb-law-line {
+  max-width: none;
+  white-space: nowrap;
+  width: max-content;
+  font-size: calc(clamp(2.125rem, 1rem + 4.4vw, 5.5rem) * var(--display-scale) * var(--wb-scale, 1) * var(--law-fit, 1));
 }
 .wb-law-n { color: color-mix(in srgb, var(--c-accent) 72%, var(--c-text)); white-space: nowrap; }
 .wb-law-word { font-style: italic; }
