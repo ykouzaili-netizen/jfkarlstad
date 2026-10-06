@@ -1,6 +1,6 @@
 import { html, type SafeHtml } from "../lib/html.js";
 import { isHex, luminance } from "../lib/color.js";
-import { DEFAULT_SETTINGS, loadSettings, siteLayout, type SettingKey, type Settings } from "../lib/settings.js";
+import { DEFAULT_SETTINGS, firstImage, loadSettings, SLIDE_PREFIX, slideshowOf, siteLayout, type SettingKey, type Settings } from "../lib/settings.js";
 import { PAGES, FIELD_INDEX, findPage, type FieldDef, type PageDef, type SectionDef } from "../lib/texts.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec } from "../lib/forms.js";
 import { redirect, randomToken } from "../lib/http.js";
@@ -11,7 +11,7 @@ import { icon } from "../views/icons.js";
 import { DEFAULT_NAV, resolveMenu, type MenuConfigItem, type ResolvedLink } from "../views/nav.js";
 import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount } from "./layout.js";
-import { handleUpload, imageUploadField } from "./uploads.js";
+import { handleUpload, imageUploadField, uploadInput } from "./uploads.js";
 import { previewPane, samplePath } from "./preview.js";
 import { blockControls, editorSectionOrder, layoutEntries, pageVisibilityCard, textStyleControls } from "./layout-form.js";
 import { blockOrder, isBlockHidden, PAGE_LAYOUTS, type SiteLayout } from "../lib/pagelayout.js";
@@ -67,6 +67,76 @@ export async function saveSettings(
 }
 
 // ───────────────────────── Hjälpfunktioner ─────────────────────────
+
+// ───────────────────────── Bildspel ─────────────────────────
+
+/** Bildfält som inte kan bli bildspel: mobilens egen toppbild (den ersätter en bild) och Instagram-profilbilden. */
+const NO_SLIDESHOW = new Set(["hero_image_mobile", "insta_avatar"]);
+/** Antal platser för nya bilder i ett bildspel per sparning. */
+const SLIDE_SLOTS = 4;
+
+/**
+ * "Visa som: En bild / Bildspel" under ett bildfält. Bildspelets första bild är bilden ovanför; här visas de
+ * övriga (med Ta bort) och platser för att lägga till fler – samma uppladdning som annars, med bildbanken.
+ */
+function slideshowEditor(field: string, s: Settings, errors: Errors): SafeHtml {
+  const { on, extras } = slideshowOf(s, field);
+  const err = Array.from({ length: SLIDE_SLOTS }, (_, i) => errors[`${field}__spel_${i + 1}`]).filter(Boolean);
+  return html`<fieldset class="slides-edit" data-slides-edit>
+    <legend class="field-label">Visa som</legend>
+    <div class="segmented" role="radiogroup" aria-label="Visa som">
+      <label><input type="radio" name="${field}__visning" value="en"${on ? "" : html` checked`} data-slides-mode><span>En bild</span></label>
+      <label><input type="radio" name="${field}__visning" value="spel"${on ? html` checked` : ""} data-slides-mode><span>Bildspel</span></label>
+    </div>
+    <div class="slides-panel" data-slides-panel${on ? "" : html` hidden`}>
+      <p class="field-help">Bilderna visas i tur och ordning och tonar mjukt över var sjätte sekund. Den första är bilden ovanför; lägg till fler här. Besökare som valt minskad rörelse ser bara den första.</p>
+      ${extras.length
+        ? html`<ul class="slides-list">${extras.map(
+            (k, i) => html`<li class="slides-item">
+              <img src="${mediaUrl(k, "sm")}" alt="Bild ${i + 2} i bildspelet" width="160" height="110" loading="lazy">
+              <label class="check-field check-small"><input type="checkbox" name="${field}__spel_bort" value="${k}"><span>Ta bort</span></label>
+            </li>`,
+          )}</ul>`
+        : html`<p class="slides-empty">Inga fler bilder ännu – lägg till minst en till för att det ska bli ett bildspel.</p>`}
+      ${Array.from({ length: SLIDE_SLOTS }, (_, i) => {
+        const name = `${field}__spel_${i + 1}`;
+        return html`<div class="slides-add"${i > 0 ? html` hidden` : ""} data-slides-add>
+          <span class="slides-add-label" id="falt-${name}-etikett">Lägg till en bild</span>
+          ${uploadInput({ id: `falt-${name}`, name, kind: "image", labelledBy: `falt-${name}-etikett` })}
+        </div>`;
+      })}
+      <button type="button" class="btn btn-outline btn-sm" data-slides-more>${icon("image", "icon icon-sm")}Lägg till ännu en bild</button>
+      ${err.length ? html`<p class="field-error">${err.join(" ")}</p>` : ""}
+    </div>
+  </fieldset>`;
+}
+
+/** Läser bildspelsvalen ur formuläret. Returnerar raden att spara och eventuellt en ny huvudbild. */
+async function readSlideshow(
+  c: RequestContext,
+  form: FormData,
+  field: string,
+  s: Settings,
+  mainAfter: string,
+  email: string,
+  errors: Errors,
+): Promise<{ row: [string, string | null] | null; newMain: string | null }> {
+  const mode = form.get(`${field}__visning`);
+  if (mode !== "en" && mode !== "spel") return { row: null, newMain: null };
+  const key = SLIDE_PREFIX + field;
+  if (mode === "en") return { row: [key, null], newMain: null }; // bilderna ligger kvar i bildbanken
+  const remove = new Set(form.getAll(`${field}__spel_bort`).map(String));
+  const extras = slideshowOf(s, field).extras.filter((k) => !remove.has(k));
+  for (let i = 1; i <= SLIDE_SLOTS; i++) {
+    const res = await handleUpload(c.env, form, `${field}__spel_${i}`, "image", "sida", email);
+    if (!res.ok) errors[`${field}__spel_${i}`] = res.error;
+    else if (res.key && !extras.includes(res.key)) extras.push(res.key);
+  }
+  // Ingen huvudbild men nya bilder i bildspelet: den första blir huvudbild.
+  let newMain: string | null = null;
+  if (!mainAfter && extras.length) newMain = extras.shift()!;
+  return { row: [key, extras.join(",")], newMain };
+}
 
 /** Sajtens färg (eller standardfärgen) – kontrastvarningen vid färgfälten räknar med den när ett fält står på "Standard". */
 type ThemeKey = "color_background" | "color_surface" | "color_text" | "color_primary" | "color_accent" | "color_button";
@@ -295,7 +365,8 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
     </div>`;
     if (f.type === "image") {
       return html`<div class="text-field${isTarget ? " is-target" : ""}" data-text-field="${f.key}">
-        ${imageUploadField({ name: f.key, label: f.label, current: value, help: f.help, error: errors[f.key], setting: f.key })}
+        ${imageUploadField({ name: f.key, label: f.label, current: firstImage(value), help: f.help, error: errors[f.key], setting: f.key })}
+        ${NO_SLIDESHOW.has(f.key) ? "" : slideshowEditor(f.key, s, errors)}
         ${tools}
       </div>`;
     }
@@ -398,21 +469,30 @@ export async function textsSubmit(c: RequestContext, session: Session): Promise<
   const { values, errors } = validate(plain.map(toSpec), form);
   const s = await loadSettings(c.env.DB);
   const updates: [string, string][] = plain.map((f) => [f.key, values[f.key] ?? ""]);
+  const slideRows: [string, string | null][] = [];
   for (const f of fields.filter((f) => f.type === "image")) {
     const res = await handleUpload(c.env, form, f.key, "image", "sida", session.user.email);
-    const current = s[f.key as SettingKey];
+    const current = firstImage(s[f.key as SettingKey]);
+    let mainAfter = current;
     if (!res.ok) errors[f.key] = res.error;
     else if (res.key) {
       updates.push([f.key, res.key]);
+      mainAfter = res.key;
     } else if (form.get(`${f.key}__ta_bort`) && current) {
       updates.push([f.key, ""]);
+      mainAfter = "";
+    }
+    if (!NO_SLIDESHOW.has(f.key)) {
+      const sl = await readSlideshow(c, form, f.key, s, mainAfter, session.user.email, errors);
+      if (sl.row) slideRows.push(sl.row);
+      if (sl.newMain) updates.push([f.key, sl.newMain]);
     }
   }
   if (Object.keys(errors).length) return textsPage(c, session, errors, values, 422);
 
   // Utbytta bilder ligger kvar i bildbanken – de kan återanvändas och behövs för Ångra.
   const { batch, changed } = await saveSettings(c.env.DB, session, updates);
-  const layoutChanged = await saveLayout(c.env.DB, layoutEntries(form, page));
+  const layoutChanged = await saveLayout(c.env.DB, [...layoutEntries(form, page), ...slideRows]);
   if (layoutChanged.length) await audit(c.env, session, "ändrade uppbyggnaden av", "sidan", page.id, `${page.title}: ${layoutChanged.join(", ")}`);
   if (!batch) return redirect(`/admin/texter?sida=${page.id}&klart=${layoutChanged.length ? "sparat" : "oforandrat"}`, 303);
   const labels = changed.map((k) => FIELD_INDEX.get(k)?.field.label ?? k);
@@ -485,6 +565,7 @@ async function saveLayout(db: D1Database, entries: [string, string | null][]): P
     if (k.startsWith("sida:")) return v ? "sidan dold" : "sidan visas";
     if (k.startsWith("ordning:")) return "avsnittens ordning";
     if (k.startsWith("dolt:")) return "dolda avsnitt";
+    if (k.startsWith(SLIDE_PREFIX)) return `bildspel för ${FIELD_INDEX.get(k.slice(SLIDE_PREFIX.length))?.field.label ?? k}`;
     const field = FIELD_INDEX.get(k.slice("stil:".length))?.field.label ?? k;
     return `stil för ${field}`;
   });

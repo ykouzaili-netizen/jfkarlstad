@@ -89,6 +89,8 @@ export async function loadSettings(db: D1Database, override?: Partial<Settings>)
   if (override) MARKED.add(settings);
   const layout = emptyLayout();
   LAYOUTS.set(settings, layout);
+  const slides = new Map<string, string[]>();
+  SLIDES.set(settings, slides);
   try {
     const { results } = await db.prepare("SELECT key, value FROM settings").all<{ key: string; value: string }>();
     const fits = new Map<string, ImageFit>();
@@ -98,6 +100,9 @@ export async function loadSettings(db: D1Database, override?: Partial<Settings>)
       else if (row.key.startsWith(FIT_PREFIX)) {
         const fit = parseFit(row.value);
         if (fit) fits.set(row.key.slice(FIT_PREFIX.length), fit);
+      } else if (row.key.startsWith(SLIDE_PREFIX)) {
+        const field = row.key.slice(SLIDE_PREFIX.length);
+        if (FIELD_INDEX.get(field)?.field.type === "image") slides.set(field, row.value.split(",").filter((k) => MEDIA_KEY_RE.test(k)));
       }
     }
     FITS.set(settings, fits);
@@ -113,7 +118,31 @@ export async function loadSettings(db: D1Database, override?: Partial<Settings>)
       else applyLayoutRow(layout, k, v);
     }
   }
+  // Bildspel: bildfältet får alla sina bilder, "huvudbild|bild2|bild3". picture() visar då ett bildspel.
+  for (const [field, extras] of slides) {
+    const key = field as SettingKey;
+    if (settings[key] && extras.length) settings[key] = [settings[key], ...extras].join("|");
+  }
   return settings;
+}
+
+// ───────────────────── Bildspel ─────────────────────
+
+/** Inställningsrad för ett bildspel: "bildspel:<bildfält>" = de extra bilderna efter huvudbilden, kommaseparerade. */
+export const SLIDE_PREFIX = "bildspel:";
+/** Giltig nyckel till en uppladdad fil (även förhandsvisningens platshållare "__fh__…"). */
+export const MEDIA_KEY_RE = /^[A-Za-z0-9._-]{1,200}$/;
+const SLIDES = new WeakMap<object, Map<string, string[]>>();
+
+/** Är bildfältet ett bildspel, och vilka bilder finns efter huvudbilden? (Läses av adminpanelen.) */
+export function slideshowOf(s: Settings, field: string): { on: boolean; extras: string[] } {
+  const extras = SLIDES.get(s)?.get(field);
+  return extras ? { on: true, extras } : { on: false, extras: [] };
+}
+
+/** Huvudbilden i ett bildfält som kan innehålla ett bildspel ("a|b|c" → "a"). */
+export function firstImage(value: string | null | undefined): string {
+  return (value ?? "").split("|")[0] ?? "";
 }
 
 /** Rader ur ett "lines"-fält, utan tomma rader. */

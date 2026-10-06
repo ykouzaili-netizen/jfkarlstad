@@ -164,7 +164,7 @@ export const PAGES = [
       ], { required: true, more: true }),
       image("hero_image_mobile", "Egen bild för mobilen (valfri)", "", {
         more: true,
-        help: "Ett stående foto som visas i mobilen i stället för bakgrundsbilden. Det fyller hela skärmen – välj ett där alla får plats på höjden.",
+        help: "Ett stående foto som visas i mobilen i stället för bakgrundsbilden. Det fyller hela skärmen – välj ett där alla får plats på höjden. Används inte om bakgrundsbilden är ett bildspel.",
       }),
       text("hero_image_mobile_alt", "Egen bild för mobilen – bildbeskrivning", "", { more: true, help: ALT_HELP }),
       choice("hero_overlay", "Mörk ton över bilden", "medel", [

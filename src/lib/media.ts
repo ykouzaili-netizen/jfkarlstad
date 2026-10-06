@@ -69,6 +69,15 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
       }
       continue;
     }
+    if (r.key.startsWith("bildspel:")) {
+      // Bilderna i ett bildspel (efter huvudbilden) används lika mycket som huvudbilden.
+      const field = r.key.slice("bildspel:".length);
+      const loc = FIELD_INDEX.get(field);
+      for (const k of r.k.split(",").filter(Boolean)) {
+        add(k, loc ? { label: `${loc.page.title}: ${loc.field.label} (bildspel)`, href: `/admin/texter?sida=${loc.page.id}&falt=${field}` } : { label: "Bildspel", href: "/admin/texter" });
+      }
+      continue;
+    }
     if (!isImageSetting(r.key)) continue;
     if (r.key === "logo_key") add(r.k, { label: "Logotypen", href: "/admin/utseende#logotyp" });
     else {

@@ -741,3 +741,16 @@ a.admin-user:hover { background: var(--c-hover); }
 .color-ask li { display: flex; align-items: center; gap: 8px; }
 .color-ask-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgb(0 0 0 / 0.2); flex: none; }
 .color-ask-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Bildspel under bildfälten */
+.slides-edit { margin: 14px 0 0; padding: 0; border: 0; min-width: 0; }
+.slides-edit > legend { padding: 0; margin-bottom: 8px; }
+.slides-panel { margin-top: 12px; padding: 14px 16px; border: 1px solid var(--c-border); border-radius: 14px; background: var(--c-surface); display: grid; gap: 12px; }
+.slides-panel .field-help { margin: 0; }
+.slides-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.slides-item img { display: block; width: 100%; aspect-ratio: 16 / 11; object-fit: cover; border-radius: 10px; border: 1px solid var(--c-border); }
+.slides-item .check-field { margin-top: 6px; }
+.slides-empty { margin: 0; font-size: 0.875rem; color: var(--c-muted); }
+.slides-add { display: grid; gap: 6px; }
+.slides-add-label { font-size: 0.875rem; font-weight: 600; }
+.slides-panel > [data-slides-more] { justify-self: start; }

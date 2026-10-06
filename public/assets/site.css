@@ -494,6 +494,47 @@ main:focus { outline: none; }
 .page-title { font-size: calc(clamp(2.25rem, 1.6rem + 3vw, 4rem) * var(--display-scale)); line-height: 1.05; letter-spacing: -0.025em; }
 .page-lead { margin-top: 18px; font-size: 1.25rem; color: var(--c-muted); max-width: 52ch; }
 
+/* ---------- Bildspel (Texter och sidor → bildfältet → Visa som: Bildspel) ----------
+   Bilderna ligger i samma ruta ovanpå varandra; bara den aktiva syns. Utan JavaScript, med rörelse "Av"
+   eller "minska rörelse" visas den första bilden och står still. site.js tonar över var sjätte sekund. */
+.slides { position: relative; display: grid; width: 100%; height: 100%; overflow: hidden; }
+.slides > .slide { grid-area: 1 / 1; }
+.slides > .slide:not(.is-active) { opacity: 0; }
+.slides.is-live > .slide { transition: opacity 1.4s ease; }
+.slides-pause, .hero-slides-pause {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(20 20 20 / 0.55);
+  color: #fff;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: opacity 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+.slides-pause { right: 10px; bottom: 10px; opacity: 0; }
+.slides:hover .slides-pause, .slides-pause:focus-visible, .slides-pause[aria-pressed="true"] { opacity: 1; }
+@media (hover: none) { .slides-pause { opacity: 0.85; } }
+.slides-pause:hover, .hero-slides-pause:hover { background: rgb(20 20 20 / 0.8); }
+.slides-pause:focus-visible, .hero-slides-pause:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.hero-slides-pause { right: var(--gutter); bottom: 22px; }
+/* Ikonen: två streck (paus) eller en triangel (spela) */
+.slides-pause-icon { position: relative; width: 12px; height: 12px; }
+.slides-pause-icon::before, .slides-pause-icon::after { content: ""; position: absolute; top: 0; bottom: 0; width: 4px; border-radius: 1px; background: currentColor; }
+.slides-pause-icon::before { left: 1px; }
+.slides-pause-icon::after { right: 1px; }
+[aria-pressed="true"] > .slides-pause-icon::before { left: 2px; width: 0; height: 0; border-radius: 0; background: none; border-style: solid; border-width: 6px 0 6px 10px; border-color: transparent transparent transparent currentColor; }
+[aria-pressed="true"] > .slides-pause-icon::after { display: none; }
+/* Toppens bildspel styrs med knappen i toppen (bilden ligger under text och ton) */
+.hero .slides-pause { display: none; }
+@media print { .slides > .slide:not(:first-child), .slides-pause, .hero-slides-pause { display: none !important; } }
+
 /* ---------- Egna färger per avsnitt ----------
    Avsnitt med egna färger (Texter och sidor → sidan → avsnittet) får klassen has-colors och egna värden på
    färgvariablerna (blockColors/blockColorCss i lib/settings.ts, skrivs i sidans <style>). Korten i avsnittet återställs här till

@@ -1321,3 +1321,28 @@
   form.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("[data-color-clear]")) setTimeout(refresh, 0); });
   refresh();
 })();
+
+// Bildspel under bildfälten: visa/dölj panelen efter valet och visa nästa plats för en ny bild.
+(function () {
+  document.querySelectorAll("[data-slides-edit]").forEach(function (box) {
+    var panel = box.querySelector("[data-slides-panel]");
+    var more = box.querySelector("[data-slides-more]");
+    function sync() {
+      var on = box.querySelector("[data-slides-mode]:checked");
+      panel.hidden = !(on && on.value === "spel");
+    }
+    function updateMore() { more.hidden = !box.querySelector("[data-slides-add][hidden]"); }
+    box.addEventListener("change", function (e) { if (e.target.matches("[data-slides-mode]")) sync(); });
+    more.addEventListener("click", function () {
+      var next = box.querySelector("[data-slides-add][hidden]");
+      if (next) {
+        next.hidden = false;
+        var input = next.querySelector("input[type=file]");
+        if (input) input.focus();
+      }
+      updateMore();
+    });
+    sync();
+    updateMore();
+  });
+})();

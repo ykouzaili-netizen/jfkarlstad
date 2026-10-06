@@ -499,3 +499,46 @@
   tick();
   setInterval(tick, 15000);
 })();
+
+/* Bildspel: bilderna tonar över var sjätte sekund. Stannar när bildspelet inte syns, när fliken är dold,
+   när man pekar på det och när man trycker på pausknappen. Står still för den som valt minskad rörelse
+   eller rörelse "Av" (Utseende → Rörelse) – då visas den första bilden. */
+(function () {
+  var shows = document.querySelectorAll("[data-slides]");
+  if (!shows.length) return;
+  var level = document.documentElement.getAttribute("data-motion");
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce || level === "av") return;
+  shows.forEach(function (box) {
+    var slides = Array.prototype.filter.call(box.children, function (el) { return el.classList.contains("slide"); });
+    if (slides.length < 2) return;
+    var section = box.closest("section");
+    var outside = section && section.querySelector("[data-slides-control]");
+    var btn = outside || box.querySelector("[data-slides-pause]");
+    var i = 0, paused = false, hover = false, visible = true;
+    box.classList.add("is-live");
+    // Ladda alla bilder i förväg, så att nästa bild aldrig tonar in tom.
+    slides.forEach(function (img) { img.loading = "eager"; });
+    function label() {
+      btn.setAttribute("aria-pressed", String(paused));
+      var sr = btn.querySelector(".sr-only");
+      if (sr) sr.textContent = paused ? "Spela bildspelet" : "Pausa bildspelet";
+    }
+    if (btn) {
+      btn.hidden = false;
+      label();
+      btn.addEventListener("click", function () { paused = !paused; label(); });
+    }
+    box.addEventListener("mouseenter", function () { hover = true; });
+    box.addEventListener("mouseleave", function () { hover = false; });
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (es) { visible = es[0].isIntersecting; }).observe(box);
+    }
+    window.setInterval(function () {
+      if (paused || hover || !visible || document.hidden) return;
+      slides[i].classList.remove("is-active");
+      i = (i + 1) % slides.length;
+      slides[i].classList.add("is-active");
+    }, 6000);
+  });
+})();

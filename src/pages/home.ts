@@ -72,7 +72,9 @@ function hero(s: Settings, next: EventRow | undefined): SafeHtml {
   const vertical = s.hero_text_vertical === "mitten" ? "mitten" : "nere";
   // I mobilen (skärm som hålls på höjden): visa hela bilden, eller fyll skärmen med vald del – eller en egen mobilbild.
   // En nyss vald men osparad bild i förhandsvisningen är en platshållare som inte fungerar i <source> – visa den vanliga.
-  const mobileImg = img && !s.hero_image_mobile.startsWith(PREVIEW_IMAGE_PREFIX) ? s.hero_image_mobile : "";
+  // Är bakgrundsbilden ett bildspel går det före den egna mobilbilden.
+  const slideshow = img.includes("|");
+  const mobileImg = img && !slideshow && !s.hero_image_mobile.startsWith(PREVIEW_IMAGE_PREFIX) ? s.hero_image_mobile : "";
   const fit = mobileImg ? "fyll" : s.hero_mobile_fit === "fyll" ? "fyll" : "hela";
   const focus = ["vanster", "mitten", "hoger"].includes(s.hero_mobile_focus) ? s.hero_mobile_focus : "mitten";
   return html`<section class="hero hero-pos-${pos} hero-tone-${tone} hero-align-${align} hero-valign-${vertical}${img ? ` has-image hero-fit-${fit} hero-mfocus-${focus}` : ""}" aria-labelledby="hero-titel">
@@ -106,6 +108,9 @@ function hero(s: Settings, next: EventRow | undefined): SafeHtml {
           </a>`
         : ""}
     </div>
+    ${slideshow
+      ? html`<button class="hero-slides-pause" type="button" hidden data-slides-control aria-pressed="false"><span class="slides-pause-icon" aria-hidden="true"></span><span class="sr-only">Pausa bildspelet</span></button>`
+      : ""}
     <a class="hero-scroll" href="#efter-toppen"${ek(s, "hero_scroll")}><span class="hero-scroll-label">${s.hero_scroll}</span><span class="hero-scroll-icon" aria-hidden="true">${icon("arrowDown", "icon icon-sm")}</span></a>
   </section>`;
 }

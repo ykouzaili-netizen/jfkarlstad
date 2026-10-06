@@ -8,7 +8,7 @@ import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "43";
+export const ASSET_VERSION = "44";
 
 export interface PageMeta {
   title: string;
@@ -39,6 +39,8 @@ export function favicon(s: Settings): SafeHtml {
 }
 
 export function mediaUrl(key: string | null | undefined, size: "full" | "sm" = "full"): string | null {
+  // Ett bildfält med bildspel innehåller flera nycklar ("a|b|c") – adressen gäller huvudbilden.
+  if (key && key.includes("|")) key = key.split("|")[0];
   if (!key) return null;
   if (key.startsWith(PREVIEW_IMAGE_PREFIX)) {
     // Genomskinlig platshållare som adminpanelens skript byter mot den valda bilden.
@@ -55,6 +57,23 @@ export function picture(
   key: string,
   opts: { alt: string; sizes: string; className?: string; width: number; height: number; eager?: boolean; attrs?: SafeHtml },
 ): SafeHtml {
+  // Bildspel (Texter och sidor → bildfältet → Visa som: Bildspel): bilderna ligger på varandra och tonar över
+  // (site.js). Bara den första beskrivs för skärmläsare; de andra är variationer av samma motiv.
+  if (key.includes("|")) {
+    const keys = key.split("|").filter(Boolean);
+    if (keys.length > 1) {
+      return html`<span class="slides" data-slides>${keys.map((k, i) =>
+        picture(k, {
+          ...opts,
+          alt: i === 0 ? opts.alt : "",
+          className: `${opts.className ? opts.className + " " : ""}slide${i === 0 ? " is-active" : ""}`,
+          eager: i === 0 ? opts.eager : false,
+          attrs: i === 0 ? opts.attrs : undefined,
+        }),
+      )}<button class="slides-pause" type="button" hidden data-slides-pause aria-pressed="false"><span class="slides-pause-icon" aria-hidden="true"></span><span class="sr-only">Pausa bildspelet</span></button></span>`;
+    }
+    key = keys[0] ?? "";
+  }
   const full = mediaUrl(key)!;
   const isPlaceholder = key.startsWith(PREVIEW_IMAGE_PREFIX);
   const isSvg = /\.svg$/i.test(key);
