@@ -1104,3 +1104,65 @@
     p.text.focus();
   });
 })();
+
+// Kontrastvarning vid egna färger: för varje grupp av färgfält (…_c_bg med …_c_text och/eller …_c_title)
+// räknas kontrasten ut enligt WCAG medan man väljer. Varningen visas bara när texten blir svårläst.
+(function () {
+  var form = document.getElementById("texter-form");
+  if (!form) return;
+  var HEX = /^#[0-9a-f]{6}$/i;
+  var siteBg = form.getAttribute("data-site-bg") || "#ffffff";
+  var siteText = form.getAttribute("data-site-text") || "#141414";
+
+  function lum(hex) {
+    var c = [1, 3, 5].map(function (i) {
+      var v = parseInt(hex.substr(i, 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  function ratio(a, b) {
+    var x = lum(a), y = lum(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  }
+  // Samma regel som servern (readableOn): svart eller vit text, det som syns bäst.
+  function readableOn(bg) { return ratio(bg, "#141414") >= ratio(bg, "#ffffff") ? "#141414" : "#ffffff"; }
+  function val(name) {
+    var el = form.querySelector('input[type="text"][name="' + name + '"]');
+    return el && HEX.test(el.value) ? el.value.toLowerCase() : "";
+  }
+  function has(name) { return !!form.querySelector('input[type="text"][name="' + name + '"]'); }
+  var fmt = function (n) { return n.toFixed(1).replace(".", ","); };
+
+  var groups = Array.prototype.slice.call(form.querySelectorAll('input[type="text"][name$="_c_bg"]')).map(function (el) {
+    var prefix = el.name.slice(0, -5);
+    var parts = ["text", "title"].filter(function (k) { return has(prefix + "_c_" + k); });
+    var last = form.querySelector('input[type="text"][name="' + prefix + "_c_" + (parts[parts.length - 1] || "bg") + '"]').closest(".field, .field-color") || el;
+    var box = document.createElement("p");
+    box.className = "alert alert-warn contrast-hint";
+    box.setAttribute("role", "status");
+    box.hidden = true;
+    last.after(box);
+    return { prefix: prefix, parts: parts, box: box };
+  });
+
+  function check(g) {
+    var bgSet = val(g.prefix + "_c_bg");
+    var bg = bgSet || siteBg;
+    var worst = null;
+    g.parts.forEach(function (k) {
+      var t = val(g.prefix + "_c_" + k) || (bgSet ? readableOn(bgSet) : siteText);
+      var r = ratio(t, bg);
+      if (!worst || r < worst.r) worst = { r: r, k: k };
+    });
+    if (!worst || worst.r >= 4.5) { g.box.hidden = true; return; }
+    var what = worst.k === "title" ? "Rubriken" : "Texten";
+    g.box.textContent = what + " blir svårläst – kontrasten mot bakgrunden är " + fmt(worst.r) + ":1 (minst 4,5:1 behövs). " +
+      "Välj en ljusare eller mörkare färg, eller tryck ”Standard” på textfärgen så blir den automatiskt svart eller vit.";
+    g.box.hidden = false;
+  }
+  function all() { groups.forEach(check); }
+  form.addEventListener("input", function (e) { if (e.target.name && /_c_[a-z]+$/.test(e.target.name)) all(); });
+  form.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("[data-color-clear]")) setTimeout(all, 0); });
+  all();
+})();

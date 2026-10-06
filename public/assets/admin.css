@@ -707,3 +707,5 @@ a.admin-user:hover { background: var(--c-hover); }
 .color-pick.is-auto input[type="color"] { opacity: 0.35; }
 .color-pick [hidden] { display: none; }
 #rorelse .choice-grid { margin-block: 14px; }
+/* Kontrastvarning under färgfälten (admin.js) – samma utseende som övriga varningar */
+.contrast-hint { margin: -4px 0 18px; font-size: 0.875rem; line-height: 1.5; }

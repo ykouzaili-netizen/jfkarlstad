@@ -1,4 +1,5 @@
 import { html, type SafeHtml } from "../lib/html.js";
+import { isHex } from "../lib/color.js";
 import { DEFAULT_SETTINGS, loadSettings, siteLayout, type SettingKey, type Settings } from "../lib/settings.js";
 import { PAGES, FIELD_INDEX, findPage, type FieldDef, type PageDef, type SectionDef } from "../lib/texts.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec } from "../lib/forms.js";
@@ -66,6 +67,11 @@ export async function saveSettings(
 }
 
 // ───────────────────────── Hjälpfunktioner ─────────────────────────
+
+/** Sajtens färg (eller standardfärgen) – kontrastvarningen vid färgfälten räknar med den när ett fält står på "Standard". */
+function siteHex(s: Settings, key: "color_background" | "color_text"): string {
+  return isHex(s[key]) ? s[key].toLowerCase() : DEFAULT_SETTINGS[key];
+}
 
 function toSpec(f: FieldDef): FieldSpec {
   if (f.type === "choice") {
@@ -291,7 +297,7 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
       : ""}
     ${undoBox}
     <div class="editor-with-preview">
-      <form class="admin-form" id="texter-form" method="post" action="/admin/texter?sida=${page.id}" enctype="multipart/form-data" novalidate data-dirty-check data-accordion>
+      <form class="admin-form" id="texter-form" method="post" action="/admin/texter?sida=${page.id}" enctype="multipart/form-data" novalidate data-dirty-check data-accordion data-site-bg="${siteHex(s, "color_background")}" data-site-text="${siteHex(s, "color_text")}">
         ${csrfField(session)}
         ${errorSummary(errors, page.sections.flatMap((sec) => textFields(sec).map(toSpec)))}
         <input type="hidden" name="__sida_id" value="${page.id}">

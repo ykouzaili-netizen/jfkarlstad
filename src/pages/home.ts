@@ -1,5 +1,5 @@
-import { html, paragraphs, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ek, loadSettings, type Settings, arrange } from "../lib/settings.js";
+import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
+import { blockColors, ek, loadSettings, type Settings, arrange } from "../lib/settings.js";
 import { eventQuery, instagramQuery, jobQuery, newsQuery, partnerQuery, type EventRow, type InstagramPostRow, type NewsRow, type PartnerRow } from "../lib/content.js";
 import { instagramConfigured, parseProfile, parseStatus, PROFILE_SETTING, STATUS_SETTING, syncInstagram, type InstagramProfile, type SyncStatus } from "../lib/instagram.js";
 import { eventDate, stockholmNow, stockholmToday, telHref } from "../lib/format.js";
@@ -10,7 +10,6 @@ import { joinButton, layout, mediaUrl, picture } from "../views/layout.js";
 import { arrowLink, emptyState, eventCard, newsCard, partnerCard, partnerLogo, sectionHead } from "../views/components.js";
 import { htmlResponse } from "../lib/http.js";
 import { ec } from "../lib/settings.js";
-import { contrastRatio, isHex, readableOn } from "../lib/color.js";
 
 export async function homePage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
@@ -24,27 +23,20 @@ export async function homePage(c: RequestContext): Promise<Response> {
   const partners = partnersRes!.results as unknown as PartnerRow[];
   const openJobs = ((jobsRes!.results[0] as { n?: number } | undefined)?.n ?? 0) as number;
 
-  const col = {
-    partners: blockColors(c, s, "partners", "home_partners"),
-    varden: blockColors(c, s, "varden", "home_values"),
-    intro: blockColors(c, s, "intro", "home_intro"),
-    evenemang: blockColors(c, s, "evenemang", "home_events"),
-    nyheter: blockColors(c, s, "nyheter", "home_news"),
-    paverka: blockColors(c, s, "paverka", "home_paverka"),
-  };
+  // Avsnitt med olika bakgrund ska inte ligga tätt intill varandra.
+  const plain = (id: string) => !blockColors(s, "startsida", id);
   const content = html`
     ${hero(s, events[0])}
     <span id="efter-toppen" class="scroll-anchor"></span>
     ${arrange(s, "startsida", {
-      partners: () => partnersSection(s, partners, openJobs, col.partners),
-      varden: () => values(s, col.varden),
-      ordband: () => wordBand(c, s),
-      intro: () => intro(s, col.intro),
-      evenemang: () => eventsSection(s, events, col.evenemang),
-      // Tätt intill avsnittet ovanför bara när de har samma bakgrund.
-      nyheter: (prev) => newsSection(s, news, prev === "evenemang" && !col.evenemang.cls.includes("has-colors") && !col.nyheter.cls.includes("has-colors"), col.nyheter),
-      paverka: () => paverka(s, col.paverka),
-      instagram: (prev) => instagram(s, prev === "paverka" && !col.paverka.cls.includes("has-colors"), insta.posts, insta.profile),
+      partners: () => partnersSection(s, partners, openJobs),
+      varden: () => values(s),
+      ordband: () => wordBand(s),
+      intro: () => intro(s),
+      evenemang: () => eventsSection(s, events),
+      nyheter: (prev) => newsSection(s, news, prev === "evenemang" && plain("evenemang") && plain("nyheter")),
+      paverka: () => paverka(s),
+      instagram: (prev) => instagram(s, prev === "paverka" && plain("paverka"), insta.posts, insta.profile),
     })}
   `;
 
@@ -132,7 +124,7 @@ const WORDBAND_STYLES = ["rullband", "ordbyte", "stralkastare", "paragraf"] as c
  * varje utseende som en snygg stillbild. Avsnittet är dekor – orden står redan i texterna runt omkring –
  * så det döljs för skärmläsare.
  */
-function wordBand(c: RequestContext, s: Settings): SafeHtml {
+function wordBand(s: Settings): SafeHtml {
   const words = s.wordband_words.split("\n").map((w) => w.trim()).filter(Boolean);
   if (!words.length) return html``;
   const style = pick(s.wordband_style, WORDBAND_STYLES, "rullband");
@@ -168,50 +160,16 @@ function wordBand(c: RequestContext, s: Settings): SafeHtml {
         <div class="wb-row wb-row-outline" data-wordband="1"><div class="wb-track">${sepWords(repeated(Math.floor(words.length / 2), 18), "wb-word")}</div></div>`;
   }
   const size = pick(s.wordband_size, ["liten", "mindre", "standard", "storre", "stor"] as const, "standard");
-  const colors = scopedColors(c, s, ".wordband", s.wordband_c_bg, s.wordband_c_text, s.wordband_c_accent);
-  return html`<section class="wordband wb--${style} wb-size-${size}" aria-hidden="true"${ek(s, "wordband_words")}>${colors.style}${inner}</section>`;
+  return html`<section class="wordband wb--${style} wb-size-${size}" aria-hidden="true"${ek(s, "wordband_words")}>${inner}</section>`;
 }
 
-/**
- * Egna färger för ett avsnitt (tomt = sajtens färger). Avsnittet får egna värden på sajtens färgvariabler,
- * så rubriker, länkar, linjer och § följer med utan särskilda regler. Kort inuti avsnittet återställs till
- * sajtens färger i CSS (.has-colors), så de är alltid läsbara. Värdena är kontrollerade hexkoder.
- */
-function scopedColors(c: RequestContext, s: Settings, selector: string, bgRaw: string, textRaw: string, accentRaw: string): { style: SafeHtml; cls: string } {
-  const hex = (v: string) => (isHex(v) ? v.toLowerCase() : "");
-  const bg = hex(bgRaw);
-  const text = hex(textRaw) || (bg ? readableOn(bg) : "");
-  let accent = hex(accentRaw);
-  if (!bg && !text && !accent) return { style: html``, cls: "" };
-  let cls = " has-colors";
-  // Bakgrunden nästan samma som detaljfärgen (t.ex. gul bakgrund och sajtens gula): detaljerna tar textfärgen,
-  // och det som annars är gult (första statistikrutan) får kortfärg – annars försvinner de i bakgrunden.
-  const effectiveAccent = accent || hex(s.color_accent);
-  if (bg && effectiveAccent && contrastRatio(bg, effectiveAccent) < 1.6) {
-    accent = text || readableOn(bg);
-    cls += " bg-is-accent";
-  }
-  let css = "";
-  if (bg) css += `--c-bg:${bg};--c-surface:${bg};`;
-  if (text) css += `--c-text:${text};--c-muted:color-mix(in srgb,${text} 74%,transparent);--c-border:color-mix(in srgb,${text} 14%,transparent);--c-hover:color-mix(in srgb,${text} 8%,transparent);`;
-  if (accent) css += `--c-accent:${accent};--c-on-accent:${readableOn(accent)};`;
-  return { style: html`<style nonce="${c.nonce}">${raw(selector)}{${raw(css)}}</style>`, cls };
-}
-
-/** Färgerna för ett av startsidans avsnitt, från fälten som blockColorFields() lägger till i textregistret. */
-type BlockPrefix = "home_partners" | "home_values" | "home_intro" | "home_events" | "home_news" | "home_paverka";
-function blockColors(c: RequestContext, s: Settings, id: string, p: BlockPrefix): { style: SafeHtml; cls: string } {
-  const r = scopedColors(c, s, `.hb-${id}`, s[`${p}_c_bg`], s[`${p}_c_text`], s[`${p}_c_accent`]);
-  return { style: r.style, cls: ` hb-${id}${r.cls}` };
-}
-
-function values(s: Settings, col: { style: SafeHtml; cls: string }): SafeHtml {
+function values(s: Settings): SafeHtml {
   const items = [
     { icon: "network" as IconName, t: "value_1_title", x: "value_1_text" },
     { icon: "briefcase" as IconName, t: "value_2_title", x: "value_2_text" },
     { icon: "sparkle" as IconName, t: "value_3_title", x: "value_3_text" },
   ] as const;
-  return html`<section class="section${col.cls}" aria-labelledby="varden-titel">${col.style}
+  return html`<section class="section" aria-labelledby="varden-titel">
     <div class="container">
       <h2 class="section-title section-title-center" id="varden-titel"${ek(s, "values_title")}>${s.values_title}</h2>
       <ul class="value-grid">
@@ -227,7 +185,7 @@ function values(s: Settings, col: { style: SafeHtml; cls: string }): SafeHtml {
   </section>`;
 }
 
-function intro(s: Settings, col: { style: SafeHtml; cls: string }): SafeHtml {
+function intro(s: Settings): SafeHtml {
   const img = s.intro_image_key;
   const stats = [
     ["stat_1_value", "stat_1_label"],
@@ -235,7 +193,7 @@ function intro(s: Settings, col: { style: SafeHtml; cls: string }): SafeHtml {
     ["stat_3_value", "stat_3_label"],
     ["stat_4_value", "stat_4_label"],
   ] as const;
-  return html`<section class="section section-surface${col.cls}" aria-labelledby="intro-titel">${col.style}
+  return html`<section class="section section-surface" aria-labelledby="intro-titel">
     <div class="container intro-grid">
       <div class="intro-copy">
         <h2 class="section-title" id="intro-titel"${ek(s, "intro_title")}>${s.intro_title}</h2>
@@ -252,8 +210,8 @@ function intro(s: Settings, col: { style: SafeHtml; cls: string }): SafeHtml {
   </section>`;
 }
 
-function eventsSection(s: Settings, events: EventRow[], col: { style: SafeHtml; cls: string }): SafeHtml {
-  return html`<section class="section${col.cls}" aria-labelledby="event-titel">${col.style}
+function eventsSection(s: Settings, events: EventRow[]): SafeHtml {
+  return html`<section class="section" aria-labelledby="event-titel">
     <div class="container">
       ${sectionHead(s, { titleKey: "home_events_title", id: "event-titel", link: { href: "/kalender", labelKey: "home_events_link" } })}
       ${events.length
@@ -264,8 +222,8 @@ function eventsSection(s: Settings, events: EventRow[], col: { style: SafeHtml; 
 }
 
 /** `tight` = direkt efter evenemangen (samma bakgrund), annars får avsnittet vanlig luft ovanför. */
-function newsSection(s: Settings, news: NewsRow[], tight: boolean, col: { style: SafeHtml; cls: string }): SafeHtml {
-  return html`<section class="section${tight ? " section-tight-top" : ""}${col.cls}" aria-labelledby="nyheter-titel">${col.style}
+function newsSection(s: Settings, news: NewsRow[], tight: boolean): SafeHtml {
+  return html`<section class="section${tight ? " section-tight-top" : ""}" aria-labelledby="nyheter-titel">
     <div class="container">
       ${sectionHead(s, { titleKey: "home_news_title", id: "nyheter-titel", link: { href: "/aktuellt", labelKey: "home_news_link" } })}
       ${news.length ? html`<div class="card-grid">${news.map((n) => newsCard(s, n))}</div>` : emptyState(s.home_news_empty, ek(s, "home_news_empty"))}
@@ -273,10 +231,10 @@ function newsSection(s: Settings, news: NewsRow[], tight: boolean, col: { style:
   </section>`;
 }
 
-function partnersSection(s: Settings, partners: PartnerRow[], openJobs: number, col: { style: SafeHtml; cls: string }): SafeHtml {
+function partnersSection(s: Settings, partners: PartnerRow[], openJobs: number): SafeHtml {
   const main = partners.filter((p) => p.tier === "huvud");
   const others = partners.filter((p) => p.tier !== "huvud");
-  return html`<section class="section section-surface${col.cls}" aria-labelledby="partner-titel">${col.style}
+  return html`<section class="section section-surface" aria-labelledby="partner-titel">
     <div class="container">
       ${sectionHead(s, { titleKey: "home_partners_title", id: "partner-titel", leadKey: "partners_lead", link: { href: "/partners", labelKey: "home_partners_all" } })}
       ${main.length ? html`<ul class="partner-main">${main.map((p) => partnerCard(s, p))}</ul>` : ""}
@@ -298,8 +256,8 @@ function partnersSection(s: Settings, partners: PartnerRow[], openJobs: number, 
   </section>`;
 }
 
-function paverka(s: Settings, col: { style: SafeHtml; cls: string }): SafeHtml {
-  return html`<section class="section${col.cls}" aria-labelledby="paverka-titel">${col.style}
+function paverka(s: Settings): SafeHtml {
+  return html`<section class="section" aria-labelledby="paverka-titel">
     <div class="container">
       <div class="cta-panel">
         <div class="cta-icon">${icon("megaphone")}</div>

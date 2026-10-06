@@ -1,5 +1,5 @@
 import { html, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ek, HEADING_FONTS, headingFont, imageFits, isMarked, motionLevel, siteLayout, themeCss, type Settings } from "../lib/settings.js";
+import { blockColorCss, ek, HEADING_FONTS, headingFont, imageFits, isMarked, motionLevel, siteLayout, themeCss, type Settings } from "../lib/settings.js";
 import { textStyleCss } from "../lib/pagelayout.js";
 import { imageFitCss } from "../lib/imagefit.js";
 import { telHref } from "../lib/format.js";
@@ -8,7 +8,7 @@ import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "38";
+export const ASSET_VERSION = "40";
 
 export interface PageMeta {
   title: string;
@@ -229,7 +229,7 @@ ${favicon(s)}
 <link rel="preload" href="/assets/fonts/montserrat.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${HEADING_FONTS[headingFont(s)].file}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css?v=${ASSET_VERSION}">
-<style nonce="${c.nonce}">${raw(themeCss(s) + imageFitCss(imageFits(s)) + textStyleCss(siteLayout(s).styles) + transitions)}</style>
+<style nonce="${c.nonce}">${raw(themeCss(s) + blockColorCss(s) + imageFitCss(imageFits(s)) + textStyleCss(siteLayout(s).styles) + transitions)}</style>
 <script src="/assets/site.js?v=${ASSET_VERSION}" defer></script>
 ${motion === "av" ? "" : html`<script src="/assets/motion.js?v=${ASSET_VERSION}" defer></script>`}
 ${ld}

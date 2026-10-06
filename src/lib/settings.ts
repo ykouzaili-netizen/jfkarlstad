@@ -1,6 +1,6 @@
 import { applyLayoutRow, arrangeBlocks, emptyLayout, type BlockRender, type SiteLayout } from "./pagelayout.js";
 import { FIT_PREFIX, parseFit, type ImageFit } from "./imagefit.js";
-import { isHex, readableOn } from "./color.js";
+import { contrastRatio, isHex, readableOn } from "./color.js";
 
 import { ALL_FIELDS, editUrlFor, FIELD_INDEX, type TextKey } from "./texts.js";
 import { raw, type SafeHtml } from "./html.js";
@@ -150,7 +150,70 @@ export function siteLayout(s: Settings): SiteLayout {
 
 /** Synliga avsnitt i vald ordning – se arrangeBlocks() i pagelayout.ts. */
 export function arrange(s: Settings, pageId: string, render: Record<string, BlockRender>): (SafeHtml | string)[] {
-  return arrangeBlocks(siteLayout(s), pageId, render);
+  const colored: Record<string, BlockRender> = {};
+  for (const [id, fn] of Object.entries(render)) colored[id] = (prev) => withBlockColors(s, pageId, id, fn(prev));
+  return arrangeBlocks(siteLayout(s), pageId, colored);
+}
+
+// ───────────────────── Egna färger per avsnitt ─────────────────────
+
+/**
+ * Avsnitt med egna färgfält: sida → avsnitt → prefix i textregistret (fälten heter <prefix>_c_bg, _c_text, _c_accent
+ * och läggs till med blockColorFields() i texts.ts). Avsnitt med egna utseenden i färg (Instagram, Utskotten på
+ * Om oss, JFK Idrott och anmälan på Engagera dig) har medvetet inga – där styr utseendevalet bakgrunden.
+ */
+export const BLOCK_COLORS: Record<string, Record<string, string>> = {
+  startsida: { partners: "home_partners", varden: "home_values", ordband: "wordband", intro: "home_intro", evenemang: "home_events", nyheter: "home_news", paverka: "home_paverka" },
+  "om-oss": { om: "om_oss_om", styrning: "om_oss_styrning", styrelsen: "om_oss_styrelsen", utmarkelser: "om_oss_utmarkelser", pedagog: "om_oss_pedagog", samarbeten: "om_oss_samarbeten" },
+  "bli-medlem": { formaner: "bli_medlem_formaner", faq: "bli_medlem_faq" },
+  "for-studenter": { studera: "for_studenter_studera", jobb: "for_studenter_jobb", kursombud: "for_studenter_kursombud", galleri: "for_studenter_galleri" },
+  "engagera-dig": { uppdrag: "engagera_dig_uppdrag", utskott: "engagera_dig_utskott" },
+  "for-foretag": { varfor: "for_foretag_varfor", paket: "for_foretag_paket", formular: "for_foretag_formular" },
+};
+
+/**
+ * Färgerna för ett avsnitt, eller null om inga är valda. Bara bakgrund vald → texten blir svart eller vit.
+ * Ligger bakgrunden för nära detaljfärgen (t.ex. gul på gul) tar detaljerna textfärgen (klassen bg-is-accent).
+ */
+export function blockColors(s: Settings, pageId: string, blockId: string): { cls: string; css: string } | null {
+  const prefix = BLOCK_COLORS[pageId]?.[blockId];
+  if (!prefix) return null;
+  const get = (k: string) => {
+    const v = (s as Record<string, string>)[`${prefix}_c_${k}`];
+    return isHex(v) ? v.toLowerCase() : "";
+  };
+  const bg = get("bg");
+  const text = get("text") || (bg ? readableOn(bg) : "");
+  let accent = get("accent");
+  if (!bg && !text && !accent) return null;
+  const name = `hb-${pageId}-${blockId}`;
+  let cls = ` ${name} has-colors`;
+  const site = isHex(s.color_accent) ? s.color_accent.toLowerCase() : DEFAULT_SETTINGS.color_accent;
+  if (bg && contrastRatio(bg, accent || site) < 1.6) {
+    accent = text;
+    cls += " bg-is-accent";
+  }
+  let vars = "";
+  if (bg) vars += `--c-bg:${bg};--c-surface:${bg};`;
+  if (text) vars += `--c-text:${text};--c-muted:color-mix(in srgb,${text} 74%,transparent);--c-border:color-mix(in srgb,${text} 14%,transparent);--c-hover:color-mix(in srgb,${text} 8%,transparent);`;
+  if (accent) vars += `--c-accent:${accent};--c-on-accent:${readableOn(accent)};`;
+  return { cls, css: `.${name}{${vars}}` };
+}
+
+/** CSS för alla avsnitt med egna färger (skrivs i sidans <style> i layout.ts). Värdena är kontrollerade hexkoder. */
+export function blockColorCss(s: Settings): string {
+  let css = "";
+  for (const [pageId, blocks] of Object.entries(BLOCK_COLORS)) {
+    for (const blockId of Object.keys(blocks)) css += blockColors(s, pageId, blockId)?.css ?? "";
+  }
+  return css;
+}
+
+/** Lägger avsnittets färgklasser på varje <section> som avsnittet består av (ett avsnitt kan vara flera). */
+export function withBlockColors(s: Settings, pageId: string, blockId: string, out: SafeHtml | string): SafeHtml | string {
+  const colors = blockColors(s, pageId, blockId);
+  if (!colors) return out;
+  return raw(String(out).replace(/<section class="([^"]*)"/g, (_m, c: string) => `<section class="${c}${colors.cls}"`));
 }
 
 /** Justerade bilder (filnyckel → passform), inlästa av loadSettings(). */

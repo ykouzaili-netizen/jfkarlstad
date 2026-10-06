@@ -1,7 +1,7 @@
 import { loadCommittees, type CommitteeRow } from "../lib/committees.js";
 import { blockOrder, isBlockHidden } from "../lib/pagelayout.js";
 import { html, paragraphs, type SafeHtml } from "../lib/html.js";
-import { ec, ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
+import { ec, ek, loadSettings, type SettingKey, type Settings, siteLayout, withBlockColors } from "../lib/settings.js";
 import { boardQuery, honorQuery, partnerQuery, type BoardRow, type HonorRow, type PartnerRow } from "../lib/content.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
@@ -40,7 +40,7 @@ export async function aboutPage(c: RequestContext): Promise<Response> {
   const content = html`
     ${hero(s)}
     ${sectionNav(s, shown.map((x) => ({ href: x.anchor, labelKey: x.labelKey, icon: x.icon })))}
-    ${shown.map((x) => x.render())}
+    ${shown.map((x) => withBlockColors(s, "om-oss", x.id, x.render()))}
   `;
 
   return htmlResponse(c, layout(c, s, { title: s.about_kicker, description: s.about_lead }, content));

@@ -336,6 +336,7 @@ export const PAGES = [
       text("about_section_title", "Rubrik (syns i menyn under toppen)", "Om JFK", small),
       image("about_image", "Bild bredvid texten", "", { help: "Liggande foto, t.ex. från en föreläsning eller arbetsmarknadsdagen." }),
       text("about_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
+      ...blockColorFields("om_oss_om"),
     ], "Siffrorna under texten är samma som på startsidan och ändras under Startsidan › ”Vilka är JFK?”."),
     sec("styrning", "Så styrs JFK", [
       text("governance_title", "Rubrik", "Så styrs JFK", { required: true }),
@@ -343,11 +344,13 @@ export const PAGES = [
       text("inspector_title", "Rubrik för inspektorn", "Inspektorn", small),
       area("inspector_text", "Inspektorn", "Föreningens inspektor är Nick Dimitrievski, universitetslektor i skatterätt. Inspektorn är en länk mellan föreningen och universitetet och ska vara disputerad jurist och anställd vid Karlstads universitet. Uppdraget gäller normalt i tre år."),
       image("inspector_image", "Foto på inspektorn", "", { help: "Valfritt. Ladda bara upp ett foto om inspektorn har sagt ja till det." }),
+      ...blockColorFields("om_oss_styrning"),
     ]),
     sec("styrelsen", "Styrelsen", [
       text("board_title", "Rubrik", "Styrelsen", { required: true }),
       area("board_lead", "Text", "Har du en fråga till någon i styrelsen? Mejla direkt – vi svarar så snart vi kan."),
       text("board_empty", "Text när styrelsen saknas", "Styrelsen presenteras snart.", { more: true }),
+      ...blockColorFields("om_oss_styrelsen"),
     ], "Personerna i styrelsen ändrar du under Styrelsen i menyn."),
     sec("utskott", "Utskotten", [
       text("committees_title", "Rubrik", "Utskotten", { required: true }),
@@ -372,11 +375,13 @@ export const PAGES = [
       text("honors_members_title", "Underrubrik för hedersmedlemmar", "Hedersmedlemmar", small),
       text("honors_members_empty", "Text när inga hedersmedlemmar finns", "Hedersmedlemmarna presenteras här inom kort.", { more: true }),
       text("honors_awards_title", "Underrubrik för utmärkelser", "Utdelade utmärkelser", small),
+      ...blockColorFields("om_oss_utmarkelser"),
     ]),
     sec("pedagog", "Årets pedagog", [
       text("pedagog_title", "Rubrik", "Årets pedagog", { required: true }),
       area("pedagog_text", "Text", "Varje år delar JFK ut priset Årets pedagog till en lärare vid Karlstads universitet som på ett föredömligt sätt har främjat studenternas lärande."),
       text("pedagog_empty", "Text när inga pristagare finns", "Pristagarna presenteras här inom kort.", { more: true }),
+      ...blockColorFields("om_oss_pedagog"),
     ]),
     sec("samarbeten", "Samarbeten", [
       text("collab_title", "Rubrik", "Samarbeten", { required: true }),
@@ -390,6 +395,7 @@ export const PAGES = [
       text("elsa_title", "ELSA – rubrik", "ELSA Karlstad"),
       image("elsa_image", "ELSA – bild eller logotyp", "", { more: true }),
       area("elsa_text", "ELSA – text", "Den lokala avdelningen av European Law Students' Association. ELSA ordnar bland annat föreläsningar i juridisk engelska, ELSA Law Schools – sommar- och vinterkurser på en till två veckor – och STEP, ett utbytesprogram för praktik utomlands."),
+      ...blockColorFields("om_oss_samarbeten"),
     ]),
   ]),
 
@@ -406,6 +412,7 @@ export const PAGES = [
       list("member_benefits", "Förmåner", "Sittningar, banketter och andra sociala evenemang\nArbetsmarknadsdagar och lunchföreläsningar med byråer och myndigheter\nStudiestödjande aktiviteter och inspirerande föreläsningar\nEtt nätverk av studenter och jurister som håller långt efter examen\nMöjlighet att engagera dig i styrelsen och utskotten\nInflytande över din utbildning", { help: "En förmån per rad." }),
       image("member_image", "Bild", "", { help: "Valfritt. Visas bredvid förmånerna – gärna glada medlemmar på ett evenemang." }),
       text("member_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
+      ...blockColorFields("bli_medlem_formaner"),
     ]),
     sec("steg", "Så går det till", [
       text("member_steps_title", "Rubrik", "Så går det till", { required: true }),
@@ -420,6 +427,7 @@ export const PAGES = [
     sec("faq", "Vanliga frågor", [
       text("member_faq_title", "Rubrik", "Vanliga frågor om medlemskap", { required: true }),
       text("member_faq_link", "Länk till alla frågor", "Fler vanliga frågor", small),
+      ...blockColorFields("bli_medlem_faq"),
     ], "Frågorna själva ändrar du under Vanliga frågor i menyn (kategorin Medlemskap visas här)."),
   ]),
 
@@ -440,11 +448,13 @@ export const PAGES = [
       text("study_aside_button", "Rutan om JF Påverka – knapp", "Till JF Påverka", small),
       image("study_image", "Bild", "", { help: "Valfritt. Visas ovanför rutan om JF Påverka, t.ex. ett foto från campus eller en föreläsningssal." }),
       text("study_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
+      ...blockColorFields("for_studenter_studera"),
     ]),
     sec("jobb", "Jobb och praktik", [
       text("students_jobs_title", "Rubrik", "Jobb och praktik", { required: true }),
       area("students_jobs_text", "Text", "Praktikplatser, sommarnotarietjänster, traineeprogram och jobb – hos våra samarbetspartners och andra arbetsgivare."),
       text("students_jobs_button", "Text på knappen", "Se lediga tjänster", small),
+      ...blockColorFields("for_studenter_jobb"),
     ]),
     sec("kursombud", "Kursombud", [
       text("reps_title", "Rubrik", "Kursombud", { required: true }),
@@ -452,6 +462,7 @@ export const PAGES = [
       text("reps_tbd", "Text när namnet saknas", "Meddelas senare", { more: true }),
       text("reps_contact_tbd", "Text när e-post saknas", "Kontaktuppgifter kommer", { more: true }),
       text("reps_empty", "Text när inga kursombud finns", "Kursombuden presenteras snart.", { more: true }),
+      ...blockColorFields("for_studenter_kursombud"),
     ], "Kursombuden själva ändrar du under Styrelsen → Kursombud i menyn."),
     sec("idrott", "JFK Idrott", [
       text("sport_title", "Rubrik", "JFK Idrott", { required: true }),
@@ -494,6 +505,7 @@ export const PAGES = [
       area("gallery_text", "Text", "Bilder från våra evenemang. Vill du att en bild på dig tas bort? Mejla informationsansvarig@jfkarlstad.se så hjälper vi dig."),
       rich("gallery_empty", "Text när inga bilder finns", "Bilderna kommer snart. Under tiden finns massor på [@jfkarlstad](https://www.instagram.com/jfkarlstad/).", { more: true, help: RICH_HELP }),
       text("gallery_open", "Text för skärmläsare på bilderna", "öppnas i större format i ny flik", { more: true }),
+      ...blockColorFields("for_studenter_galleri"),
     ], "Bilderna laddar du upp under Bildgalleri i menyn."),
   ]),
 
@@ -542,6 +554,7 @@ export const PAGES = [
       area("engage_positions_empty", "Text när inga uppdrag är utlysta", "Just nu finns inga utlysta uppdrag, men du är alltid välkommen att anmäla ditt intresse – vi hittar en plats för dig.", { more: true }),
       text("engage_interest_button", "Knapp på varje uppdrag", "Jag är intresserad", small),
       text("engage_commitment_label", "Etikett för tidsåtgång", "Tidsåtgång", small),
+      ...blockColorFields("engagera_dig_uppdrag"),
     ], "Uppdragen lägger du in under Styrelsen → Lediga uppdrag i menyn."),
     sec("utskott", "Utskotten", [
       text("engage_committees_title", "Rubrik", "Våra utskott", { required: true }),
@@ -550,6 +563,7 @@ export const PAGES = [
       text("engage_committee_more", "Knapp: läs mer", "Läs mer", small),
       text("engage_committee_less", "Knapp: stäng", "Stäng", small),
       text("engage_committee_join", "Knapp: vara med", "Jag vill vara med i {utskott}", { ...small, help: "{utskott} byts ut mot utskottets namn." }),
+      ...blockColorFields("engagera_dig_utskott"),
     ], "Utskotten – namn, kort och lång beskrivning, tidsåtgång och bilder – lägger du in under Styrelse och uppdrag → Utskott i menyn."),
     sec("formular", "Formuläret", [
       choice("engage_signup", "Anmälan", "oppen", [
@@ -641,6 +655,7 @@ export const PAGES = [
       list("companies_benefits", "Rutan – punkter", "Synlighet på hemsidan, i sociala medier och på våra evenemang\nLunchföreläsningar och case-kvällar på campus\nPlats på vår arbetsmarknadsdag\nSittningar och nätverksträffar med studenter\nAnnonsering av praktikplatser, notarietjänster och jobb", { help: "En punkt per rad." }),
       image("companies_image", "Bild", "", { help: "Valfritt. Visas bredvid texten, t.ex. från arbetsmarknadsdagen eller en lunchföreläsning." }),
       text("companies_image_alt", "Bildbeskrivning", "", { more: true, help: ALT_HELP }),
+      ...blockColorFields("for_foretag_varfor"),
     ]),
     sec("paket", "Samarbetsformer", [
       text("packages_title", "Rubrik", "Samarbetsformer", { required: true }),
@@ -652,6 +667,7 @@ export const PAGES = [
       text("package_3_name", "Paket 3 – namn", "Enskilt evenemang"),
       area("package_3_text", "Paket 3 – beskrivning", "Lunchföreläsning, case-kväll eller plats på arbetsmarknadsdagen – utan längre åtagande."),
       text("companies_strip_title", "Etikett ovanför partnerloggorna", "De samarbetar redan med oss", small),
+      ...blockColorFields("for_foretag_paket"),
     ]),
     sec("formular", "Formuläret", [
       text("companies_form_title", "Rubrik", "Kontakta oss", { required: true }),
@@ -665,6 +681,7 @@ export const PAGES = [
       text("cf_message", "Fält: meddelande", "Berätta kort om er och vad ni vill uppnå", small),
       text("companies_mail_title", "Rutan bredvid – rubrik", "Hellre mejl?", { more: true }),
       rich("companies_mail_text", "Rutan bredvid – text", "Skriv till [arbetsmarknadsansvarig@jfkarlstad.se](mailto:arbetsmarknadsansvarig@jfkarlstad.se).", { more: true, help: RICH_HELP }),
+      ...blockColorFields("for_foretag_formular"),
     ]),
     sec("tack", "Bekräftelsen", [
       text("companies_thanks_title", "Rubrik", "Tack för ert intresse!", { required: true }),
