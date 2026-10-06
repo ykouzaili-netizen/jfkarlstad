@@ -1116,6 +1116,33 @@ main:focus { outline: none; }
 }
 .partner-strip a:hover { background: var(--c-bg); border-color: var(--c-text); }
 
+/* Mobil: huvudpartnerna sida vid sida att svepa mellan (nästa kort syns i kanten), och raden under
+   staplas så att knappen får hela bredden i stället för att hamna snett till höger. */
+@media (max-width: 639px) {
+  .partner-main:has(> :nth-child(2)) {
+    grid-auto-flow: column;
+    grid-auto-columns: 84%;
+    gap: 12px;
+    margin-inline: calc(var(--gutter) * -1);
+    padding: 4px var(--gutter) 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--gutter);
+    scrollbar-width: none;
+  }
+  .partner-main::-webkit-scrollbar { display: none; }
+  .partner-main > * { scroll-snap-align: start; }
+  .partner-card { min-height: 0; padding: 22px; gap: 10px; }
+  .partner-logo-wrap { min-height: 64px; }
+  .partner-card:hover { transform: none; box-shadow: none; }
+
+  .partner-footer { flex-direction: column; align-items: stretch; gap: 20px; margin-top: 20px; padding-top: 24px; }
+  .partner-strip { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .partner-strip ul { gap: 8px; }
+  .partner-strip a { min-height: 46px; padding: 6px 18px; }
+}
+
 /* ---------- CTA: JF Påverka ---------- */
 
 .cta-panel {
@@ -2363,6 +2390,11 @@ h1, h2, h3, .date-day, .float-date, .stat-value, .error-code { font-variant-nume
 
 /* Startsidan: knappar under partnerloggorna */
 .partner-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; margin-left: auto; }
+@media (max-width: 639px) {
+  .partner-actions { flex-direction: column; align-items: stretch; gap: 14px; margin-left: 0; }
+  .partner-actions .btn { width: 100%; }
+  .partner-actions .arrow-link { align-self: center; }
+}
 
 /* ---------- Kalenderprenumeration ---------- */
 .subscribe { position: relative; }
