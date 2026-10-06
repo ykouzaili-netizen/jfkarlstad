@@ -1356,3 +1356,14 @@
   toggle.addEventListener("change", sync);
   sync();
 })();
+
+// Jobbformuläret: fältet för arbetsgivarens namn behövs bara när arbetsgivaren inte valts i listan.
+(function () {
+  var pick = document.querySelector('select[name="employer_pick"]');
+  var name = document.querySelector('input[name="employer"]');
+  var wrap = name && (name.closest(".field") || name.parentNode);
+  if (!pick || !wrap) return;
+  function sync() { wrap.hidden = pick.value !== ""; }
+  pick.addEventListener("change", sync);
+  sync();
+})();

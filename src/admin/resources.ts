@@ -14,6 +14,7 @@ import { icon } from "../views/icons.js";
 import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton, statusPill } from "./layout.js";
 import { handleUpload, imageUploadField } from "./uploads.js";
+import { jobTotals } from "./job-stats.js";
 
 /**
  * Generisk redigering (skapa, lista, ändra, publicera, ta bort) för innehållstyperna.
@@ -40,6 +41,8 @@ export interface AdminField extends FieldSpec {
   schedule?: boolean;
   /** Val som hämtas från databasen när formuläret visas (t.ex. vilken partner ett jobb hör till). */
   optionsFrom?: (db: D1Database) => Promise<{ value: string; label: string }[]>;
+  /** Fältet finns bara i formuläret och sparas inte som en egen kolumn (beforeSave tar hand om det). */
+  virtual?: boolean;
 }
 
 export interface Resource {
@@ -72,6 +75,14 @@ export interface Resource {
   listActions?: SafeHtml;
   /** Extra innehåll mellan rubriken och listan (t.ex. status för automatisk hämtning). */
   listIntro?: (c: RequestContext, session: Session) => Promise<SafeHtml | string>;
+  /** Formulärvärden som inte är egna kolumner (t.ex. jobbets snabbval av arbetsgivare), räknade från raden. */
+  toValues?: (row: Row) => Values;
+  /** Körs efter valideringen och före sparning: kan fylla i värden och kolumner från databasen eller ge fel. */
+  beforeSave?: (db: D1Database, values: Values, data: Record<string, unknown>) => Promise<Errors>;
+  /** Listan hämtas med en egen fråga (t.ex. med antal jobb per arbetsgivare). */
+  listQuery?: string;
+  /** Extra ruta överst på redigeringssidan för en befintlig post (t.ex. annonsens statistik). */
+  editIntro?: (db: D1Database, row: Row) => Promise<SafeHtml | string>;
 }
 
 const BOARD_TABS = [
@@ -80,6 +91,11 @@ const BOARD_TABS = [
   { href: "/admin/kursombud", label: "Kursombud" },
   { href: "/admin/utmarkelser", label: "Utmärkelser" },
   { href: "/admin/uppdrag", label: "Lediga uppdrag" },
+];
+const JOB_TABS = [
+  { href: "/admin/jobb", label: "Tjänster" },
+  { href: "/admin/arbetsgivare", label: "Arbetsgivare" },
+  { href: "/admin/jobb/statistik", label: "Statistik" },
 ];
 const PARTNER_TABS = [
   { href: "/admin/partners", label: "Partners" },
@@ -142,6 +158,35 @@ export async function instagramSyncSubmit(c: RequestContext, session: Session): 
   const status = await syncInstagram(c.env);
   await audit(c.env, session, "hämtade", "instagram", null, status.ok ? `${status.added ?? 0} nya inlägg` : "misslyckades");
   return redirect(`/admin/instagram?${status.ok ? "klart=sparat" : "fel=instagram"}`, 303);
+}
+
+/** Snabbvalet av arbetsgivare i jobbformuläret: partnerna först, sedan övriga arbetsgivare. */
+async function employerOptions(db: D1Database): Promise<{ value: string; label: string }[]> {
+  const [partners, companies] = await db.batch([
+    db.prepare("SELECT id, name FROM partners ORDER BY name COLLATE NOCASE"),
+    db.prepare("SELECT id, name FROM companies ORDER BY name COLLATE NOCASE"),
+  ]);
+  return [
+    ...(partners!.results as { id: number; name: string }[]).map((p) => ({ value: `p:${p.id}`, label: `${p.name} (samarbetspartner)` })),
+    ...(companies!.results as { id: number; name: string }[]).map((co) => ({ value: `c:${co.id}`, label: co.name })),
+  ];
+}
+
+/** Jobbets arbetsgivare: valet i listan blir partner_id eller company_id, och namnet följer med. */
+async function saveEmployer(db: D1Database, values: Values, data: Record<string, unknown>): Promise<Errors> {
+  const m = /^([pc]):(\d+)$/.exec(values.employer_pick ?? "");
+  data.partner_id = null;
+  data.company_id = null;
+  if (m) {
+    const table = m[1] === "p" ? "partners" : "companies";
+    const hit = await db.prepare(`SELECT id, name FROM ${table} WHERE id = ?`).bind(Number(m[2])).first<{ id: number; name: string }>();
+    if (!hit) return { employer_pick: "Arbetsgivaren finns inte längre. Välj en annan i listan." };
+    data[m[1] === "p" ? "partner_id" : "company_id"] = hit.id;
+    values.employer = hit.name;
+    return {};
+  }
+  if (!(values.employer ?? "").trim()) return { employer: "Välj arbetsgivaren i listan eller skriv namnet." };
+  return {};
 }
 
 export const RESOURCES: Resource[] = [
@@ -482,22 +527,26 @@ export const RESOURCES: Resource[] = [
     newLabel: "Lägg upp en tjänst",
     lead: "Praktikplatser, sommarnotarietjänster, trainee­program och jobb. Visas under Jobb och praktik och på partnerns sida. Annonsen försvinner automatiskt dagen efter sista ansökningsdag.",
     orderBy: "(deadline IS NOT NULL AND deadline < date('now')), deadline IS NULL, deadline, id DESC",
+    listQuery:
+      "SELECT j.*, COALESCE(p.logo_key, co.logo_key) AS employer_logo, (p.id IS NOT NULL) AS is_partner FROM jobs j LEFT JOIN partners p ON p.id = j.partner_id LEFT JOIN companies co ON co.id = j.company_id " +
+      "ORDER BY (j.deadline IS NOT NULL AND j.deadline < date('now')), j.deadline IS NULL, j.deadline, j.id DESC",
     slugFrom: "title",
     publishable: true,
     duplicable: true,
-    emptyText: "Inga tjänster ännu. Har en partner en praktikplats eller ett jobb? Lägg upp den här.",
+    tabs: JOB_TABS,
+    navActive: "/admin/jobb",
+    emptyText: "Inga tjänster ännu. Har en partner eller annan arbetsgivare en praktikplats eller ett jobb? Lägg upp den här.",
     fields: [
       { name: "title", label: "Titel", type: "text", required: true, max: 150, placeholder: "T.ex. Sommarnotarie 2027" },
-      { name: "employer", label: "Arbetsgivare", type: "text", required: true, max: 120 },
       {
-        name: "partner_id",
-        label: "Samarbetspartner",
+        name: "employer_pick",
+        label: "Arbetsgivare",
         type: "select",
-        nullable: true,
-        help: "Välj partnern om tjänsten är hos en av dem – då visas logotypen och annonsen syns även på partnerns sida.",
-        optionsFrom: async (db) =>
-          (await db.prepare("SELECT id, name FROM partners ORDER BY name").all<{ id: number; name: string }>()).results.map((p) => ({ value: String(p.id), label: p.name })),
+        virtual: true,
+        help: "Välj ur listan så kommer namnet och logotypen med automatiskt, och annonsen räknas i arbetsgivarens statistik. Finns arbetsgivaren inte? Lägg till den under fliken Arbetsgivare – eller lämna ”Välj …” och skriv namnet nedan.",
+        optionsFrom: employerOptions,
       },
+      { name: "employer", label: "Arbetsgivarens namn", type: "text", max: 120, help: "Behövs bara om arbetsgivaren inte finns i listan ovan." },
       {
         name: "kind",
         label: "Typ",
@@ -508,18 +557,59 @@ export const RESOURCES: Resource[] = [
       { name: "location", label: "Ort", type: "text", max: 100, placeholder: "T.ex. Stockholm eller Distans" },
       { name: "summary", label: "Kort beskrivning", type: "textarea", rows: 2, max: 300, help: "En eller två meningar som visas i listan." },
       { name: "body", label: "Hela annonsen", type: "textarea", rows: 12, max: 20000, help: MARKDOWN_HELP },
-      { name: "apply_url", label: "Länk till ansökan", type: "url", nullable: true, max: 500, help: "Arbetsgivarens ansökningssida. Klicken räknas i partnerstatistiken." },
+      { name: "apply_url", label: "Länk till ansökan", type: "url", nullable: true, max: 500, help: "Arbetsgivarens ansökningssida. Klicken räknas i statistiken." },
       { name: "deadline", label: "Sista ansökningsdag", type: "date", nullable: true, help: "Lämna tomt för löpande urval." },
       { name: "publish_at", label: "Publicera på webbplatsen", type: "datetime-local", schedule: true, nullable: true, help: SCHEDULE_HELP },
     ],
     listColumns: [
+      { label: "", render: (r) => thumb(r.employer_logo, ""), className: "col-thumb" },
       { label: "Tjänst", render: (r) => html`<a class="row-title" href="/admin/jobb/${r.id}">${String(r.title)}</a>` },
-      { label: "Arbetsgivare", render: (r) => String(r.employer) },
+      { label: "Arbetsgivare", render: (r) => html`${String(r.employer)}${r.is_partner ? html` <span class="pill">Partner</span>` : ""}` },
       { label: "Sista dag", render: (r) => (r.deadline ? html`${formatDay(String(r.deadline))}${String(r.deadline) < stockholmToday() ? html` <span class="pill pill-off">Utgången</span>` : ""}` : "Löpande") },
       { label: "Status", render: (r) => publishPill(r, "publish_at") },
     ],
     titleOf: (r) => String(r.title),
     publicUrl: (r) => (r.published && (!r.publish_at || String(r.publish_at) <= nowUtc()) ? `/karriar/${r.slug}` : null),
+    extraColumns: () => ({ updated_at: nowUtc() }),
+
+    toValues: (r) => ({ employer_pick: r.partner_id ? `p:${r.partner_id}` : r.company_id ? `c:${r.company_id}` : "" }),
+    beforeSave: saveEmployer,
+    editIntro: async (db, row) => {
+      const s = await jobTotals(db, row.id);
+      const n = (v: number) => v.toLocaleString("sv-SE");
+      return html`<div class="admin-card job-stats-card">
+        <div><span class="job-stats-num">${n(s.views)}</span><span class="job-stats-label">visningar av annonsen</span></div>
+        <div><span class="job-stats-num">${n(s.applies)}</span><span class="job-stats-label">klick till ansökan</span></div>
+        <div><span class="job-stats-num">${s.views ? `${Math.round((s.applies / s.views) * 100)} %` : "–"}</span><span class="job-stats-label">andel som klickade</span></div>
+        <a class="arrow-link job-stats-more" href="/admin/jobb/statistik">Statistik per termin${icon("arrowRight", "icon icon-sm")}</a>
+      </div>`;
+    },
+  },
+  {
+    path: "arbetsgivare",
+    table: "companies",
+    title: "Arbetsgivare",
+    singular: "arbetsgivare",
+    newLabel: "Lägg till arbetsgivare",
+    lead: "Arbetsgivare som lägger upp jobb men inte är samarbetspartners – t.ex. myndigheter, domstolar och mindre byråer. Lägg in dem en gång, så väljer du dem med ett klick när du lägger upp en tjänst. Partnerna finns redan med i listan.",
+    orderBy: "name COLLATE NOCASE",
+    listQuery: "SELECT co.*, (SELECT COUNT(*) FROM jobs j WHERE j.company_id = co.id) AS job_count FROM companies co ORDER BY co.name COLLATE NOCASE",
+    tabs: JOB_TABS,
+    navActive: "/admin/jobb",
+    emptyText: "Inga arbetsgivare ännu. Lägg till de arbetsgivare som brukar annonsera hos er, så kan du välja dem med ett klick när du lägger upp en tjänst.",
+    fields: [
+      { name: "name", label: "Namn", type: "text", required: true, max: 120, placeholder: "T.ex. Förvaltningsrätten i Karlstad" },
+      { name: "logo_key", label: "Logotyp", type: "text", upload: "image", nullable: true, help: "Visas på arbetsgivarens jobbannonser. En liggande logotyp med genomskinlig bakgrund (PNG eller SVG) blir finast." },
+      { name: "website_url", label: "Webbplats", type: "url", nullable: true, max: 300 },
+      { name: "notes", label: "Anteckningar", type: "textarea", rows: 3, max: 2000, help: "Syns bara i adminpanelen – t.ex. kontaktperson eller när ni senast hördes." },
+    ],
+    listColumns: [
+      { label: "", render: (r) => thumb(r.logo_key, ""), className: "col-thumb" },
+      { label: "Arbetsgivare", render: (r) => html`<a class="row-title" href="/admin/arbetsgivare/${r.id}">${String(r.name)}</a>` },
+      { label: "Tjänster", render: (r) => (Number(r.job_count) ? String(r.job_count) : "–") },
+      { label: "Ny tjänst", render: (r) => html`<a class="btn btn-outline btn-sm" href="/admin/jobb/ny?arbetsgivare=${r.id}">+ Lägg upp en tjänst</a>` },
+    ],
+    titleOf: (r) => String(r.name),
     extraColumns: () => ({ updated_at: nowUtc() }),
   },
   {
@@ -619,6 +709,7 @@ function rowToValues(fields: AdminField[], r: Resource, row: Row | null): Values
     v[f.name] = val == null ? "" : f.type === "checkbox" ? (val ? "1" : "") : f.schedule ? utcSqlToLocal(String(val)) : String(val);
   }
   if (r.publishable) v.published = row ? (row.published ? "1" : "") : "";
+  if (row && r.toValues) Object.assign(v, r.toValues(row));
   return v;
 }
 
@@ -662,7 +753,7 @@ export function resourceTabs(tabs: { href: string; label: string }[] | undefined
 
 export function listHandler(r: Resource) {
   return async (c: RequestContext, session: Session): Promise<Response> => {
-    const { results } = await c.env.DB.prepare(`SELECT * FROM ${r.table} ORDER BY ${r.orderBy}`).all<Row>();
+    const { results } = await c.env.DB.prepare(r.listQuery ?? `SELECT * FROM ${r.table} ORDER BY ${r.orderBy}`).all<Row>();
     const content = html`
       ${adminHead(r.title, { lead: r.lead, actions: html`${r.listActions ?? ""}<a class="btn btn-primary" href="/admin/${r.path}/ny">+ ${r.newLabel}</a>` })}
       ${resourceTabs(r.tabs, `/admin/${r.path}`)}
@@ -707,12 +798,10 @@ export function newHandler(r: Resource) {
     for (const f of fields) if (f.type === "number" && f.name === "sort_order") values[f.name] = "0";
     if (r.path === "dokument") values.year = String(new Date().getFullYear());
     if (r.path === "jobb") values.kind = "praktik";
-    // "Lägg upp en tjänst" från en partners sida förväljer partnern
-    const partner = c.url.searchParams.get("partner");
-    if (r.path === "jobb" && partner && fields.find((f) => f.name === "partner_id")?.options?.some((o) => o.value === partner)) {
-      values.partner_id = partner;
-      values.employer = fields.find((f) => f.name === "partner_id")!.options!.find((o) => o.value === partner)!.label;
-    }
+    // "Lägg upp en tjänst" från en partner eller arbetsgivare förväljer den
+    const q = c.url.searchParams;
+    const pre = q.get("partner") ? `p:${q.get("partner")}` : q.get("arbetsgivare") ? `c:${q.get("arbetsgivare")}` : "";
+    if (r.path === "jobb" && pre && fields.find((f) => f.name === "employer_pick")?.options?.some((o) => o.value === pre)) values.employer_pick = pre;
     return renderEdit(c, session, r, fields, null, values, {});
   };
 }
@@ -735,9 +824,11 @@ async function renderEdit(c: RequestContext, session: Session, r: Resource, fiel
       actions: row
         ? html`${pub ? html`<a class="btn btn-outline btn-sm" href="${pub}" target="_blank" rel="noopener">${icon("external", "icon icon-sm")}Visa på webbplatsen</a>` : ""}
             ${r.duplicable ? postButton(session, `/admin/${r.path}/${row.id}/kopiera`, "Kopiera") : ""}
-            ${r.path === "partners" ? html`<a class="btn btn-outline btn-sm" href="/admin/jobb/ny?partner=${row.id}">+ Lägg upp en tjänst</a>` : ""}`
+            ${r.path === "partners" ? html`<a class="btn btn-outline btn-sm" href="/admin/jobb/ny?partner=${row.id}">+ Lägg upp en tjänst</a>` : ""}
+            ${r.path === "arbetsgivare" ? html`<a class="btn btn-outline btn-sm" href="/admin/jobb/ny?arbetsgivare=${row.id}">+ Lägg upp en tjänst</a>` : ""}`
         : undefined,
     })}
+    ${row && r.editIntro ? await r.editIntro(c.env.DB, row) : ""}
     ${editForm(r, fields, session, isNew ? `/admin/${r.path}/ny` : `/admin/${r.path}/${row!.id}`, values, errors, isNew)}
   `;
   return adminLayout(c, session, { title: isNew ? r.newLabel : `Redigera ${r.singular}`, active: r.navActive ?? `/admin/${r.path}`, newCount: await newMessageCount(c.env.DB), narrow: true }, content, status);
@@ -796,7 +887,15 @@ export function saveHandler(r: Resource) {
     }
 
     const data: Record<string, unknown> = {};
+    if (r.beforeSave) {
+      Object.assign(errors, await r.beforeSave(db, values, data));
+      if (Object.keys(errors).length) {
+        for (const f of fields.filter((f) => f.upload)) values[f.name] = existing ? String(existing[col(f)] ?? "") : "";
+        return renderEdit(c, session, r, fields, existing, values, errors, 422);
+      }
+    }
     for (const f of plain) {
+      if (f.virtual) continue;
       const v = values[f.name] ?? "";
       if (f.type === "checkbox") data[col(f)] = v ? 1 : 0;
       else if (f.schedule) data[col(f)] = localToUtcSql(v);

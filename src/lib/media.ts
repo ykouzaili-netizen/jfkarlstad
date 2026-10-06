@@ -34,7 +34,7 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(u);
   };
-  const [news, events, partners, board, honors, gallery, docs, settings, insta, cm1, cm2, cm3] = await db.batch([
+  const [news, events, partners, board, honors, gallery, docs, settings, insta, cm1, cm2, cm3, companies] = await db.batch([
     db.prepare("SELECT id, title, image_key AS k FROM news WHERE image_key IS NOT NULL AND image_key != ''"),
     db.prepare("SELECT id, title, image_key AS k FROM events WHERE image_key IS NOT NULL AND image_key != ''"),
     db.prepare("SELECT id, name AS title, logo_key AS k FROM partners WHERE logo_key IS NOT NULL AND logo_key != ''"),
@@ -47,6 +47,7 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
     db.prepare("SELECT id, name AS title, image_1_key AS k FROM committees WHERE image_1_key IS NOT NULL"),
     db.prepare("SELECT id, name AS title, image_2_key AS k FROM committees WHERE image_2_key IS NOT NULL"),
     db.prepare("SELECT id, name AS title, image_3_key AS k FROM committees WHERE image_3_key IS NOT NULL"),
+    db.prepare("SELECT id, name AS title, logo_key AS k FROM companies WHERE logo_key IS NOT NULL AND logo_key != ''"),
   ]);
   type R = { id: number; title: string; k: string };
   const each = (res: D1Result | undefined, label: string, path: string) =>
@@ -54,6 +55,7 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
   each(news, "Nyhet", "nyheter");
   each(events, "Event", "event");
   each(partners, "Partner", "partners");
+  each(companies, "Arbetsgivare", "arbetsgivare");
   each(board, "Styrelsen", "styrelsen");
   each(honors, "Utmärkelse", "utmarkelser");
   each(gallery, "Bildgalleri", "galleri");

@@ -20,6 +20,7 @@ import {
   usersPage,
 } from "./pages.js";
 import { previewHandler, siteMapHandler } from "./preview.js";
+import { jobStatsCsv, jobStatsPage } from "./job-stats.js";
 import { RESOURCES, instagramSyncSubmit, deleteHandler, duplicateHandler, editHandler, listHandler, newHandler, saveHandler, toggleHandler } from "./resources.js";
 import { historyPage, historyRestore, menuSubmit, textsPage, textsSubmit, undoSubmit, resetLayoutSubmit } from "./texts.js";
 import { mediaAdjustPage, mediaAdjustSubmit, mediaDeleteSubmit, mediaLibraryPage, mediaPickerFragment, mediaUploadSubmit } from "./media-pages.js";
@@ -58,7 +59,9 @@ export function registerAdminRoutes(router: Router): void {
     .get("/admin/bildbank/valj", requireUser(mediaPickerFragment))
     .get("/admin/bildbank/justera", requireUser(mediaAdjustPage))
     .post("/admin/bildbank/justera", requireUser(mediaAdjustSubmit))
-    // Före /admin/partners/:id nedan
+    // Före /admin/partners/:id och /admin/jobb/:id nedan
+    .get("/admin/jobb/statistik", requireUser(jobStatsPage))
+    .get("/admin/jobb/statistik.csv", requireUser(jobStatsCsv))
     .get("/admin/partners/statistik", requireUser(partnerStatsPage))
     .get("/admin/partners/statistik.csv", requireUser(partnerStatsCsv))
     .get("/admin/meddelanden", requireUser(messagesPage))

@@ -10,7 +10,7 @@ import { resourceTabs } from "./resources.js";
  * Bygger på totalsiffror per dag i stats_daily – inga personuppgifter, inga kakor.
  */
 
-interface Term {
+export interface Term {
   id: string; // "HT2026"
   label: string; // "Hösttermin 2026"
   from: string; // "2026-07-01"
@@ -29,7 +29,7 @@ function makeTerm(kind: "HT" | "VT", y: number): Term {
     : { id: `VT${y}`, label: `Vårtermin ${y}`, from: `${y}-01-01`, to: `${y}-06-30` };
 }
 
-function recentTerms(n: number): Term[] {
+export function recentTerms(n: number): Term[] {
   const out: Term[] = [];
   let t = termOf(stockholmToday());
   for (let i = 0; i < n; i++) {
@@ -74,7 +74,7 @@ async function collect(db: D1Database, term: Term) {
   });
   const jobStats = jobRows
     .map((j) => ({ ...j, views: n.get(`job_view:${j.id}`) ?? 0, applies: n.get(`job_apply:${j.id}`) ?? 0 }))
-    .filter((j) => j.views || j.applies)
+    .filter((j) => j.partner_id !== null && (j.views || j.applies))
     .sort((a, b) => b.views - a.views);
   const since = ((first!.results[0] as { d?: string } | undefined)?.d ?? null) as string | null;
   return { rows, jobStats, since };
@@ -131,6 +131,7 @@ export async function partnerStatsPage(c: RequestContext, session: Session): Pro
                 </table>
               </div>`
           : ""}`}
+    <p class="field-help stats-note">Statistik för alla jobbannonser – även från arbetsgivare som inte är partners – finns under <a href="/admin/jobb/statistik">Jobb och praktik → Statistik</a>.</p>
     <p class="field-help stats-note">Räknas sedan ${since ? formatDay(since) : "första besöket"}. Robotar, förhandsvisningar i adminpanelen och webbläsarens förhämtningar räknas inte. Samma person kan räknas flera gånger. Siffrorna sparas i tre år.</p>`;
   return adminLayout(c, session, { title: "Statistik till partners", active: "/admin/partners", newCount: await newMessageCount(c.env.DB), wide: true }, content);
 }

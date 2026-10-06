@@ -123,6 +123,7 @@ export interface JobRow {
   title: string;
   employer: string;
   partner_id: number | null;
+  company_id?: number | null;
   kind: JobKind;
   location: string;
   summary: string;
@@ -134,6 +135,7 @@ export interface JobRow {
   updated_at: string;
   /** Från JOIN mot partners (kan saknas). */
   partner_slug?: string | null;
+  /** Arbetsgivarens logotyp: partnerns eller, för andra arbetsgivare, den i arbetsgivarregistret. */
   partner_logo?: string | null;
 }
 
@@ -194,7 +196,10 @@ export const eventQuery = {
   bySlug: (db: D1Database, slug: string) => db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND slug = ?`).bind(slug),
 };
 
-const JOB_SELECT = "SELECT j.*, p.slug AS partner_slug, p.logo_key AS partner_logo FROM jobs j LEFT JOIN partners p ON p.id = j.partner_id AND p.published = 1";
+/** Logotypen kommer från partnern (om den är publicerad) eller från arbetsgivarregistret (companies). */
+const JOB_SELECT =
+  "SELECT j.*, p.slug AS partner_slug, COALESCE(p.logo_key, co.logo_key) AS partner_logo FROM jobs j " +
+  "LEFT JOIN partners p ON p.id = j.partner_id AND p.published = 1 LEFT JOIN companies co ON co.id = j.company_id";
 
 export const jobQuery = {
   /** Öppna tjänster: publicerade och sista ansökningsdag inte passerad. `today` = 'YYYY-MM-DD' i svensk tid. */

@@ -759,3 +759,10 @@ a.admin-user:hover { background: var(--c-hover); }
 .intro-styles { margin-top: 14px; }
 .intro-styles > .field-label { margin-bottom: 8px; }
 .intro-try { font-size: 0.8125rem; font-weight: 600; margin-top: 4px; width: fit-content; }
+
+/* Annonsens statistik överst på redigeringssidan */
+.job-stats-card { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 32px; padding: 18px 22px; margin-bottom: 20px; }
+.job-stats-card > div { display: flex; flex-direction: column; }
+.job-stats-num { font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.job-stats-label { font-size: 0.8125rem; color: var(--c-muted); }
+.job-stats-more { margin-left: auto; font-size: 0.875rem; }
