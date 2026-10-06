@@ -544,14 +544,23 @@
     }
     box.addEventListener("mouseenter", function () { hover = true; });
     box.addEventListener("mouseleave", function () { hover = false; });
+    // Räknas som synligt först när minst halva bildspelet är i bild. Varje bild visas sex sekunder
+    // av tid då den faktiskt syns – så den första bilden står kvar tills läsaren har skrollat fram och sett den.
     if ("IntersectionObserver" in window) {
-      new IntersectionObserver(function (es) { visible = es[0].isIntersecting; }).observe(box);
+      visible = false;
+      new IntersectionObserver(function (es) {
+        visible = es[0].isIntersecting && es[0].intersectionRatio >= 0.5;
+      }, { threshold: [0, 0.5] }).observe(box);
     }
+    var shown = 0, STEP = 250;
     window.setInterval(function () {
       if (paused || hover || !visible || document.hidden) return;
+      shown += STEP;
+      if (shown < 6000) return;
+      shown = 0;
       slides[i].classList.remove("is-active");
       i = (i + 1) % slides.length;
       slides[i].classList.add("is-active");
-    }, 6000);
+    }, STEP);
   });
 })();
