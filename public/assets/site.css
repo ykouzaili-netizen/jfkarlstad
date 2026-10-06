@@ -566,7 +566,11 @@ main:focus { outline: none; }
 }
 .slides-pause { right: 10px; bottom: 10px; opacity: 0; }
 .slides:hover .slides-pause, .slides-pause:focus-visible, .slides-pause[aria-pressed="true"] { opacity: 1; }
-@media (hover: none) { .slides-pause { opacity: 0.85; } }
+/* Pekskärm: knappen är dold tills man trycker på bilden (site.js sätter .show-controls en stund) */
+@media (hover: none) {
+  .slides-pause { opacity: 0; pointer-events: none; }
+  .slides.show-controls .slides-pause, .slides-pause[aria-pressed="true"], .slides-pause:focus-visible { opacity: 0.85; pointer-events: auto; }
+}
 .slides-pause:hover, .hero-slides-pause:hover { background: rgb(20 20 20 / 0.8); }
 .slides-pause:focus-visible, .hero-slides-pause:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .hero-slides-pause { right: var(--gutter); bottom: 22px; }

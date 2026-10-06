@@ -529,6 +529,19 @@
       label();
       btn.addEventListener("click", function () { paused = !paused; label(); });
     }
+    // Pekskärm: pausknappen i bilden visas först när man trycker på bilden och döljs igen efter en stund.
+    if (btn && !outside) {
+      var hideTimer = null;
+      var hideLater = function () {
+        window.clearTimeout(hideTimer);
+        hideTimer = window.setTimeout(function () { box.classList.remove("show-controls"); }, 4000);
+      };
+      box.addEventListener("click", function (e) {
+        if (btn.contains(e.target)) { hideLater(); return; }
+        if (box.classList.toggle("show-controls")) hideLater();
+        else window.clearTimeout(hideTimer);
+      });
+    }
     box.addEventListener("mouseenter", function () { hover = true; });
     box.addEventListener("mouseleave", function () { hover = false; });
     if ("IntersectionObserver" in window) {
