@@ -83,6 +83,8 @@ function sitePalette(s: Settings): string {
     ["Primärfärg", siteHex(s, "color_primary")],
     ["Accentfärg", siteHex(s, "color_accent")],
     ["Knappar", siteHex(s, "color_button")],
+    // Extra färger som styrelsen vill ha nära till hands
+    ["Mörkt guld", "#cda72a"],
   ];
   // Vit och svart som extra val, men bara om paletten inte redan har en nästan vit eller nästan svart färg.
   if (!named.some(([, hex]) => luminance(hex) > 0.9)) named.push(["Vit", "#ffffff"]);
