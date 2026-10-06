@@ -153,6 +153,20 @@ export const PAGES = [
         { value: "center", label: "Mitten" },
         { value: "bottom", label: "Nedre delen" },
       ], { required: true, help: "Bilden beskärs olika på dator och mobil. Välj den del som är viktigast." }),
+      choice("hero_mobile_fit", "Bilden i mobilen", "hela", [
+        { value: "hela", label: "Visa hela bilden", hint: "Hela fotot syns överst och ingen skärs bort – bäst för gruppbilder. Bakom texten fylls skärmen med en mjukt suddig version av samma bild." },
+        { value: "fyll", label: "Fyll skärmen", hint: "Bilden täcker hela mobilskärmen men beskärs på sidorna. Passar bilder utan personer nära kanterna." },
+      ], { required: true, help: "Gäller mobiler och surfplattor som hålls på höjden. På datorn fyller bilden alltid hela toppen." }),
+      choice("hero_mobile_focus", "Om bilden fyller skärmen: vilken del ska synas i mobilen?", "mitten", [
+        { value: "vanster", label: "Vänstra delen" },
+        { value: "mitten", label: "Mitten" },
+        { value: "hoger", label: "Högra delen" },
+      ], { required: true, more: true }),
+      image("hero_image_mobile", "Egen bild för mobilen (valfri)", "", {
+        more: true,
+        help: "Ett stående foto som visas i mobilen i stället för bakgrundsbilden. Det fyller hela skärmen – välj ett där alla får plats på höjden.",
+      }),
+      text("hero_image_mobile_alt", "Egen bild för mobilen – bildbeskrivning", "", { more: true, help: ALT_HELP }),
       choice("hero_overlay", "Mörk ton över bilden", "medel", [
         { value: "svag", label: "Svag", hint: "För mörka bilder" },
         { value: "medel", label: "Medel" },
