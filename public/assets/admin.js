@@ -1346,3 +1346,13 @@
     updateMore();
   });
 })();
+
+// Utseende → Rörelse: introts utseenden visas bara när introt är påslaget.
+(function () {
+  var toggle = document.querySelector("[data-intro-toggle]");
+  var styles = document.querySelector("[data-intro-styles]");
+  if (!toggle || !styles) return;
+  function sync() { styles.hidden = !toggle.checked; }
+  toggle.addEventListener("change", sync);
+  sync();
+})();

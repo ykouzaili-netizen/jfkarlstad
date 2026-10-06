@@ -522,8 +522,21 @@ main:focus { outline: none; }
 .intro-logo .i-bagtext { fill: rgb(255 255 255 / 0.9); }
 .intro-logo .i-dot { fill: #f5d729; }
 .intro-logo .i-ring { stroke: #f5d729; stroke-width: 1.2; opacity: 0; }
-/* Innan animationen startat: inget av logotypen syns (WAAPI tar över med fill: both) */
-.intro-logo :is(.i-stomme, .i-skal, .i-blad, .i-tecken, .i-dot) { opacity: 0; }
+/* Punkten och ringen syns bara när en variant animerar dem (WAAPI med fill: both sköter resten) */
+.intro-logo :is(.i-dot, .i-ring) { opacity: 0; }
+
+/* Utseenden (Utseende → Rörelse → Intro). data-style sätts av servern; /?intro=<utseende> förhandsvisar. */
+.intro.is-lifting { border-radius: 0 0 50% 50% / 0 0 9vh 9vh; box-shadow: 0 30px 60px -20px rgb(0 0 0 / 0.5); }
+.intro-logo.is-bright :is(.i-stomme, .i-skal) { fill: rgb(218 218 218 / 0.62); }
+.intro-logo.is-bright .i-trad { stroke: rgb(218 218 218 / 0.8); stroke-width: 0.7; }
+.intro-on .intro[data-style="stampel"],
+.intro-on[data-intro-preview="stampel"] .intro { background: var(--c-bg); }
+.intro[data-style="stampel"] .intro-logo .i-jfk,
+.intro[data-style="stampel"] .intro-logo .i-bagtext { fill: #141414; }
+.intro[data-style="stampel"] .intro-logo :is(.i-stomme, .i-skal) { fill: rgb(20 20 20 / 0.16); }
+.intro[data-style="stampel"] .intro-logo .i-trad { stroke: rgb(20 20 20 / 0.3); }
+.intro[data-style="stampel"] .intro-logo .i-krans { fill: #cda72a; }
+.intro[data-style="stampel"] .intro-logo .i-ring { stroke: #cda72a; stroke-width: 3; }
 @media (prefers-reduced-motion: reduce) { .intro-on .intro { display: none; } }
 @media print { .intro { display: none !important; } }
 

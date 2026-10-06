@@ -3,13 +3,16 @@
  * Introt visas bara när någon kommer till startsidan utifrån: direkt, från en sökmotor eller en länk på en
  * annan webbplats. Inte när man klickar sig tillbaka till startsidan, laddar om sidan eller går bakåt.
  * Inget sparas hos besökaren (ingen kaka, ingen lagring) – därför behöver integritetspolicyn inte ändras.
- * Hoppas alltid över vid "minska rörelse". Lägg till ?intro i adressen för att se introt när som helst.
+ * Hoppas alltid över vid "minska rörelse". Lägg till ?intro (eller ?intro=<utseende>) i adressen för att se det.
  */
 (function () {
   "use strict";
   var root = document.documentElement;
   try {
-    var force = /[?&]intro\b/.test(location.search);
+    var m = location.search.match(/[?&]intro(?:=([a-z]+))?\b/);
+    var force = !!m;
+    // /?intro=ridan visar ett visst utseende (för att jämföra i Utseende → Rörelse).
+    if (m && m[1]) root.setAttribute("data-intro-preview", m[1]);
     if (!force) {
       if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       if (location.hash) return;

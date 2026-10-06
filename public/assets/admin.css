@@ -754,3 +754,8 @@ a.admin-user:hover { background: var(--c-hover); }
 .slides-add { display: grid; gap: 6px; }
 .slides-add-label { font-size: 0.875rem; font-weight: 600; }
 .slides-panel > [data-slides-more] { justify-self: start; }
+
+/* Introts utseenden under Utseende → Rörelse */
+.intro-styles { margin-top: 14px; }
+.intro-styles > .field-label { margin-bottom: 8px; }
+.intro-try { font-size: 0.8125rem; font-weight: 600; margin-top: 4px; width: fit-content; }

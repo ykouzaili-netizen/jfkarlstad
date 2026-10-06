@@ -1,5 +1,5 @@
 import { html, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { blockColorCss, ek, HEADING_FONTS, headingFont, imageFits, isMarked, motionLevel, siteLayout, themeCss, type Settings } from "../lib/settings.js";
+import { blockColorCss, ek, HEADING_FONTS, headingFont, imageFits, introStyle, isMarked, motionLevel, siteLayout, themeCss, type Settings } from "../lib/settings.js";
 import { textStyleCss } from "../lib/pagelayout.js";
 import { imageFitCss } from "../lib/imagefit.js";
 import { telHref } from "../lib/format.js";
@@ -8,7 +8,7 @@ import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "45";
+export const ASSET_VERSION = "46";
 
 export interface PageMeta {
   title: string;
@@ -257,7 +257,7 @@ ${motion === "av" ? "" : html`<script src="/assets/motion.js?v=${ASSET_VERSION}"
 ${ld}
 </head>
 <body${bodyClass ? html` class="${bodyClass}"` : ""}>
-${intro ? html`<div class="intro" data-intro="/assets/intro-logo.svg?v=${ASSET_VERSION}" aria-hidden="true"></div>` : ""}
+${intro ? html`<div class="intro" data-intro="/assets/intro-logo.svg?v=${ASSET_VERSION}" data-style="${introStyle(s)}" aria-hidden="true"></div>` : ""}
 <a class="skip-link" href="#innehall">Hoppa till innehållet</a>
 ${header(c, s)}
 <main id="innehall" tabindex="-1">

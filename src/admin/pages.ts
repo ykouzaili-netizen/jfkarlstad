@@ -1,5 +1,5 @@
 import { html, paragraphs, raw, type SafeHtml } from "../lib/html.js";
-import { DEFAULT_SETTINGS, HEADING_FONTS, MOTION_LEVELS, THEME_KEYS, headingFont, loadSettings, motionLevel, type MotionLevel, type SettingKey, type Settings } from "../lib/settings.js";
+import { DEFAULT_SETTINGS, HEADING_FONTS, INTRO_STYLES, MOTION_LEVELS, THEME_KEYS, headingFont, introStyle, loadSettings, motionLevel, type IntroStyle, type MotionLevel, type SettingKey, type Settings } from "../lib/settings.js";
 import { contrastRatio, isHex, readableOn } from "../lib/color.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec } from "../lib/forms.js";
 import { eventDate, formatDate, formatDateTimeShort, stockholmNow } from "../lib/format.js";
@@ -255,7 +255,18 @@ export async function appearancePage(c: RequestContext, session: Session, overri
                 </label>`,
               )}
             </div>
-            <label class="check-field intro-toggle"><input type="checkbox" name="intro_enabled" value="pa"${s.intro_enabled !== "av" ? html` checked` : ""}><span><strong>Intro med logotypen</strong> när någon kommer till startsidan – logotypen ritas fram på svart bakgrund i drygt två sekunder och tonar sedan över till sidan. Visas bara när man kommer utifrån (inte när man klickar sig tillbaka) och kan hoppas över med ett klick. <a href="/?intro" target="_blank" rel="noopener">Visa introt</a></span></label>
+            <label class="check-field intro-toggle"><input type="checkbox" name="intro_enabled" value="pa"${s.intro_enabled !== "av" ? html` checked` : ""} data-intro-toggle><span><strong>Intro med logotypen</strong> när någon kommer till startsidan, i drygt två sekunder. Visas bara när man kommer utifrån (inte när man klickar sig tillbaka) och kan hoppas över med ett klick.</span></label>
+            <div class="intro-styles" data-intro-styles>
+              <p class="field-label">Introts utseende</p>
+              <div class="choice-grid" role="radiogroup" aria-label="Introts utseende">
+                ${(Object.keys(INTRO_STYLES) as IntroStyle[]).map(
+                  (k) => html`<label class="choice">
+                    <input type="radio" name="intro_style" value="${k}"${introStyle(s) === k ? html` checked` : ""}>
+                    <span class="choice-body"><span class="choice-label">${INTRO_STYLES[k].label}</span><span class="choice-hint">${INTRO_STYLES[k].hint}</span>${k !== "blanda" ? html` <a class="intro-try" href="/?intro=${k}" target="_blank" rel="noopener">Visa<span class="sr-only"> ${INTRO_STYLES[k].label} (öppnas i ny flik)</span></a>` : ""}</span>
+                  </label>`,
+                )}
+              </div>
+            </div>
             <p class="field-help">Förhandsvisningen här bredvid visar sidan utan rörelse. <a href="/" target="_blank" rel="noopener">Öppna webbplatsen i en ny flik</a> för att se hur det rör sig efter att du har sparat.</p>
           </section>
 
@@ -288,7 +299,7 @@ export async function appearanceSubmit(c: RequestContext, session: Session): Pro
   if (!checkCsrf(c, session, form)) return redirect("/admin/utseende?fel=csrf", 303);
 
   if (form.get("aterstall")) {
-    await c.env.DB.prepare(`DELETE FROM settings WHERE key IN (${[...THEME_KEYS, "font_heading", "motion_level", "intro_enabled"].map(() => "?").join(",")})`).bind(...THEME_KEYS, "font_heading", "motion_level", "intro_enabled").run();
+    await c.env.DB.prepare(`DELETE FROM settings WHERE key IN (${[...THEME_KEYS, "font_heading", "motion_level", "intro_enabled", "intro_style"].map(() => "?").join(",")})`).bind(...THEME_KEYS, "font_heading", "motion_level", "intro_enabled", "intro_style").run();
     await audit(c.env, session, "återställde", "utseende", null, "Färger, typsnitt och rörelse till standard");
     return redirect("/admin/utseende?klart=aterstallt", 303);
   }
@@ -309,6 +320,8 @@ export async function appearanceSubmit(c: RequestContext, session: Session): Pro
   const motion = String(form.get("motion_level") ?? "full");
   updates.push(["motion_level", motion in MOTION_LEVELS ? motion : "full"]);
   updates.push(["intro_enabled", form.get("intro_enabled") === "pa" ? "pa" : "av"]);
+  const intro = String(form.get("intro_style") ?? "sigill");
+  updates.push(["intro_style", intro in INTRO_STYLES ? intro : "sigill"]);
 
   const s = await loadSettings(c.env.DB);
   const res = await handleUpload(c.env, form, "logo", "image", "logo", session.user.email);

@@ -21,6 +21,8 @@ const EXTRA_DEFAULTS = {
   motion_level: "full",
   /** Introt med logotypen när man kommer till startsidan: "pa" (standard) eller "av". */
   intro_enabled: "pa",
+  /** Introts utseende, se INTRO_STYLES. */
+  intro_style: "sigill",
   color_background: "#fff7d6",
   color_accent: "#f1cc4d",
   color_button: "#f1cc4d",
@@ -72,6 +74,21 @@ export const MOTION_LEVELS: Record<MotionLevel, { label: string; hint: string }>
   lugn: { label: "Lugn", hint: "Innehållet tonar fram mjukt – inget glider eller rör sig" },
   av: { label: "Av", hint: "Allt visas direkt, utan animationer" },
 };
+
+/** Introts utseenden (intro.js). "blanda" = ett av de andra, olika varje gång. */
+export const INTRO_STYLES = {
+  sigill: { label: "Sigillet", hint: "En guldpunkt pulserar ut i en ring, vågen ritas, kransen växer och JFK glider upp (standard)" },
+  ridan: { label: "Ridån", hint: "Logotypen träder fram ur mörkret – sedan lyfts den mörka ridån och avtäcker sidan" },
+  vagen: { label: "Vågen", hint: "Vågskålarna väger upp och ned och stannar i jämvikt, sedan kommer JFK och kransen" },
+  stampel: { label: "Stämpeln", hint: "Ljust papper där logotypen stämplas ned med en duns och en ring av bläck" },
+  kransen: { label: "Lagerkransen", hint: "Lagerbladen flyger in från alla håll och sätter sig på plats runt JFK" },
+  blanda: { label: "Blanda", hint: "Ett av utseendena ovan – olika varje gång någon kommer till sidan" },
+} as const;
+export type IntroStyle = keyof typeof INTRO_STYLES;
+
+export function introStyle(s: Settings): IntroStyle {
+  return s.intro_style in INTRO_STYLES ? (s.intro_style as IntroStyle) : "sigill";
+}
 
 export function motionLevel(s: Settings): MotionLevel {
   return s.motion_level === "lugn" || s.motion_level === "av" ? s.motion_level : "full";

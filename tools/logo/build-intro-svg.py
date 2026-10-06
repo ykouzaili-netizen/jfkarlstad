@@ -6,7 +6,7 @@ Illustrator-EPS:en skriver ut formerna som enkla PostScript-kommandon (mo/li/cv/
 "c m y k cmyk" = färg) med y-axeln redan vänd som i SVG. Skriptet läser dem rakt av – ingen Ghostscript
 behövs. Formerna grupperas efter sin roll i logotypen så att intro.js kan animera dem var för sig:
 
-  vagen     stommen, två skålar och två uppsättningar trådar (linjer)
+  vagen     stommen och två vågskålar (i-vl, i-vr) med sina trådar – skålarna kan röra sig var för sig
   bagtext   "Juridiska Föreningen i Karlstad" – en form per bokstav, vänster till höger
   jfk       bokstäverna J, F och K
   krans     två stjälkar och bladen, uppifrån och ned per sida
@@ -72,10 +72,11 @@ def main():
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 414.6 419.25" class="intro-logo" aria-hidden="true" focusable="false">',
         '<defs><mask id="intro-grow" maskUnits="userSpaceOnUse" x="0" y="0" width="414.6" height="419.25">'
         '<circle class="i-grow" cx="207.3" cy="430" r="0" fill="#fff"/></mask>'
-        '<clipPath id="intro-jfk"><rect x="80" y="150" width="270" height="156"/></clipPath></defs>',
+        '<clipPath id="intro-jfk"><rect x="30" y="150" width="355" height="156"/></clipPath></defs>',
         '<circle class="i-ring" cx="207.3" cy="215" r="205" fill="none"/>',
-        '<g class="i-vagen">', p(0, "i-stomme"), p(1, "i-skal"), p(3, "i-skal"),
-        p(2, "i-trad"), p(4, "i-trad"), "</g>",
+        '<g class="i-vagen">', p(0, "i-stomme"),
+        '<g class="i-vl">', p(2, "i-trad"), p(1, "i-skal"), "</g>",
+        '<g class="i-vr">', p(4, "i-trad"), p(3, "i-skal"), "</g>", "</g>",
         '<g class="i-krans">', '<g mask="url(#intro-grow)">', p(65, "i-stjalk"), p(50, "i-stjalk"), "</g>",
         *[p(i, "i-blad") for i in list(range(64, 50, -1)) + list(range(49, 35, -1))], "</g>",
         '<g class="i-jfk" clip-path="url(#intro-jfk)">', *[p(i, "i-bokstav") for i in (33, 34, 35)], "</g>",
