@@ -1137,7 +1137,7 @@ main:focus { outline: none; }
   .partner-logo-wrap { min-height: 64px; }
   .partner-card:hover { transform: none; box-shadow: none; }
 
-  .partner-footer { flex-direction: column; align-items: stretch; gap: 20px; margin-top: 20px; padding-top: 24px; }
+  .partner-footer { flex-direction: column; align-items: stretch; gap: 36px; margin-top: 20px; padding-top: 24px; }
   .partner-strip { flex-direction: column; align-items: flex-start; gap: 10px; }
   .partner-strip ul { gap: 8px; }
   .partner-strip a { min-height: 46px; padding: 6px 18px; }
@@ -2391,7 +2391,7 @@ h1, h2, h3, .date-day, .float-date, .stat-value, .error-code { font-variant-nume
 /* Startsidan: knappar under partnerloggorna */
 .partner-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; margin-left: auto; }
 @media (max-width: 639px) {
-  .partner-actions { flex-direction: column; align-items: stretch; gap: 14px; margin-left: 0; }
+  .partner-actions { flex-direction: column; align-items: stretch; gap: 20px; margin-left: 0; }
   .partner-actions .btn { width: 100%; }
   .partner-actions .arrow-link { align-self: center; }
 }
