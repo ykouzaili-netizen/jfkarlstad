@@ -1,4 +1,4 @@
-"""Regressionstest av äldre delar: Utseende, galleriet (GDPR-radering), dokument (PDF) och användare."""
+"""Regressionstest av äldre delar: Utseende, galleriet (GDPR-radering), dokument (PDF och länk) och användare."""
 import re
 import sqlite3
 from pathlib import Path
@@ -54,6 +54,9 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/admin/dokument/ny")
     page.fill("[name=title]", "Testprotokoll")
     page.select_option("[name=category]", "protokoll")
+    check(page.locator("input[name=source][value=lank]").is_checked() and page.locator("#falt-file_key").is_hidden(), "nya dokument är länkar som standard, PDF-fältet är dolt")
+    page.check("input[name=source][value=pdf]")
+    check(page.locator("#falt-file_key").is_visible() and page.locator("#falt-link_url").is_hidden(), "PDF-fältet visas när man väljer PDF")
     page.set_input_files("#falt-file_key", str(pdf))
     page.click("form.admin-form button[type=submit]")
     page.wait_for_url(re.compile(r"/admin/dokument\?klart="))
@@ -63,6 +66,38 @@ with sync_playwright() as p:
     if m:
         r = page.request.get(f"{BASE}/dokument/fil/{m.group(1)}")
         check(r.status == 200 and r.headers.get("content-type") == "application/pdf", "PDF:en kan öppnas")
+        doc_id = m.group(1)
+        pdf_key = sqlite3.connect(DB).execute("SELECT file_key FROM documents WHERE id = ?", (doc_id,)).fetchone()[0]
+
+        # Byta till länk utan att klistra in någon: felmeddelande, PDF:en ligger kvar
+        page.goto(f"{BASE}/admin/dokument/{doc_id}")
+        check(page.locator("input[name=source][value=pdf]").is_checked(), "dokument med PDF öppnas med PDF valt")
+        page.check("input[name=source][value=lank]")
+        page.click("form.admin-form button[type=submit]")
+        page.wait_for_load_state()
+        check(page.locator("#link_url-fel").count() == 1 and pdf_key in media_keys(), "tom länk ger fel och PDF:en finns kvar")
+
+        # Byta till Google-länk: PDF:en raderas helt, sidan länkar till Google via den fasta adressen
+        gdoc = "https://docs.google.com/document/d/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789/edit?usp=sharing"
+        page.check("input[name=source][value=lank]")
+        page.fill("#falt-link_url", gdoc)
+        page.click("form.admin-form button[type=submit]")
+        page.wait_for_url(re.compile(r"klart=sparat"))
+        check(pdf_key not in media_keys() and not (FILES / pdf_key).exists(), "PDF:en raderas när dokumentet blir en länk")
+        html = page.request.get(f"{BASE}/dokument").text()
+        check('aria-hidden="true">DOC</span>' in html and "Google Dokument" in html and f'href="/dokument/fil/{doc_id}"' in html, "länken visas som Google Dokument på webbplatsen")
+        r = page.request.get(f"{BASE}/dokument/fil/{doc_id}", max_redirects=0)
+        check(r.status == 302 and r.headers.get("location") == gdoc, "den fasta adressen skickar vidare till Google")
+        check(f"/dokument/fil/{doc_id}" in page.request.get(f"{BASE}/sok?q=Testprotokoll").text(), "sökningen länkar till dokumentet")
+
+        # Tillbaka till PDF utan fil: länken töms, dokumentet står som "kommer snart"
+        page.goto(f"{BASE}/admin/dokument/{doc_id}")
+        page.check("input[name=source][value=pdf]")
+        page.click("form.admin-form button[type=submit]")
+        page.wait_for_url(re.compile(r"klart=sparat"))
+        row = sqlite3.connect(DB).execute("SELECT link_url, file_key FROM documents WHERE id = ?", (doc_id,)).fetchone()
+        check(row == (None, None), "länken töms när man väljer PDF")
+        check(page.request.get(f"{BASE}/dokument/fil/{doc_id}", max_redirects=0).status == 404, "utan fil eller länk finns inget att öppna")
 
     print("Användare")
     page.goto(f"{BASE}/admin/anvandare")

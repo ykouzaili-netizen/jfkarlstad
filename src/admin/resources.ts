@@ -1,7 +1,7 @@
 import { instagramConfigured, parseStatus, STATUS_SETTING, syncInstagram } from "../lib/instagram.js";
 import { html, type SafeHtml } from "../lib/html.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec, type Values } from "../lib/forms.js";
-import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, HONOR_KINDS, JOB_KINDS } from "../lib/content.js";
+import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, HONOR_KINDS, JOB_KINDS, documentLinkKind, isGoogleLink } from "../lib/content.js";
 import { eventDate, formatDate, formatDateTimeShort, formatDay, localToUtcSql, stockholmToday, utcSqlToLocal } from "../lib/format.js";
 import { purgeIfUnused } from "../lib/media.js";
 import { slugify } from "../lib/slug.js";
@@ -43,7 +43,14 @@ export interface AdminField extends FieldSpec {
   optionsFrom?: (db: D1Database) => Promise<{ value: string; label: string }[]>;
   /** Fältet finns bara i formuläret och sparas inte som en egen kolumn (beforeSave tar hand om det). */
   virtual?: boolean;
+  /**
+   * Fältet visas bara när ett annat fält (oftast ett radioval) har ett visst värde, t.ex. länk eller PDF.
+   * Ett dolt fält töms när posten sparas – en dold fil tas bort som om man hade klickat "Ta bort".
+   */
+  showIf?: { field: string; value: string };
 }
+
+const shown = (f: AdminField, v: Values) => !f.showIf || v[f.showIf.field] === f.showIf.value;
 
 export interface Resource {
   path: string; // "nyheter"
@@ -60,8 +67,8 @@ export interface Resource {
   listColumns: { label: string; render: (r: Row) => SafeHtml | string; className?: string }[];
   titleOf: (r: Row) => string;
   publicUrl?: (r: Row) => string | null;
-  /** Extra validering mellan fält. */
-  check?: (v: Values) => Errors;
+  /** Extra validering mellan fält. existing = posten som den ser ut innan ändringen (null för en ny). */
+  check?: (v: Values, existing: Row | null) => Errors;
   /** Extra kolumner vid sparning, t.ex. publiceringsdatum. */
   extraColumns?: (v: Values, existing: Row | null) => Record<string, unknown>;
   emptyText: string;
@@ -83,6 +90,8 @@ export interface Resource {
   listQuery?: string;
   /** Extra ruta överst på redigeringssidan för en befintlig post (t.ex. annonsens statistik). */
   editIntro?: (db: D1Database, row: Row) => Promise<SafeHtml | string>;
+  /** Körs efter sparning. true = stanna kvar på redigeringssidan (där editIntro visar en varning) i stället för listan. */
+  stayAfterSave?: (data: Record<string, unknown>) => Promise<boolean>;
 }
 
 const BOARD_TABS = [
@@ -103,6 +112,37 @@ const PARTNER_TABS = [
 ];
 
 const nowUtc = () => new Date().toISOString().replace("T", " ").slice(0, 19);
+
+/**
+ * Kontrollerar om ett Google-dokument går att öppna utan inloggning. Google skickar anonyma besökare till
+ * inloggningen när dokumentet bara är delat med vissa personer. Går kontrollen inte att göra (nätfel,
+ * timeout, annat svar) visas ingenting – den får aldrig hindra någon från att arbeta.
+ */
+async function documentShareWarning(url: string): Promise<SafeHtml | string> {
+  if (!isGoogleLink(url)) return "";
+  let res: Response;
+  try {
+    res = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(4000), headers: { "Accept-Language": "sv" } });
+  } catch {
+    return "";
+  }
+  const location = res.headers.get("location") ?? "";
+  res.body?.cancel().catch(() => {});
+  const toLogin = res.status >= 300 && res.status < 400 && /^https:\/\/accounts\.google\.com\//i.test(location);
+  if (toLogin) {
+    return html`<div class="alert alert-warn" role="status">
+      <strong>Besökarna kan inte öppna dokumentet ännu.</strong>
+      Det är bara delat med vissa personer, så den som klickar ombeds logga in på Google. Öppna dokumentet i Google,
+      klicka på <em>Dela</em> och välj <em>Alla som har länken</em> under Allmän åtkomst (behörighet: Läsare).
+    </div>`;
+  }
+  if (res.status === 404) {
+    return html`<div class="alert alert-warn" role="status">
+      <strong>Länken leder inte till något dokument.</strong> Det kan ha tagits bort eller flyttats. Kopiera länken på nytt i Google och klistra in den nedan.
+    </div>`;
+  }
+  return "";
+}
 
 /** "Schemalagd · 6 okt 08:00" om publiceringstiden ligger i framtiden, annars vanlig status. */
 function publishPill(r: Row, column: string, labels?: [string, string]): SafeHtml {
@@ -490,8 +530,8 @@ export const RESOURCES: Resource[] = [
     table: "documents",
     title: "Dokument",
     singular: "dokument",
-    newLabel: "Ladda upp dokument",
-    lead: "Stadgar, styrdokument och protokoll. Visas på sidan Dokument, grupperade per år.",
+    newLabel: "Lägg till dokument",
+    lead: "Stadgar, styrdokument och protokoll – som länk till Google Dokument eller som uppladdad PDF. Visas på sidan Dokument, grupperade per år.",
     orderBy: "year DESC, category, title",
     publishable: true,
     publishLabels: ["Visas", "Dold"],
@@ -506,17 +546,63 @@ export const RESOURCES: Resource[] = [
         options: Object.entries(DOCUMENT_CATEGORIES).map(([value, label]) => ({ value, label })),
       },
       { name: "year", label: "År", type: "number", required: true, min: 2011, max: 2100 },
-      { name: "file_key", label: "PDF-fil", type: "text", upload: "pdf", nullable: true, purge: true, help: "Max 24 MB. Utan fil står det ”Laddas upp inom kort” på webbplatsen." },
+      {
+        name: "source",
+        label: "Var finns dokumentet?",
+        type: "radio",
+        required: true,
+        virtual: true,
+        options: [
+          { value: "lank", label: "I Google Dokument", hint: "Klistra in länken. Ändringar du gör i Google syns direkt för besökarna." },
+          { value: "pdf", label: "Som PDF-fil", hint: "Filen laddas upp hit. Passar för dokument som inte ska ändras, t.ex. justerade protokoll." },
+        ],
+      },
+      {
+        name: "link_url",
+        label: "Länk till dokumentet",
+        type: "url",
+        nullable: true,
+        max: 1000,
+        showIf: { field: "source", value: "lank" },
+        placeholder: "https://docs.google.com/document/d/…",
+        help: "Kopiera länken via Dela → Kopiera länk i Google. Under Allmän åtkomst ska det stå ”Alla som har länken” – annars ombeds besökarna logga in. Kalkylark, presentationer och filer i Google Drive fungerar också.",
+      },
+      {
+        name: "file_key",
+        label: "PDF-fil",
+        type: "text",
+        upload: "pdf",
+        nullable: true,
+        purge: true,
+        showIf: { field: "source", value: "pdf" },
+        help: "Max 24 MB. Utan fil står det ”Laddas upp inom kort” på webbplatsen.",
+      },
     ],
     listColumns: [
       { label: "Titel", render: (r) => html`<a class="row-title" href="/admin/dokument/${r.id}">${String(r.title)}</a>` },
       { label: "Kategori", render: (r) => DOCUMENT_CATEGORIES[r.category as keyof typeof DOCUMENT_CATEGORIES] ?? "" },
       { label: "År", render: (r) => String(r.year) },
-      { label: "Fil", render: (r) => (r.file_key ? html`<span class="pill pill-on">PDF</span>` : html`<span class="pill pill-warn">Saknas</span>`) },
+      {
+        label: "Fil",
+        render: (r) =>
+          r.link_url
+            ? html`<span class="pill pill-on">${documentLinkKind(String(r.link_url)).startsWith("g") ? "Google" : "Länk"}</span>`
+            : r.file_key
+              ? html`<span class="pill pill-on">PDF</span>`
+              : html`<span class="pill pill-warn">Saknas</span>`,
+      },
       { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
     ],
     titleOf: (r) => String(r.title),
-    publicUrl: (r) => (r.published && r.file_key ? `/dokument/fil/${r.id}` : null),
+    publicUrl: (r) => (r.published && (r.file_key || r.link_url) ? `/dokument/fil/${r.id}` : null),
+    toValues: (r) => ({ source: r.file_key && !r.link_url ? "pdf" : "lank" }),
+    // Byter man en uppladdad PDF mot en länk tas PDF:en bort – men bara när det faktiskt finns en länk att byta till.
+    check: (v, existing): Errors =>
+      v.source === "lank" && !v.link_url && existing?.file_key
+        ? { link_url: "Klistra in länken till dokumentet. Vill du behålla den uppladdade PDF:en väljer du ”Som PDF-fil” i stället." }
+        : {},
+    editIntro: async (_db, row) => documentShareWarning(row.link_url ? String(row.link_url) : ""),
+    stayAfterSave: async (data) => Boolean(data.published && data.link_url && (await documentShareWarning(String(data.link_url)))),
     extraColumns: () => ({ updated_at: nowUtc() }),
   },
   {
@@ -721,11 +807,14 @@ function editForm(r: Resource, fields: AdminField[], session: Session, action: s
     <div class="admin-card">
       ${fields
         .filter((f) => !f.schedule)
-        .map((f) =>
-          f.upload
+        .map((f) => {
+          const field = f.upload
             ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload })
-            : renderField(f, values[f.name] ?? "", errors[f.name]),
-        )}
+            : renderField(f, values[f.name] ?? "", errors[f.name]);
+          return f.showIf
+            ? html`<div class="show-if" data-show-if="${f.showIf.field}" data-show-value="${f.showIf.value}"${shown(f, values) ? "" : html` hidden`}>${field}</div>`
+            : field;
+        })}
     </div>
     ${r.publishable
       ? html`<div class="admin-card admin-card-inline publish-card">
@@ -796,7 +885,10 @@ export function newHandler(r: Resource) {
     const values = rowToValues(fields, r, null);
     if (r.publishable) values.published = "1";
     for (const f of fields) if (f.type === "number" && f.name === "sort_order") values[f.name] = "0";
-    if (r.path === "dokument") values.year = String(new Date().getFullYear());
+    if (r.path === "dokument") {
+      values.year = String(new Date().getFullYear());
+      values.source = "lank";
+    }
     if (r.path === "jobb") values.kind = "praktik";
     // "Lägg upp en tjänst" från en partner eller arbetsgivare förväljer den
     const q = c.url.searchParams;
@@ -852,7 +944,13 @@ export function saveHandler(r: Resource) {
     const fields = await resolveFields(r, db);
     const plain = fields.filter((f) => !f.upload);
     const { values, errors } = validate(plain, form);
-    Object.assign(errors, r.check?.(values) ?? {});
+    // Dolda fält (showIf) töms – det man inte ser ska inte sparas eller ge felmeddelanden.
+    for (const f of plain) {
+      if (shown(f, values)) continue;
+      values[f.name] = "";
+      delete errors[f.name];
+    }
+    Object.assign(errors, r.check?.(values, existing) ?? {});
     values.published = form.get("published") ? "1" : "";
 
     // Filer
@@ -862,6 +960,15 @@ export function saveHandler(r: Resource) {
     for (const f of fields.filter((f) => f.upload)) {
       const current = existing ? ((existing[col(f)] as string | null) ?? "") : "";
       values[f.name] = current;
+      if (!shown(f, values)) {
+        // Dold fil (t.ex. PDF när man valt länk): tas bort om posten sparas utan fel.
+        if (current) {
+          fileCols[col(f)] = null;
+          released.push({ key: current, purge: !!f.purge });
+        }
+        values[f.name] = "";
+        continue;
+      }
       const res = await handleUpload(c.env, form, f.name, f.upload!, r.path, session.user.email);
       if (!res.ok) {
         errors[f.name] = res.error;
@@ -921,6 +1028,7 @@ export function saveHandler(r: Resource) {
     }
     for (const f of released) if (f.purge) await purgeIfUnused(c.env, f.key);
     const scheduled = fields.some((f) => f.schedule && data[col(f)] && String(data[col(f)]) > nowUtc()) && values.published;
+    if (r.stayAfterSave && (await r.stayAfterSave(data))) return redirect(`/admin/${r.path}/${newId}?klart=sparat`, 303);
     return redirect(`/admin/${r.path}?klart=${scheduled ? "schemalagt" : existing ? "sparat" : "skapat"}`, 303);
   };
 }

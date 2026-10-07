@@ -2187,6 +2187,8 @@ a.doc-title:hover { text-decoration: underline; text-decoration-color: var(--c-a
 a.doc-title::after { content: ""; position: absolute; inset: 0; }
 .doc-item { position: relative; }
 .doc-meta { color: var(--c-muted); font-size: 0.875rem; }
+.doc-kind { white-space: nowrap; }
+.doc-meta-icon { display: inline-block; width: 0.875em; height: 0.875em; margin-left: 4px; vertical-align: -0.1em; }
 
 /* FAQ */
 .faq-list { display: grid; gap: 10px; }

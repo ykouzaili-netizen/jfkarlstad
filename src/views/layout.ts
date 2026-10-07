@@ -8,7 +8,7 @@ import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "51";
+export const ASSET_VERSION = "52";
 
 export interface PageMeta {
   title: string;

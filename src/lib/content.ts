@@ -110,9 +110,45 @@ export interface DocumentRow {
   year: number;
   file_key: string | null;
   file_size: number | null;
+  /** Länk till dokumentet, t.ex. Google Dokument. Går före file_key. */
+  link_url: string | null;
   published: number;
   updated_at: string;
 }
+
+export type DocumentLinkKind = "gdoc" | "gsheet" | "gslides" | "gfolder" | "gdrive" | "link";
+
+/** Vilken sorts länk ett dokument har – styr ikonens etikett och texten under titeln. */
+export function documentLinkKind(url: string): DocumentLinkKind {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return "link";
+  }
+  const host = u.hostname.toLowerCase();
+  if (host === "docs.google.com") {
+    if (u.pathname.startsWith("/document/")) return "gdoc";
+    if (u.pathname.startsWith("/spreadsheets/")) return "gsheet";
+    if (u.pathname.startsWith("/presentation/")) return "gslides";
+  }
+  if (host === "drive.google.com") return u.pathname.includes("/folders/") ? "gfolder" : "gdrive";
+  return "link";
+}
+
+/** Kort etikett i dokumentikonen (samma stil som "PDF"). */
+export const DOCUMENT_BADGE: Record<DocumentLinkKind | "pdf", string> = {
+  pdf: "PDF",
+  gdoc: "DOC",
+  gsheet: "XLS",
+  gslides: "PPT",
+  gfolder: "MAPP",
+  gdrive: "FIL",
+  link: "LÄNK",
+};
+
+/** Är det en Google-länk vars delning går att kontrollera? */
+export const isGoogleLink = (url: string) => /^https:\/\/(docs|drive)\.google\.com\//i.test(url);
 
 export type JobKind = "praktik" | "sommarnotarie" | "trainee" | "jobb" | "uppsats" | "annat";
 export const JOB_KINDS: JobKind[] = ["praktik", "sommarnotarie", "trainee", "jobb", "uppsats", "annat"];

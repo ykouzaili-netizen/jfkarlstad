@@ -1367,3 +1367,27 @@
   pick.addEventListener("change", sync);
   sync();
 })();
+
+// Fält som bara visas vid ett visst val (showIf i resources.ts), t.ex. Dokument: länk eller PDF.
+(function () {
+  document.querySelectorAll("form.admin-form").forEach(function (form) {
+    var blocks = form.querySelectorAll("[data-show-if]");
+    if (!blocks.length) return;
+    function sync(focusNew) {
+      blocks.forEach(function (box) {
+        var on = form.querySelector('input[name="' + box.dataset.showIf + '"]:checked');
+        var show = !!on && on.value === box.dataset.showValue;
+        var wasHidden = box.hidden;
+        box.hidden = !show;
+        if (focusNew && show && wasHidden) {
+          var input = box.querySelector("input:not([type=hidden]):not([type=checkbox]), textarea, select");
+          if (input && input.type !== "file") input.focus();
+        }
+      });
+    }
+    form.addEventListener("change", function (e) {
+      if (e.target.type === "radio" && form.querySelector('[data-show-if="' + e.target.name + '"]')) sync(true);
+    });
+    sync(false);
+  });
+})();

@@ -1,6 +1,8 @@
 import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
 import { ec, ek, loadSettings, type Settings } from "../lib/settings.js";
 import {
+  DOCUMENT_BADGE,
+  documentLinkKind,
   documentQuery,
   eventQuery,
   faqQuery,
@@ -464,15 +466,23 @@ export async function documentsPage(c: RequestContext): Promise<Response> {
                 <h2 class="subsection-title">${year}</h2>
                 <ul class="doc-list">
                   ${list.map(
-                    (d) => html`<li class="doc-item" data-doc="${haystack(d)}" data-cat="${d.category}"${ec(s, `/admin/dokument/${d.id}`, `Dokument › ${d.title}`)}>
-                      <span class="doc-icon" aria-hidden="true">PDF</span>
+                    (d) => {
+                      const kind = d.link_url ? documentLinkKind(d.link_url) : null;
+                      const label = kind ? s[`docs_kind_${kind}` as const] : "PDF";
+                      return html`<li class="doc-item${kind ? " doc-item-link" : ""}" data-doc="${haystack(d)}" data-cat="${d.category}"${ec(s, `/admin/dokument/${d.id}`, `Dokument › ${d.title}`)}>
+                      <span class="doc-icon" aria-hidden="true">${DOCUMENT_BADGE[kind ?? "pdf"]}</span>
                       <div class="doc-body">
-                        ${d.file_key
-                          ? html`<a class="doc-title" href="/dokument/fil/${d.id}" target="_blank" rel="noopener">${d.title}<span class="sr-only"> (PDF, öppnas i ny flik)</span></a>`
+                        ${kind || d.file_key
+                          ? html`<a class="doc-title" href="/dokument/fil/${d.id}" target="_blank" rel="noopener">${d.title}<span class="sr-only"> (${label}, öppnas i ny flik)</span></a>`
                           : html`<span class="doc-title">${d.title}</span>`}
-                        <span class="doc-meta">${docCategory(s, d.category)} · ${d.file_key ? size(d.file_size) : s.docs_pending}</span>
+                        <span class="doc-meta">${docCategory(s, d.category)} · ${kind
+                          ? html`<span class="doc-kind"><span${ek(s, `docs_kind_${kind}`)}>${label}</span>${icon("external", "icon doc-meta-icon")}</span>`
+                          : d.file_key
+                            ? size(d.file_size)
+                            : html`<span${ek(s, "docs_pending")}>${s.docs_pending}</span>`}</span>
                       </div>
-                    </li>`,
+                    </li>`;
+                    },
                   )}
                 </ul>
               </section>`,
@@ -493,6 +503,11 @@ export async function documentFileHandler(c: RequestContext): Promise<Response> 
   const id = parseInt(c.params.id ?? "", 10);
   if (!id) return notFoundPage(c);
   const doc = await documentQuery.byId(c.env.DB, id).first<DocumentRow>();
+  // Länkade dokument (t.ex. Google Dokument): adressen kommer från databasen, så det är ingen öppen omdirigering.
+  // Den fasta adressen /dokument/fil/:id fortsätter att fungera även om styrelsen byter länk.
+  if (doc?.link_url && /^https?:\/\//i.test(doc.link_url)) {
+    return new Response(null, { status: 302, headers: { Location: doc.link_url, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+  }
   if (!doc?.file_key) return notFoundPage(c);
   const file = await getFile(c.env, doc.file_key);
   if (!file) return notFoundPage(c);

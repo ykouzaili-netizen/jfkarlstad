@@ -126,7 +126,7 @@ export async function searchPage(c: RequestContext): Promise<Response> {
           .filter((d) => matches(ts, d.title, String(d.year), s[`doc_cat_${d.category}` as const]))
           .map((d) => ({
             title: d.title,
-            href: d.file_key ? `/dokument/fil/${d.id}` : `/dokument?q=${encodeURIComponent(d.title)}`,
+            href: d.file_key || d.link_url ? `/dokument/fil/${d.id}` : `/dokument?q=${encodeURIComponent(d.title)}`,
             meta: `${s[`doc_cat_${d.category}` as const]} · ${d.year}`,
             text: "",
             score: title(d.title),
