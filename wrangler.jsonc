@@ -1,5 +1,5 @@
 {
-  // Cloudflare Worker för JFK:s webbplats – https://jfkarlstad.ykouzaili.workers.dev
+  // Cloudflare Worker för JFK:s webbplats – https://jfkarlstad.se (www och workers.dev skickas vidare hit)
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "jfkarlstad",
   "main": "src/index.ts",
@@ -39,7 +39,7 @@
 
   // Publika inställningar (inga hemligheter här – de sätts som "Secrets" i Cloudflare).
   "vars": {
-    "SITE_URL": "https://jfkarlstad.ykouzaili.workers.dev",
+    "SITE_URL": "https://jfkarlstad.se",
     // Turnstile är avstängt tills TURNSTILE_SECRET_KEY sätts som secret. Byt då även denna mot er riktiga site key.
     "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
   },

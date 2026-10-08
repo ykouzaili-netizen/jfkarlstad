@@ -3,8 +3,8 @@
 Den här guiden är till för dig som sitter i styrelsen och ska uppdatera webbplatsen. Du behöver inte kunna
 något om programmering. Allt görs i **adminpanelen** i webbläsaren – på datorn eller i mobilen.
 
-- **Webbplatsen:** https://jfkarlstad.ykouzaili.workers.dev
-- **Adminpanelen:** https://jfkarlstad.ykouzaili.workers.dev/admin
+- **Webbplatsen:** https://jfkarlstad.se
+- **Adminpanelen:** https://jfkarlstad.se/admin
 
 ---
 
@@ -234,7 +234,7 @@ Lägg till som typ **Secret**:
 | `INSTAGRAM_TOKEN` | långlivad nyckel från Meta (se nedan) | Automatisk hämtning av Instagraminlägg (valfritt) |
 
 Utan SMTP fungerar allt ändå – meddelanden sparas i databasen och syns i adminpanelen.
-Med **Turnstile**: skapa en widget i Cloudflare (Turnstile → Add widget, domän `jfkarlstad.ykouzaili.workers.dev`),
+Med **Turnstile**: skapa en widget i Cloudflare (Turnstile → Add widget, domän `jfkarlstad.se`),
 lägg in *secret key* som secret och byt `TURNSTILE_SITE_KEY` i `wrangler.jsonc` mot *site key*.
 
 ### Instagram – automatisk hämtning (valfritt)
