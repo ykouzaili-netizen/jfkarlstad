@@ -14,7 +14,7 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   All filåtkomst går via `src/lib/storage.ts`. Bilder > 5 MB (eller > 3200 px) komprimeras i webbläsaren (`public/assets/admin.js`,
   canvas → JPEG/WebP, max 2560 px) innan uppladdning; servern kräver ändå ≤ 5 MB. PDF max 24 MB (KV-gräns 25 MiB). Filfält renderas med `uploadInput()`.
   Bilder serveras via `/media/:key`, PDF:er via `/dokument/fil/:id`, båda med sandbox-CSP.
-- **Dokument** är antingen en länk (`documents.link_url`, t.ex. Google Dokument) eller en PDF. `/dokument/fil/:id` skickar vidare
+- **Dokument** är text (`documents.body`, markdown – egen sida `/dokument/:id-namn`), en länk (`documents.link_url`, t.ex. Google Dokument) eller en PDF. `/dokument/fil/:id` skickar vidare
   till länken (adressen från databasen) eller serverar PDF:en. Adminformuläret växlar med radiovalet `source` och `showIf` i `resources.ts`;
   dolda fält töms vid sparning (en dold PDF raderas). Redigeringssidan varnar om Google-dokumentet inte är delat med "Alla som har länken".
 - **Adminpanel** i `src/admin/`: `auth.ts` (PBKDF2, sessioner, CSRF), `resources.ts` (generisk CRUD för alla innehållstyper –

@@ -45,7 +45,7 @@ export async function dashboard(c: RequestContext, session: Session): Promise<Re
     db.prepare("SELECT id, title, starts_at, ends_at, published, publish_at FROM events WHERE COALESCE(ends_at, substr(starts_at,1,10) || 'T23:59') >= ? ORDER BY starts_at LIMIT 4").bind(stockholmNow()),
     db.prepare(
       `SELECT (SELECT COUNT(*) FROM news WHERE published = 0) AS news,
-              (SELECT COUNT(*) FROM documents WHERE file_key IS NULL) AS docs,
+              (SELECT COUNT(*) FROM documents WHERE file_key IS NULL AND link_url IS NULL AND (body IS NULL OR body = '')) AS docs,
               (SELECT COUNT(*) FROM partners WHERE published = 1 AND (logo_key IS NULL OR logo_key = '')) AS logos,
               (SELECT COUNT(*) FROM jobs WHERE published = 1 AND deadline IS NOT NULL AND deadline < date('now')) AS expired`,
     ),
@@ -81,7 +81,7 @@ export async function dashboard(c: RequestContext, session: Session): Promise<Re
 
   const todoItems = [
     todo.news ? html`<li><a href="/admin/nyheter">${todo.news} ${todo.news === 1 ? "opublicerad nyhet" : "opublicerade nyheter"}</a></li>` : "",
-    todo.docs ? html`<li><a href="/admin/dokument">${todo.docs} dokument saknar PDF</a></li>` : "",
+    todo.docs ? html`<li><a href="/admin/dokument">${todo.docs} dokument saknar länk, PDF eller text</a></li>` : "",
     todo.logos ? html`<li><a href="/admin/partners">${todo.logos} ${todo.logos === 1 ? "partner saknar" : "partners saknar"} logotyp</a></li>` : "",
     todo.expired ? html`<li><a href="/admin/jobb">${todo.expired} ${todo.expired === 1 ? "jobbannons har" : "jobbannonser har"} gått ut – ta bort eller förläng</a></li>` : "",
     !s.hero_image_key ? html`<li><a href="/admin/texter?sida=startsida&falt=hero_image_key">Ladda upp en bild överst på startsidan</a></li>` : "",

@@ -16,6 +16,7 @@ import { searchPage } from "./pages/search.js";
 import {
   calendarFeedHandler,
   documentFileHandler,
+  documentTextPage,
   documentsPage,
   eventDetailPage,
   faqPage,
@@ -65,6 +66,7 @@ const router = new Router()
   .get("/kalender/:slug", eventDetailPage)
   .get("/dokument", documentsPage)
   .get("/dokument/fil/:id", documentFileHandler)
+  .get("/dokument/:slug", documentTextPage)
   .get("/jf-paverka", (c) => paverkaPage(c))
   .post("/jf-paverka", submitHandler("paverka"))
   .get("/jf-paverka/tack", thanksPage("paverka"))

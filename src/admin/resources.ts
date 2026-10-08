@@ -1,6 +1,7 @@
 import { instagramConfigured, parseStatus, STATUS_SETTING, syncInstagram } from "../lib/instagram.js";
 import { html, type SafeHtml } from "../lib/html.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec, type Values } from "../lib/forms.js";
+import { documentPath } from "../pages/listings.js";
 import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, HONOR_KINDS, JOB_KINDS, documentLinkKind, isGoogleLink } from "../lib/content.js";
 import { eventDate, formatDate, formatDateTimeShort, formatDay, localToUtcSql, stockholmToday, utcSqlToLocal } from "../lib/format.js";
 import { purgeIfUnused } from "../lib/media.js";
@@ -555,7 +556,18 @@ export const RESOURCES: Resource[] = [
         options: [
           { value: "lank", label: "I Google Dokument", hint: "Klistra in länken. Ändringar du gör i Google syns direkt för besökarna." },
           { value: "pdf", label: "Som PDF-fil", hint: "Filen laddas upp hit. Passar för dokument som inte ska ändras, t.ex. justerade protokoll." },
+          { value: "text", label: "Som text här på webbplatsen", hint: "Skriv eller klistra in texten nedan. Blir en egen sida i webbplatsens stil – bra för korta styrdokument som värdegrunden." },
         ],
+      },
+      {
+        name: "body",
+        label: "Text",
+        type: "textarea",
+        rows: 18,
+        max: 50000,
+        nullable: true,
+        showIf: { field: "source", value: "text" },
+        help: "Tom rad = nytt stycke. Skriv ## före en rad för att göra den till en mellanrubrik, och - först på raden för en punktlista. **Fet text** och [länktext](https://…) fungerar också. Dokumentets titel behöver du inte skriva här – den visas automatiskt överst.",
       },
       {
         name: "link_url",
@@ -585,7 +597,9 @@ export const RESOURCES: Resource[] = [
       {
         label: "Fil",
         render: (r) =>
-          r.link_url
+          r.body
+            ? html`<span class="pill pill-on">Text</span>`
+            : r.link_url
             ? html`<span class="pill pill-on">${documentLinkKind(String(r.link_url)).startsWith("g") ? "Google" : "Länk"}</span>`
             : r.file_key
               ? html`<span class="pill pill-on">PDF</span>`
@@ -594,13 +608,15 @@ export const RESOURCES: Resource[] = [
       { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
     ],
     titleOf: (r) => String(r.title),
-    publicUrl: (r) => (r.published && (r.file_key || r.link_url) ? `/dokument/fil/${r.id}` : null),
-    toValues: (r) => ({ source: r.file_key && !r.link_url ? "pdf" : "lank" }),
+    publicUrl: (r) => (!r.published ? null : r.body ? documentPath({ id: r.id, title: String(r.title) }) : r.file_key || r.link_url ? `/dokument/fil/${r.id}` : null),
+    toValues: (r) => ({ source: r.body ? "text" : r.file_key && !r.link_url ? "pdf" : "lank" }),
     // Byter man en uppladdad PDF mot en länk tas PDF:en bort – men bara när det faktiskt finns en länk att byta till.
     check: (v, existing): Errors =>
-      v.source === "lank" && !v.link_url && existing?.file_key
-        ? { link_url: "Klistra in länken till dokumentet. Vill du behålla den uppladdade PDF:en väljer du ”Som PDF-fil” i stället." }
-        : {},
+      v.source === "text" && !v.body?.trim()
+        ? { body: "Skriv eller klistra in texten." }
+        : v.source === "lank" && !v.link_url && existing?.file_key
+          ? { link_url: "Klistra in länken till dokumentet. Vill du behålla den uppladdade PDF:en väljer du ”Som PDF-fil” i stället." }
+          : {},
     editIntro: async (_db, row) => documentShareWarning(row.link_url ? String(row.link_url) : ""),
     stayAfterSave: async (data) => Boolean(data.published && data.link_url && (await documentShareWarning(String(data.link_url)))),
     extraColumns: () => ({ updated_at: nowUtc() }),

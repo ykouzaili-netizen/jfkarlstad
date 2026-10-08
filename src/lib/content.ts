@@ -112,6 +112,8 @@ export interface DocumentRow {
   file_size: number | null;
   /** Länk till dokumentet, t.ex. Google Dokument. Går före file_key. */
   link_url: string | null;
+  /** Text som visas som en egen sida på webbplatsen (markdown). Går före länk och PDF. */
+  body: string | null;
   published: number;
   updated_at: string;
 }

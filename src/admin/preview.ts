@@ -7,7 +7,7 @@ import { aboutPage } from "../pages/about.js";
 import { membershipPage } from "../pages/membership.js";
 import { studentsPage } from "../pages/students.js";
 import { companiesPage, contactPage, engagePage, paverkaPage, thanksPage } from "../pages/forms.js";
-import { documentsPage, eventDetailPage, faqPage, newsArticlePage, newsListPage, partnerDetailPage, partnersPage } from "../pages/listings.js";
+import { documentTextPage, documentsPage, eventDetailPage, faqPage, newsArticlePage, newsListPage, partnerDetailPage, partnersPage } from "../pages/listings.js";
 import { jobDetailPage, jobsPage } from "../pages/careers.js";
 import { calendarPage } from "../pages/calendar.js";
 import { searchPage } from "../pages/search.js";
@@ -55,6 +55,7 @@ export const PREVIEW_PAGES: { path: string; label: string; render: Render }[] = 
 const DYNAMIC: [RegExp, Render][] = [
   [/^\/partners\/([^/]+)$/, partnerDetailPage],
   [/^\/aktuellt\/([^/]+)$/, newsArticlePage],
+  [/^\/dokument\/(\d+(?:-[a-z0-9-]*)?)$/, documentTextPage],
   [/^\/kalender\/([^/.]+)$/, eventDetailPage],
   [/^\/karriar\/([^/]+)$/, jobDetailPage],
   [/^\/kontakt\/tack$/, thanksPage("kontakt")],

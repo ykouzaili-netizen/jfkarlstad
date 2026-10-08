@@ -22,6 +22,7 @@ import { eventDate, formatDate, isoDate, localToIso, stockholmNow, stockholmToda
 import { fill } from "../lib/texts.js";
 import { htmlResponse } from "../lib/http.js";
 import { getFile } from "../lib/storage.js";
+import { slugify } from "../lib/slug.js";
 import { countStat, isCountable } from "../lib/stats.js";
 import type { RequestContext } from "../router.js";
 import { joinButton, layout, mediaUrl, picture } from "../views/layout.js";
@@ -467,6 +468,15 @@ export async function documentsPage(c: RequestContext): Promise<Response> {
                 <ul class="doc-list">
                   ${list.map(
                     (d) => {
+                      if (d.body) {
+                        return html`<li class="doc-item doc-item-text" data-doc="${haystack(d)}" data-cat="${d.category}"${ec(s, `/admin/dokument/${d.id}`, `Dokument › ${d.title}`)}>
+                      <span class="doc-icon" aria-hidden="true">${icon("list", "icon")}</span>
+                      <div class="doc-body">
+                        <a class="doc-title" href="${documentPath(d)}">${d.title}</a>
+                        <span class="doc-meta">${docCategory(s, d.category)} · <span${ek(s, "docs_kind_text")}>${s.docs_kind_text}</span></span>
+                      </div>
+                    </li>`;
+                      }
                       const kind = d.link_url ? documentLinkKind(d.link_url) : null;
                       const label = kind ? s[`docs_kind_${kind}` as const] : "PDF";
                       return html`<li class="doc-item${kind ? " doc-item-link" : ""}" data-doc="${haystack(d)}" data-cat="${d.category}"${ec(s, `/admin/dokument/${d.id}`, `Dokument › ${d.title}`)}>
@@ -499,10 +509,47 @@ export async function documentsPage(c: RequestContext): Promise<Response> {
   return htmlResponse(c, layout(c, s, { title: s.docs_title, description: s.docs_lead }, content));
 }
 
+/** Adressen till ett dokument som visas som text: /dokument/5-vardegrund (numret avgör, namnet är för läsbarhetens skull). */
+export const documentPath = (d: { id: number; title: string }) => `/dokument/${d.id}-${slugify(d.title) || "dokument"}`;
+
+export async function documentTextPage(c: RequestContext): Promise<Response> {
+  const m = /^(\d+)(?:-[a-z0-9-]*)?$/.exec(c.params.slug ?? "");
+  if (!m) return notFoundPage(c);
+  const db = c.env.DB;
+  const [s, d] = await Promise.all([loadSettings(db, c.preview), documentQuery.byId(db, Number(m[1])).first<DocumentRow>()]);
+  if (!d) return notFoundPage(c);
+  // Dokument som är en PDF eller länk har ingen egen textsida.
+  if (!d.body) return d.file_key || d.link_url ? redirectTo(`/dokument/fil/${d.id}`) : notFoundPage(c);
+  const path = documentPath(d);
+  if (c.url.pathname !== path && !c.preview) return redirectTo(path, 301);
+  const edit = ec(s, `/admin/dokument/${d.id}`, `Dokument › ${d.title}`);
+  const content = html`
+    <article>
+      <header class="page-hero article-hero">
+        <div class="container narrow"${edit}>
+          ${breadcrumb([{ href: "/dokument", label: s.docs_title }, { label: d.title }])}
+          <p class="news-date">${docCategory(s, d.category)} · ${d.year}</p>
+          <h1 class="page-title">${d.title}</h1>
+        </div>
+      </header>
+      <div class="section section-tight-top">
+        <div class="container narrow">
+          <div class="prose prose-lg article-body doc-text"${edit}>${renderMarkdown(d.body)}</div>
+          <p class="doc-updated muted"${ek(s, "doc_page_updated")}>${fill(s.doc_page_updated, { datum: formatDate(d.updated_at) })}</p>
+          <p class="after-list">${arrowLink("/dokument", s.doc_page_all, "arrow-link", ek(s, "doc_page_all"))}</p>
+        </div>
+      </div>
+    </article>`;
+  return htmlResponse(c, layout(c, s, { title: d.title, description: truncate(plainText(d.body), 155) }, content));
+}
+
+const redirectTo = (location: string, status = 302) => new Response(null, { status, headers: { Location: location } });
+
 export async function documentFileHandler(c: RequestContext): Promise<Response> {
   const id = parseInt(c.params.id ?? "", 10);
   if (!id) return notFoundPage(c);
   const doc = await documentQuery.byId(c.env.DB, id).first<DocumentRow>();
+  if (doc?.body) return new Response(null, { status: 301, headers: { Location: documentPath(doc) } });
   // Länkade dokument (t.ex. Google Dokument): adressen kommer från databasen, så det är ingen öppen omdirigering.
   // Den fasta adressen /dokument/fil/:id fortsätter att fungera även om styrelsen byter länk.
   if (doc?.link_url && /^https?:\/\//i.test(doc.link_url)) {

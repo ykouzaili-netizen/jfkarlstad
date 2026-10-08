@@ -2193,6 +2193,7 @@ html:not(:has(.section-nav)) main > section:nth-child(n + 3),
   background: var(--c-accent); color: var(--c-on-accent);
   font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em;
 }
+.doc-icon .icon { width: 22px; height: 22px; }
 .doc-body { display: flex; flex-direction: column; min-width: 0; }
 .doc-title { font-weight: 600; text-decoration: none; }
 a.doc-title:hover { text-decoration: underline; text-decoration-color: var(--c-accent); text-decoration-thickness: 2px; }
@@ -2200,6 +2201,7 @@ a.doc-title::after { content: ""; position: absolute; inset: 0; }
 .doc-item { position: relative; }
 .doc-meta { color: var(--c-muted); font-size: 0.875rem; }
 .doc-kind { white-space: nowrap; }
+.doc-updated { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--c-border); font-size: 0.9375rem; }
 .doc-meta-icon { display: inline-block; width: 0.875em; height: 0.875em; margin-left: 4px; vertical-align: -0.1em; }
 
 /* FAQ */

@@ -16,6 +16,7 @@ import {
 } from "../lib/content.js";
 import { eventDate, formatDate, formatDay, stockholmToday } from "../lib/format.js";
 import { renderInline } from "../lib/markdown.js";
+import { documentPath } from "./listings.js";
 import { highlight, matches, MIN_QUERY, normalizeQuery, snippet, terms } from "../lib/search.js";
 import { fill, PAGES, type FieldDef } from "../lib/texts.js";
 import { htmlResponse } from "../lib/http.js";
@@ -123,10 +124,10 @@ export async function searchPage(c: RequestContext): Promise<Response> {
       {
         key: "search_group_docs",
         hits: res<DocumentRow>(docRes)
-          .filter((d) => matches(ts, d.title, String(d.year), s[`doc_cat_${d.category}` as const]))
+          .filter((d) => matches(ts, d.title, String(d.year), s[`doc_cat_${d.category}` as const], d.body ?? ""))
           .map((d) => ({
             title: d.title,
-            href: d.file_key || d.link_url ? `/dokument/fil/${d.id}` : `/dokument?q=${encodeURIComponent(d.title)}`,
+            href: d.body ? documentPath(d) : d.file_key || d.link_url ? `/dokument/fil/${d.id}` : `/dokument?q=${encodeURIComponent(d.title)}`,
             meta: `${s[`doc_cat_${d.category}` as const]} · ${d.year}`,
             text: "",
             score: title(d.title),
