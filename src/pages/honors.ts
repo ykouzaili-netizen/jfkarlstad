@@ -90,8 +90,8 @@ function portrait(h: HonorRow, sizes: string, cls: string): SafeHtml {
     : html`<span class="${cls}-initials" aria-hidden="true">${initials(h.name)}</span>`;
 }
 
-/** Hedersmedlemskapets eget band (svart med gul mittrand) – används som flik och märke i Ordensbandet. */
-const HONORARY_LOOK: MedalLook = medalLook({ kind: "medalj", metal: "guld", ribbon_pattern: "tre", ribbon_1: "svart", ribbon_2: "gul" });
+/** Fliken för hedersmedlemmar i Ordensbandet: svart band med gul mittrand (föreningens färger, inte en riktig medalj). */
+const HONORARY_LOOK: MedalLook = medalLook({ ribbon_pattern: "mittrand", ribbon_1: "svart", ribbon_2: "gul" });
 
 const editMember = (s: Settings, h: HonorRow) => ec(s, `/admin/utmarkelser/${h.id}`, `Utmärkelser › ${h.name}`);
 const editMedal = (s: Settings, m: MedalRow) => ec(s, `/admin/medaljer/${m.id}`, `Ordnar och medaljer › ${m.name}`);
@@ -238,7 +238,7 @@ function band(s: Settings, d: HonorsData): SafeHtml {
 
 function bandMembers(s: Settings, d: HonorsData): SafeHtml {
   return html`<div class="hb-panel" id="band-heder" data-panel>
-    <div class="hb-stage" aria-hidden="true"><div class="hb-swing">${medalSvg(HONORARY_LOOK, "hbheder")}</div></div>
+    <div class="hb-stage" aria-hidden="true"><div class="hb-seal"><span>§</span></div></div>
     <div class="hb-info">
       <h3 class="hb-name"${ek(s, "honors_members_title")}>${s.honors_members_title}</h3>
       ${d.members.length

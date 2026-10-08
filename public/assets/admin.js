@@ -1398,7 +1398,7 @@
   var img = box && box.querySelector("[data-medal-preview-img]");
   var form = box && box.closest("form");
   if (!img || !form) return;
-  var FIELDS = ["kind", "metal", "ribbon_pattern", "ribbon_1", "ribbon_2"];
+  var FIELDS = ["motif", "metal", "ribbon_pattern", "ribbon_1", "ribbon_2", "ribbon_3"];
   img.addEventListener("load", function () { img.classList.remove("is-loading"); });
   form.addEventListener("change", function (e) {
     if (FIELDS.indexOf(e.target.name) === -1) return;

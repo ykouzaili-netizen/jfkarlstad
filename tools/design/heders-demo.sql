@@ -1,21 +1,21 @@
 -- Exempelinnehåll för att granska Hedersmedlemmar och utmärkelser lokalt (inte en del av seed.sql).
 -- Kör mot förhandsvisningens databas:  sqlite3 tools/local-preview/.data/local.sqlite < tools/design/heders-demo.sql
--- Allt är påhittat och märkt "(exempel)".
+-- Medaljerna följer styrelsens bilder 2026-10-08 men saknar namn och beskrivning. Personerna är påhittade och märkta "(exempel)".
 
 DELETE FROM honors WHERE kind IN ('hedersmedlem', 'utmarkelse');
 DELETE FROM medals;
 
-INSERT INTO medals (id, name, kind, metal, ribbon_pattern, ribbon_1, ribbon_2, description, founded, sort_order) VALUES
- (1, 'Juridiska Föreningens förtjänstorden (exempel)', 'orden', 'guld', 'kantrander', 'svart', 'gul',
-  'Föreningens högsta utmärkelse. Tilldelas den som under lång tid och på ett avgörande sätt har format föreningen – i styrelsen, i utskotten eller i samarbetet med universitetet och arbetslivet.', 2025, 1),
- (2, 'Förtjänstmedaljen i guld (exempel)', 'medalj', 'guld', 'mittrand', 'gul', 'svart',
-  'Tilldelas en medlem som har gjort en särskilt betydande insats för föreningen, till exempel genom att leda ett större projekt från idé till genomförande.', 2025, 2),
- (3, 'Förtjänstmedaljen i silver (exempel)', 'medalj', 'silver', 'mittrand', 'gul', 'svart',
-  'Tilldelas en medlem som under minst ett verksamhetsår har gjort en förtjänstfull insats i styrelse eller utskott.', 2025, 3),
- (4, 'Engagemangsmedaljen (exempel)', 'medalj', 'brons', 'tre', 'bla', 'gul',
-  'Tilldelas en medlem som genom ideellt engagemang har gjort föreningen roligare och mer välkomnande – som funktionär, faddrare eller eldsjäl bakom en tradition.', 2025, 4),
- (5, 'Inspektorsorden (exempel)', 'orden', 'silver', 'enfargat', 'lila', 'vit',
-  'Delas ut av föreningens inspektor till en lärare eller företrädare för universitetet som har stärkt studenternas röst.', 2026, 5);
+INSERT INTO medals (id, name, kind, motif, metal, ribbon_pattern, ribbon_1, ribbon_2, ribbon_3, description, founded, sort_order) VALUES
+ (1, 'Solen med JFK – gult band (namn saknas)', 'medalj', 'sol', 'guld', 'enfargat', 'gul', 'gul', 'gul', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 1),
+ (2, 'Våg i guld – gult band (namn saknas)', 'medalj', 'rund', 'guld', 'enfargat', 'gul', 'gul', 'gul', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 2),
+ (3, 'Våg i brons – rött och gult band (namn saknas)', 'medalj', 'rund', 'brons', 'delat', 'rod', 'gul', 'gul', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 3),
+ (4, 'Våg med lagerkrans – rött, vitt och blått band (namn saknas)', 'medalj', 'vag', 'brons', 'trefarg', 'rod', 'vit', 'bla', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 4),
+ (5, 'Våg med lagerkrans – svärtad, blått och vitt band (namn saknas)', 'medalj', 'vag', 'svartad', 'delat', 'bla', 'vit', 'vit', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 5),
+ (6, 'Våg med lagerkrans – grönt band (namn saknas)', 'medalj', 'vag', 'brons', 'enfargat', 'gron', 'gron', 'gron', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 6),
+ (7, 'Våg med lagerkrans – rött band (namn saknas)', 'medalj', 'vag', 'brons', 'enfargat', 'rod', 'rod', 'rod', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 7),
+ (8, 'Våg med lagerkrans – blått band (namn saknas)', 'medalj', 'vag', 'brons', 'enfargat', 'bla', 'bla', 'bla', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 8),
+ (9, 'Stjärnan – rött band (namn saknas)', 'medalj', 'stjarna', 'brons', 'enfargat', 'rod', 'rod', 'rod', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 9),
+ (10, 'Stjärnan – blått band (namn saknas)', 'medalj', 'stjarna', 'brons', 'enfargat', 'bla', 'bla', 'bla', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 10);
 
 INSERT INTO honors (kind, name, year, description, medal_id, sort_order) VALUES
  ('hedersmedlem', 'Margareta Lindqvist (exempel)', 2024, 'Grundade föreningens mentorsprogram och har i över tio år ställt upp som föreläsare, domare i moot court och bollplank för styrelser som behövt råd.', NULL, 1),

@@ -3742,6 +3742,17 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   background: radial-gradient(circle, color-mix(in srgb, var(--c-surface) 55%, transparent), transparent 70%);
 }
 .hb-swing { position: relative; width: min(220px, 58%); aspect-ratio: 160 / 260; transform-origin: 50% 0; filter: drop-shadow(0 26px 26px rgb(0 0 0 / 0.32)); }
+/* Hedersmedlemmarnas panel: föreningens sigill i stället för en medalj */
+.hb-seal {
+  position: relative;
+  display: grid; place-items: center;
+  width: min(220px, 60%); aspect-ratio: 1;
+  margin-top: 40px;
+  border-radius: 50%;
+  background: var(--c-on-accent); color: var(--c-accent);
+  box-shadow: 0 0 0 10px var(--c-accent), 0 0 0 12px var(--c-on-accent), 0 26px 40px -10px rgb(0 0 0 / 0.35);
+  font-family: var(--font-display); font-size: clamp(5rem, 9vw, 7rem); font-weight: 700; line-height: 1;
+}
 .hb-kicker { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 .hb-name { margin-top: 10px; font-size: calc(clamp(1.75rem, 1.35rem + 1.6vw, 2.75rem) * var(--display-scale)); line-height: 1.08; color: inherit; }
 .hb-info .prose { margin-top: 16px; }

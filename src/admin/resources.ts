@@ -17,7 +17,7 @@ import { adminHead, adminLayout, csrfField, newMessageCount, postButton, statusP
 import { handleUpload, imageUploadField } from "./uploads.js";
 import { jobTotals } from "./job-stats.js";
 import { medalChoiceArt, medalFormPreview, medalOptions } from "./medals.js";
-import { MEDAL_KINDS, METALS, RIBBON_COLORS, RIBBON_PATTERNS, medalLook, medalSvg } from "../lib/medals.js";
+import { MEDAL_KINDS, METALS, MOTIFS, RIBBON_COLORS, RIBBON_PATTERNS, medalLook, medalSvg } from "../lib/medals.js";
 
 /**
  * Generisk redigering (skapa, lista, ändra, publicera, ta bort) för innehållstyperna.
@@ -450,11 +450,11 @@ export const RESOURCES: Resource[] = [
     fields: [
       { name: "name", label: "Namn", type: "text", required: true, max: 120, help: "T.ex. Förtjänstmedaljen i guld." },
       {
-        name: "kind",
-        label: "Slag",
+        name: "motif",
+        label: "Motiv",
         type: "radio",
         required: true,
-        options: Object.entries(MEDAL_KINDS).map(([value, o]) => ({ value, label: o.label, hint: o.hint, art: medalChoiceArt({ kind: value }) })),
+        options: Object.entries(MOTIFS).map(([value, o]) => ({ value, label: o.label, hint: o.hint, art: medalChoiceArt({ motif: value }) })),
       },
       {
         name: "metal",
@@ -471,22 +471,24 @@ export const RESOURCES: Resource[] = [
         required: true,
         options: Object.entries(RIBBON_PATTERNS).map(([value, o]) => ({ value, label: o.label, hint: o.hint, art: medalChoiceArt({ ribbon_pattern: value }) })),
       },
+      { name: "ribbon_1", label: "Bandets första färg", type: "radio", required: true, wrapClass: "field-swatches", options: Object.entries(RIBBON_COLORS).map(([value, o]) => ({ value, label: o.label, art: medalChoiceArt({ color: value }) })) },
+      { name: "ribbon_2", label: "Bandets andra färg", type: "radio", required: true, wrapClass: "field-swatches", help: "Används inte när bandet är enfärgat.", options: Object.entries(RIBBON_COLORS).map(([value, o]) => ({ value, label: o.label, art: medalChoiceArt({ color: value }) })) },
       {
-        name: "ribbon_1",
-        label: "Bandets huvudfärg",
+        name: "ribbon_3",
+        label: "Bandets tredje färg",
         type: "radio",
         required: true,
         wrapClass: "field-swatches",
+        showIf: { field: "ribbon_pattern", value: "trefarg" },
         options: Object.entries(RIBBON_COLORS).map(([value, o]) => ({ value, label: o.label, art: medalChoiceArt({ color: value }) })),
       },
       {
-        name: "ribbon_2",
-        label: "Bandets andra färg",
+        name: "kind",
+        label: "Kallas på webbplatsen",
         type: "radio",
         required: true,
-        wrapClass: "field-swatches",
-        help: "Används inte när bandet är enfärgat.",
-        options: Object.entries(RIBBON_COLORS).map(([value, o]) => ({ value, label: o.label, art: medalChoiceArt({ color: value }) })),
+        help: "Ordet som står vid utmärkelsen, t.ex. ”Medalj · Instiftad 2025”. Ändrar inte hur den ritas.",
+        options: Object.entries(MEDAL_KINDS).map(([value, o]) => ({ value, label: o.label })),
       },
       { name: "description", label: "Vad belönas?", type: "textarea", rows: 5, max: 1200, help: "Visas när besökaren öppnar medaljen. T.ex. vem som kan få den och för vad." },
       { name: "founded", label: "Instiftad år", type: "number", min: 2011, max: 2100, nullable: true },
@@ -507,7 +509,7 @@ export const RESOURCES: Resource[] = [
         className: "col-thumb",
       },
       { label: "Namn", render: (r) => html`<a class="row-title" href="/admin/medaljer/${r.id}">${String(r.name)}</a>` },
-      { label: "Slag", render: (r) => MEDAL_KINDS[r.kind as keyof typeof MEDAL_KINDS]?.label ?? "" },
+      { label: "Motiv", render: (r) => MOTIFS[r.motif as keyof typeof MOTIFS]?.label ?? "" },
       { label: "Mottagare", render: (r) => (Number(r.recipient_count) ? String(r.recipient_count) : "–") },
       { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
     ],
@@ -1008,7 +1010,7 @@ export function newHandler(r: Resource) {
       values.source = "lank";
     }
     if (r.path === "jobb") values.kind = "praktik";
-    if (r.path === "medaljer") Object.assign(values, { kind: "medalj", metal: "guld", ribbon_pattern: "mittrand", ribbon_1: "gul", ribbon_2: "svart" });
+    if (r.path === "medaljer") Object.assign(values, { kind: "medalj", motif: "vag", metal: "brons", ribbon_pattern: "enfargat", ribbon_1: "gul", ribbon_2: "rod", ribbon_3: "bla" });
     if (r.path === "utmarkelser") {
       // "Lägg till mottagare" från en medalj förväljer den
       const medal = c.url.searchParams.get("medalj");
