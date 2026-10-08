@@ -635,6 +635,11 @@ main:focus { outline: none; }
   color: #fff;
 }
 @media (min-height: 1200px) { .hero { min-height: 1000px; } }
+/* Text till vänster eller höger ligger lägre: "Scrolla vidare" står i mitten och krockar inte.
+   Centrerad text behåller avståndet ovan så att knapparna inte hamnar på pilen. */
+@media (min-width: 1000px) {
+  .hero:not(.hero-align-mitten) { padding-bottom: clamp(56px, 7vh, 88px); }
+}
 
 .hero-media { position: absolute; inset: 0; z-index: -2; }
 .hero-bg {
@@ -889,11 +894,11 @@ main:focus { outline: none; }
   .hero-scroll-icon { animation: nudge 2.4s ease-in-out infinite; }
 }
 @keyframes nudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
-@media (max-width: 999px) {
+@media (max-width: 1199px) {
   .hero-scroll-label { display: none; }
 }
 @media (max-width: 639px) {
-  .hero { padding-bottom: 96px; }
+  .hero { padding-bottom: 80px; }
   .hero-actions .btn { flex: 1 1 auto; }
   .hero-next { max-width: none; }
 }
