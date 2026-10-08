@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, firstImage, loadSettings, SLIDE_PREFIX, slideshowOf, 
 import { PAGES, FIELD_INDEX, findPage, type FieldDef, type PageDef, type SectionDef } from "../lib/texts.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec } from "../lib/forms.js";
 import { redirect, randomToken } from "../lib/http.js";
+import { parseRedirects } from "../lib/legacy.js";
 import { formatDateTimeShort, formatWhen } from "../lib/format.js";
 import type { RequestContext } from "../router.js";
 import { mediaUrl } from "../views/layout.js";
@@ -467,6 +468,11 @@ export async function textsSubmit(c: RequestContext, session: Session): Promise<
   const fields = page.sections.flatMap((sec) => sec.fields as readonly FieldDef[]);
   const plain = fields.filter((f) => f.type !== "image");
   const { values, errors } = validate(plain.map(toSpec), form);
+  // Omdirigeringar: rader som inte går att tolka ska synas direkt i stället för att tyst ignoreras.
+  if (values.redirects !== undefined && !errors.redirects) {
+    const bad = parseRedirects(values.redirects).bad;
+    if (bad.length) errors.redirects = `Kunde inte tolka ${bad.length === 1 ? "raden" : "raderna"}: ${bad.slice(0, 3).join(" · ")}. Skriv gammal adress, en pil och sidan den ska till, t.ex. /om-jfk/styrelsen.html → /om-oss#styrelsen`;
+  }
   const s = await loadSettings(c.env.DB);
   const updates: [string, string][] = plain.map((f) => [f.key, values[f.key] ?? ""]);
   const slideRows: [string, string | null][] = [];

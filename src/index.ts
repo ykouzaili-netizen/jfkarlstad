@@ -4,6 +4,7 @@ import { LAYOUT_PREFIX, pageIdForPath } from "./lib/pagelayout.js";
 import type { Env } from "./env.js";
 import { Router, type RequestContext } from "./router.js";
 import { randomToken, redirect, textResponse } from "./lib/http.js";
+import { findRedirect, looksLikeOldAddress } from "./lib/legacy.js";
 import { getFile } from "./lib/storage.js";
 import { homePage } from "./pages/home.js";
 import { aboutPage } from "./pages/about.js";
@@ -159,6 +160,12 @@ export default {
       url.port = "";
       return redirect(url.toString(), 301);
     }
+    // Adresser från den gamla webbplatsen (bokmärken, länkar, Google) → motsvarande sida här. Före snedstrecksregeln
+    // så att /om-jfk/ går direkt till /om-oss i ett steg.
+    if ((req.method === "GET" || req.method === "HEAD") && looksLikeOldAddress(url.pathname)) {
+      const target = await findRedirect(env, url.pathname);
+      if (target) return redirect(target, 301);
+    }
     // Ta bort avslutande snedstreck: /kalender/ → /kalender
     if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
       return redirect(url.pathname.replace(/\/+$/, "") + url.search, 301);
@@ -173,7 +180,11 @@ export default {
       if (url.pathname.startsWith("/admin")) await ensureCommitteeSchema(env.DB);
       const match = router.match(req.method, url.pathname);
       if (match === "method-not-allowed") return new Response("Metoden stöds inte", { status: 405, headers: { Allow: "GET, HEAD, POST" } });
-      if (!match) return await notFoundPage(c);
+      if (!match) {
+        // Styrelsens egna omdirigeringar (Texter och sidor → Felsidan → Gamla adresser) för övriga adresser.
+        const target = req.method === "GET" || req.method === "HEAD" ? await findRedirect(env, url.pathname) : null;
+        return target ? redirect(target, 301) : await notFoundPage(c);
+      }
       c.params = match.params;
       // Visningar: kontrollen om sidan är dold körs samtidigt som sidan byggs (ingen väntar på två anrop i rad).
       // Inskick (POST) kontrolleras först – ett formulär på en dold sida får aldrig tas emot.

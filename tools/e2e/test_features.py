@@ -432,6 +432,24 @@ with sync_playwright() as p:
     check('data-form="engagemang"' in body and "signup-deadline" in body, "öppnar- och stänger-tid tillsammans ger ett anmälningsfönster")
     set_signup("oppen", "")
 
+    # ───────── Gamla adresser (styrelsens egna omdirigeringar) ─────────
+    print("Gamla adresser")
+    page.goto(f"{BASE}/admin/texter?sida=felsidor&falt=redirects")
+    page.fill("[name=redirects]", "/om-jfk/styrelsen.html → /kontakt\nhttps://jfkarlstad.se/gammal-kampanj -> /bli-medlem")
+    page.click("#texter-form .sticky-actions button[type=submit]")
+    page.wait_for_url(re.compile(r"klart="))
+    r = page.request.get(BASE + "/om-jfk/styrelsen.html", max_redirects=0)
+    check(r.status == 301 and r.headers.get("location") == "/kontakt", "styrelsens egen omdirigering går före den inbyggda")
+    r = page.request.get(BASE + "/gammal-kampanj", max_redirects=0)
+    check(r.status == 301 and r.headers.get("location") == "/bli-medlem", "egen omdirigering för en adress utan filändelse")
+    page.goto(f"{BASE}/admin/texter?sida=felsidor&falt=redirects")
+    page.fill("[name=redirects]", "/a.html → https://exempel.se/")
+    page.click("#texter-form .sticky-actions button[type=submit]")
+    check(page.locator("#falt-redirects[aria-invalid=true]").count() == 1, "omdirigering till en annan webbplats stoppas med ett felmeddelande")
+    page.fill("[name=redirects]", "")
+    page.click("#texter-form .sticky-actions button[type=submit]")
+    page.wait_for_url(re.compile(r"klart="))
+
     # ───────── Sök ─────────
     print("Sök")
     page.goto(f"{BASE}/admin")

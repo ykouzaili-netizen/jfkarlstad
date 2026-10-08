@@ -1099,6 +1099,11 @@ export const PAGES = [
       text("notfound_link_news", "Länk 3", "Nyheter", small),
       text("notfound_link_contact", "Länk 4", "Kontakta oss", small),
     ], "Visas när någon går till en adress som inte finns."),
+    sec("omdirigeringar", "Gamla adresser", [
+      list("redirects", "Gamla adresser som skickas vidare", "", {
+        help: "En per rad: den gamla adressen, en pil och sidan den ska till – t.ex. /om-jfk/styrelsen.html → /om-oss#styrelsen. Hela adresser som https://jfkarlstad.se/... går också bra. Adresser från den gamla webbplatsen (.html-sidor, PDF:er och gamla mappar) skickas redan vidare automatiskt till den sida som passar bäst – här lägger du bara till eller ändrar enskilda.",
+      }),
+    ], "Bokmärken, gamla länkar och sökträffar till den gamla webbplatsen hamnar rätt. Google uppdaterar sina sökträffar till de nya adresserna efter några veckor."),
   ]),
 ] as const;
 

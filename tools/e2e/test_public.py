@@ -76,5 +76,30 @@ with sync_playwright() as p:
             check(label.strip() == "Stäng", f"menyknappens text växlar ({label!r})")
         check(not errors, f"inga JavaScript-fel ({name}) {errors[:3]}")
         page.close()
+    # Gamla webbplatsens adresser skickas vidare (301) till motsvarande sida
+    print("Gamla adresser")
+    page = browser.new_page()
+    for old, new in [
+        ("/om-jfk/", "/om-oss"),
+        ("/om-jfk/externt/juro.html", "/om-oss#samarbeten"),
+        ("/jf-klaga.html", "/jf-paverka"),
+        ("/kontakt.html", "/kontakt"),
+        ("/karri-rm-jligheter/lediga-tj-nster-1.html", "/karriar"),
+        ("/galleri/halvtidsmiddag/", "/for-studenter#bildgalleri"),
+        ("/student/ny-student-1/gratulerar-till-antagningsbeskedet.html", "/for-studenter"),
+        ("/Verksamhetsplan%2023_24.pdf", "/dokument"),
+        ("/om-jfk/styrelsen.html", "/om-oss#styrelsen"),
+        ("/okand-gammal-sida.html", "/"),
+    ]:
+        r = page.request.get(BASE + old, max_redirects=0)
+        check(r.status == 301 and r.headers.get("location") == new, f"{old} → {new} ({r.status} {r.headers.get('location')})")
+    for path in ["/karriar", "/om-oss", "/kalender"]:
+        r = page.request.get(BASE + path, max_redirects=0)
+        check(r.status == 200, f"nya adressen {path} skickas inte vidare")
+    r = page.request.get(BASE + "/sidan-finns-inte", max_redirects=0)
+    check(r.status == 404, "en okänd ny adress ger fortfarande felsidan")
+    page.goto(BASE + "/om-jfk/")
+    check(page.url.endswith("/om-oss"), "webbläsaren hamnar på Om oss från den gamla adressen")
+    page.close()
     browser.close()
 done()
