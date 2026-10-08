@@ -1,6 +1,6 @@
 import { html, paragraphs, raw, type SafeHtml } from "../lib/html.js";
 import type { HonorRow } from "../lib/content.js";
-import { medalLook, medalSvg, ribbonBarSvg, type MedalLook, type MedalRow } from "../lib/medals.js";
+import { MEDAL_DESIGNS, medalDesign, medalImageUrl, type MedalRow } from "../lib/medals.js";
 import { ec, ek, type Settings } from "../lib/settings.js";
 import { fill } from "../lib/texts.js";
 import { picture } from "../views/layout.js";
@@ -60,11 +60,11 @@ function title(s: Settings): SafeHtml {
   return html`<h2 class="section-title" id="utmarkelser"${ek(s, "honors_title")}>${s.honors_title}</h2>`;
 }
 
-/** Medaljen: uppladdad bild om det finns en, annars den ritade. id-prefixet håller SVG-id:n unika på sidan. */
-function medalArt(m: MedalRow, prefix: string, sizes: string): SafeHtml {
-  return m.image_key
-    ? picture(m.image_key, { alt: "", sizes, className: "medal-photo", width: 480, height: 780 })
-    : medalSvg(medalLook(m), `${prefix}${m.id}`);
+/** Medaljen: ett uppladdat foto om det finns, annars föreningens medaljbild. Dekorativ – namnet står bredvid. */
+function medalArt(m: MedalRow, sizes: string, cls = "medal-img"): SafeHtml {
+  if (m.image_key) return picture(m.image_key, { alt: "", sizes, className: cls, width: 480, height: 1000 });
+  const d = MEDAL_DESIGNS[medalDesign(m.design)];
+  return html`<img class="${cls}" src="${medalImageUrl(m.design)}" alt="" width="${d.width}" height="${d.height}" loading="lazy" decoding="async">`;
 }
 
 function kindWord(s: Settings, m: MedalRow): string {
@@ -90,8 +90,6 @@ function portrait(h: HonorRow, sizes: string, cls: string): SafeHtml {
     : html`<span class="${cls}-initials" aria-hidden="true">${initials(h.name)}</span>`;
 }
 
-/** Fliken för hedersmedlemmar i Ordensbandet: svart band med gul mittrand (föreningens färger, inte en riktig medalj). */
-const HONORARY_LOOK: MedalLook = medalLook({ ribbon_pattern: "mittrand", ribbon_1: "svart", ribbon_2: "gul" });
 
 const editMember = (s: Settings, h: HonorRow) => ec(s, `/admin/utmarkelser/${h.id}`, `Utmärkelser › ${h.name}`);
 const editMedal = (s: Settings, m: MedalRow) => ec(s, `/admin/medaljer/${m.id}`, `Ordnar och medaljer › ${m.name}`);
@@ -163,7 +161,7 @@ function kabinettMedal(s: Settings, m: MedalWithRecipients, i: number): SafeHtml
   return html`<li class="hk-item"${editMedal(s, m)}>
     <button type="button" class="hk-case" popovertarget="${id}">
       <span class="hk-light" aria-hidden="true"></span>
-      <span class="hk-art">${medalArt(m, "hk", "(min-width: 900px) 220px, 45vw")}</span>
+      <span class="hk-art">${medalArt(m, "(min-width: 900px) 150px, 35vw")}</span>
       <span class="hk-label">
         <span class="hk-no">${roman(i)}</span>
         <span class="hk-name">${m.name}</span>
@@ -173,7 +171,7 @@ function kabinettMedal(s: Settings, m: MedalWithRecipients, i: number): SafeHtml
     </button>
     <div class="hk-pop" id="${id}" popover role="dialog" aria-labelledby="${id}-namn">
       <button type="button" class="hk-close" popovertarget="${id}" popovertargetaction="hide">${icon("close", "icon")}<span class="sr-only">${s.honors_close}</span></button>
-      <div class="hk-pop-art">${medalArt(m, "hkp", "(min-width: 900px) 320px, 60vw")}</div>
+      <div class="hk-pop-art">${medalArt(m, "260px")}</div>
       <div class="hk-pop-body">
         <p class="hk-no">${roman(i)} · ${medalMeta(s, m)}</p>
         <h4 class="hk-pop-name" id="${id}-namn">${m.name}</h4>
@@ -201,8 +199,8 @@ function kabinettPortrait(s: Settings, h: HonorRow): SafeHtml {
 
 function band(s: Settings, d: HonorsData): SafeHtml {
   const tabs = [
-    ...(d.members.length || !d.medals.length ? [{ id: "heder", label: s.honors_members_title, look: HONORARY_LOOK }] : []),
-    ...d.medals.map((m) => ({ id: `m${m.id}`, label: m.name, look: medalLook(m) })),
+    ...(d.members.length || !d.medals.length ? [{ id: "heder", label: s.honors_members_title, medal: null as MedalRow | null }] : []),
+    ...d.medals.map((m) => ({ id: `m${m.id}`, label: m.name, medal: m as MedalRow | null })),
   ];
   return html`<section class="honors honors--band" aria-labelledby="utmarkelser">
     <div class="container">
@@ -220,7 +218,7 @@ function band(s: Settings, d: HonorsData): SafeHtml {
       <nav class="hb-rack" aria-label="${s.honors_title}" data-tabs>
         ${tabs.map(
           (t, i) => html`<a class="hb-tab" href="#band-${t.id}" data-tab="band-${t.id}"${i === 0 ? html` aria-current="true"` : ""}>
-            <span class="hb-ribbon">${ribbonBarSvg(t.look, `hbt${t.id}`)}</span>
+            <span class="hb-ribbon${t.medal ? "" : " hb-ribbon--heder"}">${t.medal ? medalArt(t.medal, "120px", "hb-ribbon-img") : ""}</span>
             <span class="hb-tab-label">${t.label}</span>
           </a>`,
         )}
@@ -259,7 +257,7 @@ function bandMembers(s: Settings, d: HonorsData): SafeHtml {
 
 function bandMedal(s: Settings, m: MedalWithRecipients): SafeHtml {
   return html`<div class="hb-panel" id="band-m${m.id}" data-panel${editMedal(s, m)}>
-    <div class="hb-stage"><div class="hb-swing">${medalArt(m, "hb", "(min-width: 900px) 300px, 60vw")}</div></div>
+    <div class="hb-stage"><div class="hb-swing">${medalArt(m, "(min-width: 900px) 220px, 50vw")}</div></div>
     <div class="hb-info">
       <p class="hb-kicker">${medalMeta(s, m)}</p>
       <h3 class="hb-name">${m.name}</h3>
@@ -331,10 +329,10 @@ function kortlek(s: Settings, d: HonorsData): SafeHtml {
 }
 
 function kortlekCoin(s: Settings, m: MedalWithRecipients): SafeHtml {
-  return html`<li class="hd-coin hd-metal--${medalLook(m).metal}"${editMedal(s, m)}>
+  return html`<li class="hd-coin"${editMedal(s, m)}>
     <div class="hd-coin-inner" data-flip>
       <div class="hd-face hd-front">
-        <span class="hd-coin-art">${medalArt(m, "hd", "(min-width: 900px) 200px, 45vw")}</span>
+        <span class="hd-coin-art">${medalArt(m, "130px")}</span>
         <h4 class="hd-coin-name">${m.name}</h4>
         <p class="hd-coin-meta">${medalMeta(s, m)}</p>
       </div>

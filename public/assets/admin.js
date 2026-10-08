@@ -1376,7 +1376,7 @@
     function sync(focusNew) {
       blocks.forEach(function (box) {
         var on = form.querySelector('input[name="' + box.dataset.showIf + '"]:checked');
-        var show = !!on && on.value === box.dataset.showValue;
+        var show = !!on && box.dataset.showValue.split("|").indexOf(on.value) !== -1;
         var wasHidden = box.hidden;
         box.hidden = !show;
         if (focusNew && show && wasHidden) {
@@ -1392,21 +1392,13 @@
   });
 })();
 
-// Ordnar och medaljer: förhandsvisningen av den ritade medaljen följer valen i formuläret.
+// Ordnar och medaljer: förhandsvisningen överst följer valet av medaljbild.
 (function () {
-  var box = document.querySelector("[data-medal-preview]");
-  var img = box && box.querySelector("[data-medal-preview-img]");
-  var form = box && box.closest("form");
-  if (!img || !form) return;
-  var FIELDS = ["motif", "metal", "ribbon_pattern", "ribbon_1", "ribbon_2", "ribbon_3"];
-  img.addEventListener("load", function () { img.classList.remove("is-loading"); });
+  var img = document.querySelector("[data-medal-preview-img]");
+  var form = img && img.closest("form");
+  if (!form) return;
   form.addEventListener("change", function (e) {
-    if (FIELDS.indexOf(e.target.name) === -1) return;
-    var q = FIELDS.map(function (k) {
-      var on = form.querySelector('input[name="' + k + '"]:checked');
-      return k + "=" + encodeURIComponent(on ? on.value : "");
-    }).join("&");
-    img.classList.add("is-loading");
-    img.src = "/admin/medaljer-bild?" + q;
+    if (e.target.name !== "design") return;
+    img.src = "/assets/medaljer/medalj-" + e.target.value + ".png";
   });
 })();

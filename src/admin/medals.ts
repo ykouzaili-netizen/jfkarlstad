@@ -1,12 +1,11 @@
-import { html, raw, type SafeHtml } from "../lib/html.js";
-import { textResponse } from "../lib/http.js";
+import { html, type SafeHtml } from "../lib/html.js";
 import type { Values } from "../lib/forms.js";
-import { METALS, RIBBON_COLORS, medalLook, medalSvg, ribbonBarSvg } from "../lib/medals.js";
-import type { RequestContext } from "../router.js";
+import { MEDAL_DESIGNS, medalImageUrl, type MedalDesign } from "../lib/medals.js";
+import { mediaUrl } from "../views/layout.js";
 
 /**
- * Adminpanelens delar för belöningssystemet: valen i formuläret (med små bilder), förhandsvisningen av
- * den ritade medaljen som följer valen och listan med medaljer att välja bland för en utmärkelse.
+ * Adminpanelens delar för belöningssystemet: valet av medaljbild (med små bilder), förhandsvisningen överst i
+ * formuläret och listan med medaljer att välja bland för en utmärkelse.
  */
 
 /** Ordnar och medaljer att välja bland för en utmärkelse (även dolda, så att en mottagare kan läggas in i förväg). */
@@ -19,40 +18,22 @@ export async function medalOptions(db: D1Database): Promise<{ value: string; lab
   }
 }
 
-/** Liten bild bredvid ett val i formuläret: medaljens form, metallen, bandets mönster eller en färg. */
-export function medalChoiceArt(o: { motif?: string; metal?: string; ribbon_pattern?: string; color?: string }): SafeHtml {
-  if (o.color) {
-    const hex = RIBBON_COLORS[o.color as keyof typeof RIBBON_COLORS]?.hex ?? "#888888";
-    return raw(`<svg class="choice-swatch" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${hex}" stroke="#000" stroke-opacity=".18"/></svg>`);
-  }
-  if (o.metal) {
-    const m = METALS[o.metal as keyof typeof METALS] ?? METALS.guld;
-    const id = `val-${o.metal}`;
-    return raw(`<svg class="choice-swatch" viewBox="0 0 24 24"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m.stops[0]}"/><stop offset=".5" stop-color="${m.stops[1]}"/><stop offset="1" stop-color="${m.stops[3]}"/></linearGradient></defs><circle cx="12" cy="12" r="11" fill="url(#${id})"/></svg>`);
-  }
-  if (o.ribbon_pattern) {
-    return html`<span class="choice-ribbon">${ribbonBarSvg(medalLook({ ribbon_pattern: o.ribbon_pattern, ribbon_1: "rod", ribbon_2: "vit", ribbon_3: "bla" }), `val-${o.ribbon_pattern}`)}</span>`;
-  }
-  return html`<span class="choice-medal">${medalSvg(medalLook({ motif: o.motif, metal: "brons", ribbon_1: "gul" }), `val-${o.motif}`)}</span>`;
-}
+/** Valen av medaljbild i formuläret, med bilden bredvid varje val. */
+// Sorterad uttryckligen: JavaScript lägger nyckeln "10" (ser ut som ett heltal) före "01"–"09".
+export const DESIGN_OPTIONS = (Object.entries(MEDAL_DESIGNS) as [MedalDesign, (typeof MEDAL_DESIGNS)[MedalDesign]][]).sort(([a], [b]) => a.localeCompare(b)).map(([value, d]) => ({
+  value,
+  label: d.label,
+  art: html`<img class="choice-medal-img" src="${medalImageUrl(value)}" alt="" width="${d.width}" height="${d.height}" loading="lazy">`,
+}));
 
-const LOOK_FIELDS = ["motif", "metal", "ribbon_pattern", "ribbon_1", "ribbon_2", "ribbon_3"] as const;
-
-/** Förhandsvisningen överst i formuläret. admin.js byter bilden när ett val ändras. */
+/** Förhandsvisningen överst i formuläret. admin.js byter bilden när ett annat val görs. */
 export function medalFormPreview(values: Values): SafeHtml {
-  const q = new URLSearchParams(LOOK_FIELDS.map((k) => [k, values[k] ?? ""])).toString();
+  const photo = values.image_key ? mediaUrl(values.image_key) : null;
   return html`<div class="admin-card medal-preview" data-medal-preview>
-    <img class="medal-preview-img" src="/admin/medaljer-bild?${q}" alt="Förhandsvisning av den ritade medaljen" width="160" height="260" data-medal-preview-img>
+    <img class="medal-preview-img" src="${photo ?? medalImageUrl(values.design)}" alt="Förhandsvisning av medaljen" width="84" height="176"${photo ? "" : html` data-medal-preview-img`}>
     <div class="medal-preview-text">
-      <p class="medal-preview-title">Så här ritas den på webbplatsen</p>
-      <p class="field-help">Bilden ändras direkt när du väljer motiv, metall och band nedan.${values.image_key ? " Eftersom det finns ett foto på den riktiga medaljen visas fotot på webbplatsen i stället." : ""}</p>
+      <p class="medal-preview-title">Så här visas medaljen på webbplatsen</p>
+      <p class="field-help">${photo ? "Det uppladdade fotot visas i stället för den valda medaljbilden. Ta bort fotot nedan för att använda bilden igen." : "Bilden byts direkt när du väljer en annan medalj nedan."}</p>
     </div>
   </div>`;
-}
-
-/** GET /admin/medaljer-bild?motif=…&metal=… → den ritade medaljen som SVG (bara för inloggade). */
-export async function medalPreviewHandler(c: RequestContext): Promise<Response> {
-  const p = c.url.searchParams;
-  const look = medalLook(Object.fromEntries(LOOK_FIELDS.map((k) => [k, p.get(k)])));
-  return textResponse(String(medalSvg(look, "f")), "image/svg+xml; charset=utf-8", "private, max-age=600");
 }

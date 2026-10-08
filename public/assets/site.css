@@ -3458,8 +3458,8 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   overflow: hidden;
 }
 .honors .section-title { max-width: 16ch; }
-.medal-svg { display: block; width: 100%; height: auto; overflow: visible; }
-.medal-photo, .medal-photo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+/* Medaljbilderna (public/assets/medaljer/) och uppladdade foton: hela medaljen syns, bandet uppåt */
+.medal-img, .medal-img img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: 50% 0; }
 .ribbon-bar { display: block; width: 100%; height: 100%; }
 .icon-flip { transform: scaleX(-1); }
 
@@ -3537,7 +3537,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .hk-art {
   position: relative;
   width: min(150px, 72%);
-  aspect-ratio: 160 / 260;
+  aspect-ratio: 142 / 300;
   filter: drop-shadow(0 22px 22px rgb(0 0 0 / 0.55));
   transition: transform 0.6s var(--ease-out);
 }
@@ -3582,7 +3582,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 }
 .hk-pop:popover-open { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(24px, 4vw, 56px); align-items: center; }
 .hk-pop::backdrop { background: rgb(0 0 0 / 0.62); backdrop-filter: blur(6px); }
-.hk-pop-art { width: min(260px, 100%); margin-inline: auto; aspect-ratio: 160 / 260; filter: drop-shadow(0 30px 30px rgb(0 0 0 / 0.6)); }
+.hk-pop-art { width: min(200px, 100%); margin-inline: auto; aspect-ratio: 142 / 300; filter: drop-shadow(0 30px 30px rgb(0 0 0 / 0.6)); }
 .hk-pop-name { margin-top: 10px; font-size: calc(clamp(1.625rem, 1.3rem + 1.2vw, 2.375rem) * var(--display-scale)); line-height: 1.1; color: var(--c-on-primary); }
 .hk-pop .prose { margin-top: 16px; color: color-mix(in srgb, var(--c-on-primary) 80%, transparent); }
 .hk-pop-sub { margin-top: 28px; font-family: var(--font-body); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-accent); }
@@ -3708,6 +3708,8 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   transform-origin: 50% 0;
   transition: transform 0.45s var(--ease-out);
 }
+.hb-ribbon-img, .hb-ribbon-img img { display: block; width: 100%; height: auto; }
+.hb-ribbon--heder { background: linear-gradient(90deg, var(--c-on-accent) 0 36%, var(--c-surface) 36% 39%, var(--c-accent) 39% 61%, var(--c-surface) 61% 64%, var(--c-on-accent) 64%); }
 .hb-tab:hover .hb-ribbon { transform: scaleY(1.12); }
 .hb-tab[aria-current="true"] .hb-ribbon, .hb-tab[aria-selected="true"] .hb-ribbon { transform: scaleY(1.4); }
 .hb-tab-label {
@@ -3741,7 +3743,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   border-radius: 50%;
   background: radial-gradient(circle, color-mix(in srgb, var(--c-surface) 55%, transparent), transparent 70%);
 }
-.hb-swing { position: relative; width: min(220px, 58%); aspect-ratio: 160 / 260; transform-origin: 50% 0; filter: drop-shadow(0 26px 26px rgb(0 0 0 / 0.32)); }
+.hb-swing { position: relative; width: min(180px, 52%); aspect-ratio: 142 / 300; transform-origin: 50% 0; filter: drop-shadow(0 26px 26px rgb(0 0 0 / 0.32)); }
 /* Hedersmedlemmarnas panel: föreningens sigill i stället för en medalj */
 .hb-seal {
   position: relative;
@@ -3875,8 +3877,6 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .hd-orders-intro .prose { color: var(--c-muted); }
 .hd-coins { list-style: none; display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); margin-top: clamp(28px, 4vw, 44px); }
 .hd-coin { --metal: var(--metal-guld); display: flex; flex-direction: column; align-items: center; perspective: 1400px; }
-.hd-metal--silver { --metal: var(--metal-silver); }
-.hd-metal--brons { --metal: var(--metal-brons); }
 .hd-coin-inner { position: relative; width: 100%; }
 .hd-face { border-radius: var(--radius-lg); padding: 26px 22px; }
 .hd-front {
@@ -3884,7 +3884,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   background: radial-gradient(circle at 50% 28%, var(--c-bg), var(--c-surface) 72%);
   border: 1px solid var(--c-border);
 }
-.hd-coin-art { width: 128px; aspect-ratio: 160 / 260; filter: drop-shadow(0 14px 14px rgb(0 0 0 / 0.22)); transition: transform 0.5s var(--ease-out); }
+.hd-coin-art { width: 128px; aspect-ratio: 142 / 300; filter: drop-shadow(0 14px 14px rgb(0 0 0 / 0.22)); transition: transform 0.5s var(--ease-out); }
 .hd-coin:hover .hd-coin-art { transform: translateY(-4px) rotate(-3deg); }
 .hd-coin-name { margin-top: 18px; font-size: calc(1.125rem * var(--display-scale)); line-height: 1.25; text-wrap: balance; }
 .hd-coin-meta { margin-top: 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; color: var(--c-muted); }

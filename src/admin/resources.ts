@@ -16,8 +16,8 @@ import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton, statusPill } from "./layout.js";
 import { handleUpload, imageUploadField } from "./uploads.js";
 import { jobTotals } from "./job-stats.js";
-import { medalChoiceArt, medalFormPreview, medalOptions } from "./medals.js";
-import { MEDAL_KINDS, METALS, MOTIFS, RIBBON_COLORS, RIBBON_PATTERNS, medalLook, medalSvg } from "../lib/medals.js";
+import { DESIGN_OPTIONS, medalFormPreview, medalOptions } from "./medals.js";
+import { MEDAL_KINDS, medalImageUrl } from "../lib/medals.js";
 
 /**
  * Generisk redigering (skapa, lista, ändra, publicera, ta bort) för innehållstyperna.
@@ -50,10 +50,10 @@ export interface AdminField extends FieldSpec {
    * Fältet visas bara när ett annat fält (oftast ett radioval) har ett visst värde, t.ex. länk eller PDF.
    * Ett dolt fält töms när posten sparas – en dold fil tas bort som om man hade klickat "Ta bort".
    */
-  showIf?: { field: string; value: string };
+  showIf?: { field: string; value: string | string[] };
 }
 
-const shown = (f: AdminField, v: Values) => !f.showIf || v[f.showIf.field] === f.showIf.value;
+const shown = (f: AdminField, v: Values) => !f.showIf || ([] as string[]).concat(f.showIf.value).includes(v[f.showIf.field] ?? "");
 
 export interface Resource {
   path: string; // "nyheter"
@@ -444,72 +444,47 @@ export const RESOURCES: Resource[] = [
     publishLabels: ["Visas", "Dold"],
     navActive: "/admin/styrelsen",
     tabs: BOARD_TABS,
-    emptyText: "Inga ordnar eller medaljer är inlagda ännu. Lägg till den första – den ritas automatiskt utifrån dina val.",
+    emptyText: "Inga ordnar eller medaljer är inlagda ännu. Lägg till den första och välj vilken av föreningens medaljer det är.",
     listQuery: "SELECT m.*, (SELECT COUNT(*) FROM honors h WHERE h.medal_id = m.id) AS recipient_count FROM medals m ORDER BY m.sort_order, m.id",
     formIntro: medalFormPreview,
     fields: [
       { name: "name", label: "Namn", type: "text", required: true, max: 120, help: "T.ex. Förtjänstmedaljen i guld." },
       {
-        name: "motif",
-        label: "Motiv",
+        name: "design",
+        label: "Vilken medalj?",
         type: "radio",
         required: true,
-        options: Object.entries(MOTIFS).map(([value, o]) => ({ value, label: o.label, hint: o.hint, art: medalChoiceArt({ motif: value }) })),
-      },
-      {
-        name: "metal",
-        label: "Metall",
-        type: "radio",
-        required: true,
-        wrapClass: "field-swatches",
-        options: Object.entries(METALS).map(([value, o]) => ({ value, label: o.label, art: medalChoiceArt({ metal: value }) })),
-      },
-      {
-        name: "ribbon_pattern",
-        label: "Bandets mönster",
-        type: "radio",
-        required: true,
-        options: Object.entries(RIBBON_PATTERNS).map(([value, o]) => ({ value, label: o.label, hint: o.hint, art: medalChoiceArt({ ribbon_pattern: value }) })),
-      },
-      { name: "ribbon_1", label: "Bandets första färg", type: "radio", required: true, wrapClass: "field-swatches", options: Object.entries(RIBBON_COLORS).map(([value, o]) => ({ value, label: o.label, art: medalChoiceArt({ color: value }) })) },
-      { name: "ribbon_2", label: "Bandets andra färg", type: "radio", required: true, wrapClass: "field-swatches", help: "Används inte när bandet är enfärgat.", options: Object.entries(RIBBON_COLORS).map(([value, o]) => ({ value, label: o.label, art: medalChoiceArt({ color: value }) })) },
-      {
-        name: "ribbon_3",
-        label: "Bandets tredje färg",
-        type: "radio",
-        required: true,
-        wrapClass: "field-swatches",
-        showIf: { field: "ribbon_pattern", value: "trefarg" },
-        options: Object.entries(RIBBON_COLORS).map(([value, o]) => ({ value, label: o.label, art: medalChoiceArt({ color: value }) })),
+        wrapClass: "field-medals",
+        help: "Föreningens medaljer. Bilden visas på webbplatsen.",
+        options: DESIGN_OPTIONS,
       },
       {
         name: "kind",
         label: "Kallas på webbplatsen",
         type: "radio",
         required: true,
-        help: "Ordet som står vid utmärkelsen, t.ex. ”Medalj · Instiftad 2025”. Ändrar inte hur den ritas.",
+        help: "Ordet som står vid utmärkelsen, t.ex. ”Medalj · Instiftad 2025”.",
         options: Object.entries(MEDAL_KINDS).map(([value, o]) => ({ value, label: o.label })),
       },
       { name: "description", label: "Vad belönas?", type: "textarea", rows: 5, max: 1200, help: "Visas när besökaren öppnar medaljen. T.ex. vem som kan få den och för vad." },
       { name: "founded", label: "Instiftad år", type: "number", min: 2011, max: 2100, nullable: true },
       {
         name: "image_key",
-        label: "Foto på den riktiga medaljen",
+        label: "Eget foto (valfritt)",
         type: "text",
         upload: "image",
         nullable: true,
-        help: "Valfritt. Visas i stället för den ritade medaljen. Bäst blir en PNG med genomskinlig bakgrund där bandet hänger rakt uppåt.",
+        help: "Behövs bara för en medalj som saknas bland bilderna ovan. Visas i stället för den valda bilden. Bäst blir en PNG med genomskinlig bakgrund där bandet hänger rakt uppåt.",
       },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägst nummer visas först – lägg den finaste utmärkelsen först." },
     ],
     listColumns: [
       {
         label: "",
-        render: (r) => (r.image_key ? thumb(r.image_key) : html`<span class="thumb thumb-medal" aria-hidden="true">${medalSvg(medalLook(r as Record<string, unknown>), `lista${r.id}`)}</span>`),
+        render: (r) => (r.image_key ? thumb(r.image_key) : html`<span class="thumb thumb-medal" aria-hidden="true"><img src="${medalImageUrl(r.design)}" alt="" loading="lazy"></span>`),
         className: "col-thumb",
       },
       { label: "Namn", render: (r) => html`<a class="row-title" href="/admin/medaljer/${r.id}">${String(r.name)}</a>` },
-      { label: "Motiv", render: (r) => MOTIFS[r.motif as keyof typeof MOTIFS]?.label ?? "" },
       { label: "Mottagare", render: (r) => (Number(r.recipient_count) ? String(r.recipient_count) : "–") },
       { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
     ],
@@ -932,7 +907,7 @@ function editForm(r: Resource, fields: AdminField[], session: Session, action: s
             ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload })
             : renderField(f, values[f.name] ?? "", errors[f.name]);
           return f.showIf
-            ? html`<div class="show-if" data-show-if="${f.showIf.field}" data-show-value="${f.showIf.value}"${shown(f, values) ? "" : html` hidden`}>${field}</div>`
+            ? html`<div class="show-if" data-show-if="${f.showIf.field}" data-show-value="${([] as string[]).concat(f.showIf.value).join("|")}"${shown(f, values) ? "" : html` hidden`}>${field}</div>`
             : field;
         })}
     </div>
@@ -1010,7 +985,7 @@ export function newHandler(r: Resource) {
       values.source = "lank";
     }
     if (r.path === "jobb") values.kind = "praktik";
-    if (r.path === "medaljer") Object.assign(values, { kind: "medalj", motif: "vag", metal: "brons", ribbon_pattern: "enfargat", ribbon_1: "gul", ribbon_2: "rod", ribbon_3: "bla" });
+    if (r.path === "medaljer") Object.assign(values, { kind: "medalj", design: "01" });
     if (r.path === "utmarkelser") {
       // "Lägg till mottagare" från en medalj förväljer den
       const medal = c.url.searchParams.get("medalj");

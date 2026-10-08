@@ -1,21 +1,21 @@
 -- Exempelinnehåll för att granska Hedersmedlemmar och utmärkelser lokalt (inte en del av seed.sql).
 -- Kör mot förhandsvisningens databas:  sqlite3 tools/local-preview/.data/local.sqlite < tools/design/heders-demo.sql
--- Medaljerna följer styrelsens bilder 2026-10-08 men saknar namn och beskrivning. Personerna är påhittade och märkta "(exempel)".
+-- Medaljerna är föreningens tio medaljbilder (förlagan 2026-10-08) men saknar namn och beskrivning. Personerna är påhittade och märkta "(exempel)".
 
 DELETE FROM honors WHERE kind IN ('hedersmedlem', 'utmarkelse');
 DELETE FROM medals;
 
-INSERT INTO medals (id, name, kind, motif, metal, ribbon_pattern, ribbon_1, ribbon_2, ribbon_3, description, founded, sort_order) VALUES
- (1, 'Solen med JFK – gult band (namn saknas)', 'medalj', 'sol', 'guld', 'enfargat', 'gul', 'gul', 'gul', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 1),
- (2, 'Våg i guld – gult band (namn saknas)', 'medalj', 'rund', 'guld', 'enfargat', 'gul', 'gul', 'gul', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 2),
- (3, 'Våg i brons – rött och gult band (namn saknas)', 'medalj', 'rund', 'brons', 'delat', 'rod', 'gul', 'gul', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 3),
- (4, 'Våg med lagerkrans – rött, vitt och blått band (namn saknas)', 'medalj', 'vag', 'brons', 'trefarg', 'rod', 'vit', 'bla', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 4),
- (5, 'Våg med lagerkrans – svärtad, blått och vitt band (namn saknas)', 'medalj', 'vag', 'svartad', 'delat', 'bla', 'vit', 'vit', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 5),
- (6, 'Våg med lagerkrans – grönt band (namn saknas)', 'medalj', 'vag', 'brons', 'enfargat', 'gron', 'gron', 'gron', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 6),
- (7, 'Våg med lagerkrans – rött band (namn saknas)', 'medalj', 'vag', 'brons', 'enfargat', 'rod', 'rod', 'rod', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 7),
- (8, 'Våg med lagerkrans – blått band (namn saknas)', 'medalj', 'vag', 'brons', 'enfargat', 'bla', 'bla', 'bla', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 8),
- (9, 'Stjärnan – rött band (namn saknas)', 'medalj', 'stjarna', 'brons', 'enfargat', 'rod', 'rod', 'rod', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 9),
- (10, 'Stjärnan – blått band (namn saknas)', 'medalj', 'stjarna', 'brons', 'enfargat', 'bla', 'bla', 'bla', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 10);
+INSERT INTO medals (id, name, kind, design, description, founded, sort_order) VALUES
+ (1, 'Medalj 1 (namn saknas)', 'medalj', '01', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 1),
+ (2, 'Medalj 2 (namn saknas)', 'medalj', '02', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 2),
+ (3, 'Medalj 3 (namn saknas)', 'medalj', '03', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 3),
+ (4, 'Medalj 4 (namn saknas)', 'medalj', '04', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 4),
+ (5, 'Medalj 5 (namn saknas)', 'medalj', '05', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 5),
+ (6, 'Medalj 6 (namn saknas)', 'medalj', '06', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 6),
+ (7, 'Medalj 7 (namn saknas)', 'medalj', '07', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 7),
+ (8, 'Medalj 8 (namn saknas)', 'medalj', '08', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 8),
+ (9, 'Medalj 9 (namn saknas)', 'medalj', '09', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 9),
+ (10, 'Medalj 10 (namn saknas)', 'medalj', '10', 'Beskrivning saknas – fylls i av styrelsen.', 2025, 10);
 
 INSERT INTO honors (kind, name, year, description, medal_id, sort_order) VALUES
  ('hedersmedlem', 'Margareta Lindqvist (exempel)', 2024, 'Grundade föreningens mentorsprogram och har i över tio år ställt upp som föreläsare, domare i moot court och bollplank för styrelser som behövt råd.', NULL, 1),

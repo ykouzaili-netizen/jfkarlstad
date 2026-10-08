@@ -1,20 +1,14 @@
 -- Belöningssystemet: föreningens ordnar och medaljer, och vilken av dem en utmärkelse avser.
--- Medaljen ritas automatiskt utifrån motiv, metall och bandets färger när ingen bild är uppladdad.
--- (Ändrad 2026-10-08 innan den körts i produktion: motiv, svärtad metall och tredje bandfärg efter de riktiga medaljerna.)
+-- Medaljens utseende är en av föreningens medaljbilder (design) eller ett uppladdat foto.
 
 CREATE TABLE IF NOT EXISTS medals (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   name         TEXT NOT NULL,
   kind         TEXT NOT NULL DEFAULT 'medalj' CHECK (kind IN ('orden', 'medalj')),
-  motif        TEXT NOT NULL DEFAULT 'vag',
-  metal        TEXT NOT NULL DEFAULT 'brons',
-  ribbon_pattern TEXT NOT NULL DEFAULT 'enfargat',
-  ribbon_1     TEXT NOT NULL DEFAULT 'gul',
-  ribbon_2     TEXT NOT NULL DEFAULT 'rod',
-  ribbon_3     TEXT NOT NULL DEFAULT 'bla',
+  design       TEXT NOT NULL DEFAULT '01',   -- föreningens medaljbild, public/assets/medaljer/medalj-<design>.png
   description  TEXT NOT NULL DEFAULT '',
   founded      INTEGER,
-  image_key    TEXT,
+  image_key    TEXT,                         -- valfritt uppladdat foto som visas i stället för bilden
   sort_order   INTEGER NOT NULL DEFAULT 0,
   published    INTEGER NOT NULL DEFAULT 1,
   created_at   TEXT NOT NULL DEFAULT (datetime('now')),

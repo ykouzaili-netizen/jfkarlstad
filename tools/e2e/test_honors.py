@@ -8,7 +8,7 @@ import re
 
 from common import BASE, OUT, check, done, login, sync_playwright, expect  # noqa: F401
 
-MEDAL = "Testmedaljen i silver"
+MEDAL = "Testmedaljen"
 RECIPIENT = "Testa Mottagare"
 MEMBER = "Testa Hedersmedlem"
 
@@ -36,14 +36,11 @@ def run() -> None:
         preview = page.locator("[data-medal-preview-img]")
         check(preview.count() == 1, "förhandsvisningen av medaljen finns i formuläret")
         before = preview.get_attribute("src")
-        page.locator('input[name="metal"][value="silver"]').check(force=True)
-        page.locator('input[name="motif"][value="stjarna"]').check(force=True)
-        check(page.locator('input[name="ribbon_3"]').first.is_hidden(), "tredje bandfärgen är dold tills Tre färger väljs")
-        page.locator('input[name="ribbon_pattern"][value="trefarg"]').check(force=True)
-        check(page.locator('input[name="ribbon_3"]').first.is_visible(), "…och visas när Tre färger väljs")
-        check(preview.get_attribute("src") != before and "metal=silver" in preview.get_attribute("src") and "motif=stjarna" in preview.get_attribute("src"), "förhandsvisningen följer valen")
-        svg = page.request.get(f"{BASE}{preview.get_attribute('src')}")
-        check(svg.status == 200 and "image/svg+xml" in svg.headers["content-type"], "medaljbilden serveras som SVG")
+        check(page.locator('input[name="design"]').count() == 10, "alla tio medaljbilder går att välja")
+        page.locator('input[name="design"][value="07"]').check(force=True)
+        check(preview.get_attribute("src") != before and preview.get_attribute("src").endswith("medalj-07.png"), "förhandsvisningen följer valet")
+        img = page.request.get(f"{BASE}{preview.get_attribute('src')}")
+        check(img.status == 200 and "image/png" in img.headers["content-type"], "medaljbilden finns")
         page.fill('input[name="name"]', MEDAL)
         page.fill('textarea[name="description"]', "Delas ut i testet.")
         page.fill('input[name="founded"]', "2025")
