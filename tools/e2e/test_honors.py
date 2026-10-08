@@ -38,7 +38,7 @@ def run() -> None:
         before = preview.get_attribute("src")
         check(page.locator('input[name="design"]').count() == 10, "alla tio medaljbilder går att välja")
         page.locator('input[name="design"][value="07"]').check(force=True)
-        check(preview.get_attribute("src") != before and preview.get_attribute("src").endswith("medalj-07.png"), "förhandsvisningen följer valet")
+        check(preview.get_attribute("src") != before and "medalj-07.png" in preview.get_attribute("src"), "förhandsvisningen följer valet")
         img = page.request.get(f"{BASE}{preview.get_attribute('src')}")
         check(img.status == 200 and "image/png" in img.headers["content-type"], "medaljbilden finns")
         page.fill('input[name="name"]', MEDAL)

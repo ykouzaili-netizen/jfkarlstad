@@ -1,8 +1,8 @@
 /**
  * Belöningssystemets ordnar och medaljer.
  *
- * Medaljernas utseende är föreningens egna bilder (förlagan från styrelsen 2026-10-08), urklippta med genomskinlig
- * bakgrund i public/assets/medaljer/medalj-01.png … -10.png. I adminpanelen väljer man vilken bild en medalj har.
+ * Medaljernas utseende är föreningens egna bilder (förlagan från styrelsen 2026-10-08), urklippta ur styrelsens
+ * PNG (genomskinlig bakgrund) utan bearbetning till public/assets/medaljer/medalj-01.png … -10.png. I adminpanelen väljer man vilken bild en medalj har.
  * Ett uppladdat foto (fältet image_key) visas i stället för bilden om det finns.
  */
 
@@ -27,16 +27,16 @@ export type MedalKind = keyof typeof MEDAL_KINDS;
 
 /** Föreningens medaljbilder i förlagans ordning. Etiketterna beskriver bara utseendet – namnen sätts i adminpanelen. */
 export const MEDAL_DESIGNS = {
-  "01": { label: "Våg i brons – rött och gult band", width: 142, height: 297 },
-  "02": { label: "Våg i brons – rött, vitt och blått band", width: 141, height: 297 },
-  "03": { label: "Sol med JFK i guld – gult band", width: 142, height: 298 },
-  "04": { label: "Sol med JFK i guld – gult band (ljusare)", width: 143, height: 298 },
-  "05": { label: "Stjärna i brons – rött band", width: 136, height: 296 },
-  "06": { label: "Våg i brons – grönt band", width: 138, height: 311 },
-  "07": { label: "Silver med emaljmärke – vitt och blått band", width: 139, height: 312 },
-  "08": { label: "Våg i brons – rött band", width: 137, height: 310 },
-  "09": { label: "Våg i brons – blått band", width: 141, height: 311 },
-  "10": { label: "Stjärna i brons – blått band", width: 140, height: 309 },
+  "01": { label: "Våg i brons – rött och gult band", width: 216, height: 456 },
+  "02": { label: "Våg i brons – rött, vitt och blått band", width: 218, height: 456 },
+  "03": { label: "Sol med JFK i guld – gult band", width: 217, height: 457 },
+  "04": { label: "Sol med JFK i guld – gult band (ljusare)", width: 216, height: 457 },
+  "05": { label: "Stjärna i brons – rött band", width: 215, height: 457 },
+  "06": { label: "Våg i brons – grönt band", width: 212, height: 479 },
+  "07": { label: "Silver med emaljmärke – vitt och blått band", width: 212, height: 479 },
+  "08": { label: "Våg i brons – rött band", width: 212, height: 479 },
+  "09": { label: "Våg i brons – blått band", width: 212, height: 479 },
+  "10": { label: "Stjärna i brons – blått band", width: 219, height: 477 },
 } as const;
 export type MedalDesign = keyof typeof MEDAL_DESIGNS;
 
@@ -44,7 +44,9 @@ export function medalDesign(v: unknown): MedalDesign {
   return typeof v === "string" && Object.prototype.hasOwnProperty.call(MEDAL_DESIGNS, v) ? (v as MedalDesign) : "01";
 }
 
-export const medalImageUrl = (design: unknown) => `/assets/medaljer/medalj-${medalDesign(design)}.png`;
+/** Höj när bilderna byts ut – filerna i /assets cachas ett år. */
+const MEDAL_IMAGES_VERSION = "3";
+export const medalImageUrl = (design: unknown) => `/assets/medaljer/medalj-${medalDesign(design)}.png?v=${MEDAL_IMAGES_VERSION}`;
 
 export const medalQuery = {
   all: (db: D1Database) => db.prepare("SELECT * FROM medals WHERE published = 1 ORDER BY sort_order, id"),

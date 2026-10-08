@@ -1399,6 +1399,8 @@
   if (!form) return;
   form.addEventListener("change", function (e) {
     if (e.target.name !== "design") return;
-    img.src = "/assets/medaljer/medalj-" + e.target.value + ".png";
+    // Samma adress som i bilden bredvid valet (med versionsnummer)
+    var art = e.target.closest(".choice") && e.target.closest(".choice").querySelector("img");
+    img.src = art ? art.getAttribute("src") : "/assets/medaljer/medalj-" + e.target.value + ".png";
   });
 })();
