@@ -24,8 +24,11 @@ import { icon } from "../views/icons.js";
 /** Texttyper som kan få egen storlek och justering. */
 const STYLABLE: readonly FieldDef["type"][] = ["text", "textarea", "lines", "rich", "markdown"];
 
+/** Fält som aldrig visas som text på webbplatsen (t.ex. listan med omdirigeringar). */
+const NOT_SHOWN = new Set(["redirects"]);
+
 export function isStylable(f: FieldDef): boolean {
-  return STYLABLE.includes(f.type);
+  return STYLABLE.includes(f.type) && !NOT_SHOWN.has(f.key);
 }
 
 /** Inställningsrader (nyckel → värde, null = ta bort) som formuläret ger för en sida. */
