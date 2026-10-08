@@ -1391,3 +1391,22 @@
     sync(false);
   });
 })();
+
+// Ordnar och medaljer: förhandsvisningen av den ritade medaljen följer valen i formuläret.
+(function () {
+  var box = document.querySelector("[data-medal-preview]");
+  var img = box && box.querySelector("[data-medal-preview-img]");
+  var form = box && box.closest("form");
+  if (!img || !form) return;
+  var FIELDS = ["kind", "metal", "ribbon_pattern", "ribbon_1", "ribbon_2"];
+  img.addEventListener("load", function () { img.classList.remove("is-loading"); });
+  form.addEventListener("change", function (e) {
+    if (FIELDS.indexOf(e.target.name) === -1) return;
+    var q = FIELDS.map(function (k) {
+      var on = form.querySelector('input[name="' + k + '"]:checked');
+      return k + "=" + encodeURIComponent(on ? on.value : "");
+    }).join("&");
+    img.classList.add("is-loading");
+    img.src = "/admin/medaljer-bild?" + q;
+  });
+})();

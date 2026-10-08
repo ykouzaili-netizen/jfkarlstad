@@ -33,12 +33,13 @@
   var GROUPS = [
     ".card-grid", ".value-grid", ".partner-main", ".stat-grid", ".honor-grid", ".rep-grid", ".position-grid",
     ".person-grid", ".package-grid", ".gallery-grid", ".committee-grid", ".cm-grid", ".step-list",
+    ".hk-vitrine", ".hm-catalog", ".hd-coins",
     ".purpose-list", ".job-list", ".doc-list", ".faq-list", ".contact-list", ".check-list",
   ].map(function (s) { return "main " + s + " > *"; }).join(",");
   // Bilder som avtäcks (bara i Full).
   var IMAGES = "main .intro-media > div, main .content-photo";
   // Delar av sidan där inget ska röra sig (karuseller, band, toppen, genvägsmenyn, kalendern).
-  var SKIP = ".hero, .section-nav, [data-carousel], [data-marquee], .wordband, .cal-grid";
+  var SKIP = ".hero, .section-nav, [data-carousel], [data-marquee], .wordband, .cal-grid, [data-deck], .hb-panels, .hb-rack";
 
   var vh = window.innerHeight;
 

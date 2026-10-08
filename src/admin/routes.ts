@@ -28,6 +28,7 @@ import { partnerStatsCsv, partnerStatsPage } from "./stats-pages.js";
 import { adminSearchPage } from "./search.js";
 import { handoverPage, handoverSubmit } from "./handover.js";
 import { mailPage, mailTestSubmit } from "./mail-page.js";
+import { medalPreviewHandler } from "./medals.js";
 
 export function registerAdminRoutes(router: Router): void {
   // Utan inloggning
@@ -76,6 +77,7 @@ export function registerAdminRoutes(router: Router): void {
 
   // Före de generiska adresserna, annars tolkas "hamta" som ett id
   router.post("/admin/instagram/hamta", requireUser(instagramSyncSubmit));
+  router.get("/admin/medaljer-bild", requireUser(medalPreviewHandler));
   for (const r of RESOURCES) {
     router
       .get(`/admin/${r.path}`, requireUser(listHandler(r)))

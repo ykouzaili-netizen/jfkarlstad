@@ -8,7 +8,8 @@ export interface FieldSpec {
   required?: boolean;
   max?: number;
   min?: number;
-  options?: { value: string; label: string; hint?: string }[];
+  /** art = liten bild bredvid valet (t.ex. en färgruta), kodgenererad SVG. */
+  options?: { value: string; label: string; hint?: string; art?: SafeHtml }[];
   autocomplete?: string;
   help?: string;
   placeholder?: string;
@@ -93,7 +94,7 @@ export function renderField(f: FieldSpec, value = "", error?: string, ui: FormUi
         ${(f.options ?? []).map(
           (o) => html`<label class="choice">
             <input type="radio" name="${f.name}" value="${o.value}"${value === o.value ? html` checked` : ""}${f.required ? html` required` : ""}>
-            <span class="choice-body"><span class="choice-label">${o.label}</span>${o.hint ? html`<span class="choice-hint">${o.hint}</span>` : ""}</span>
+            ${o.art ? html`<span class="choice-art" aria-hidden="true">${o.art}</span>` : ""}<span class="choice-body"><span class="choice-label">${o.label}</span>${o.hint ? html`<span class="choice-hint">${o.hint}</span>` : ""}</span>
           </label>`,
         )}
       </div>

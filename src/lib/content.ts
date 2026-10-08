@@ -61,6 +61,8 @@ export interface HonorRow {
   year: number | null;
   description: string;
   photo_key: string | null;
+  /** Vilken orden eller medalj utmärkelsen avser (bara kind = "utmarkelse"). Saknas före migrering 0008. */
+  medal_id?: number | null;
   sort_order: number;
   published: number;
 }
@@ -199,7 +201,7 @@ export const DOCUMENT_CATEGORIES: Record<DocumentRow["category"], string> = {
 
 export const HONOR_KINDS: Record<HonorRow["kind"], string> = {
   hedersmedlem: "Hedersmedlem",
-  utmarkelse: "Utmärkelse",
+  utmarkelse: "Orden eller medalj",
   arets_pedagog: "Årets pedagog",
 };
 

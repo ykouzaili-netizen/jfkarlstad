@@ -773,3 +773,23 @@ a.admin-user:hover { background: var(--c-hover); }
 .mail-detail { margin-top: 10px; font-size: 0.8125rem; }
 .mail-detail summary { cursor: pointer; font-weight: 600; }
 .mail-detail code { display: block; margin-top: 6px; white-space: pre-wrap; word-break: break-word; }
+
+/* ---------- Ordnar och medaljer (src/admin/medals.ts) ---------- */
+.choice-art { display: grid; place-items: center; flex: none; width: 32px; min-height: 22px; margin-top: 1px; }
+.choice-swatch { width: 24px; height: 24px; display: block; }
+.choice-ribbon { display: block; width: 32px; height: 14px; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12); }
+.choice-medal { display: block; width: 26px; }
+.choice-medal .medal-svg { width: 100%; height: auto; }
+.field-swatches .choice-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.field-swatches .choice { align-items: center; padding: 10px 12px; }
+.field-swatches .choice input { margin-top: 0; }
+@media (min-width: 700px) {
+  .field-choices:has(.choice-ribbon) .choice-grid,
+  .field-choices:has(.choice-medal) .choice-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+}
+.medal-preview { display: flex; align-items: center; gap: 24px; position: sticky; top: 12px; z-index: 2; }
+.medal-preview-img { width: 84px; height: auto; flex: none; filter: drop-shadow(0 8px 10px rgb(0 0 0 / 0.2)); transition: opacity 0.2s; }
+.medal-preview-img.is-loading { opacity: 0.5; }
+.medal-preview-title { font-weight: 600; }
+.thumb-medal { display: grid; place-items: center; background: var(--c-bg); overflow: hidden; }
+.thumb-medal .medal-svg { width: 30px; height: auto; }

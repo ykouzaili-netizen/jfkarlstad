@@ -4,6 +4,8 @@ import { html, paragraphs, type SafeHtml } from "../lib/html.js";
 import { ec, ek, loadSettings, type SettingKey, type Settings, siteLayout, withBlockColors } from "../lib/settings.js";
 import { boardQuery, honorQuery, partnerQuery, type BoardRow, type HonorRow, type PartnerRow } from "../lib/content.js";
 import { htmlResponse } from "../lib/http.js";
+import { loadMedals } from "../lib/medals.js";
+import { honorsData, honorsSection } from "./honors.js";
 import type { RequestContext } from "../router.js";
 import { joinButton, layout, picture } from "../views/layout.js";
 import { arrowLink, emptyState, partnerLogo } from "../views/components.js";
@@ -12,10 +14,11 @@ import { avatar, HERO_FALLBACKS, heroStyle, heroTile, personCard, photoTop, sect
 
 export async function aboutPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, [boardRes, honorRes, partnerRes], committeeRows] = await Promise.all([
+  const [s, [boardRes, honorRes, partnerRes], committeeRows, medals] = await Promise.all([
     loadSettings(db, c.preview),
     db.batch([boardQuery.all(db), honorQuery.all(db), partnerQuery.all(db)]),
     loadCommittees(db),
+    loadMedals(db),
   ]);
   const board = boardRes!.results as unknown as BoardRow[];
   const honors = honorRes!.results as unknown as HonorRow[];
@@ -27,7 +30,7 @@ export async function aboutPage(c: RequestContext): Promise<Response> {
     { id: "styrning", anchor: "#sa-styrs-jfk", labelKey: "governance_title", icon: "network", render: () => governance(s) },
     { id: "styrelsen", anchor: "#styrelsen", labelKey: "board_title", icon: "user", render: () => boardSection(s, board) },
     { id: "utskott", anchor: "#utskotten", labelKey: "committees_title", icon: "users", render: () => (committees.length ? committeesSection(s, committees) : "") },
-    { id: "utmarkelser", anchor: "#utmarkelser", labelKey: "honors_title", icon: "check", render: () => honorsSection(s, honors) },
+    { id: "utmarkelser", anchor: "#utmarkelser", labelKey: "honors_title", icon: "check", render: () => honorsSection(s, honorsData(honors, medals)) },
     { id: "pedagog", anchor: "#arets-pedagog", labelKey: "pedagog_title", icon: "megaphone", render: () => pedagogSection(s, honors) },
     { id: "samarbeten", anchor: "#samarbeten", labelKey: "collab_title", icon: "briefcase", render: () => collabSection(s, partners) },
   ];
@@ -172,30 +175,6 @@ function honorCard(s: Settings, h: HonorRow): SafeHtml {
       ${h.description ? html`<p class="honor-text">${h.description}</p>` : ""}
     </div>
   </li>`;
-}
-
-function honorsSection(s: Settings, honors: HonorRow[]): SafeHtml {
-  const members = honors.filter((h) => h.kind === "hedersmedlem");
-  const awards = honors.filter((h) => h.kind === "utmarkelse");
-  return html`<section class="section section-surface" aria-labelledby="utmarkelser">
-    <div class="container">
-      <h2 class="section-title" id="utmarkelser"${ek(s, "honors_title")}>${s.honors_title}</h2>
-      <div class="split split-top">
-        <div class="prose"${ek(s, "honors_text")}>${paragraphs(s.honors_text)}</div>
-        <div class="info-card info-card-accent">
-          <h3 class="info-title"${ek(s, "rewards_title")}>${s.rewards_title}</h3>
-          <div class="prose"${ek(s, "rewards_text")}>${paragraphs(s.rewards_text)}</div>
-        </div>
-      </div>
-      <h3 class="subsection-title"${ek(s, "honors_members_title")}>${s.honors_members_title}</h3>
-      ${members.length
-        ? html`<ul class="honor-grid">${members.map((h) => honorCard(s, h))}</ul>`
-        : emptyState(s.honors_members_empty, ek(s, "honors_members_empty"))}
-      ${awards.length
-        ? html`<h3 class="subsection-title"${ek(s, "honors_awards_title")}>${s.honors_awards_title}</h3><ul class="honor-grid">${awards.map((h) => honorCard(s, h))}</ul>`
-        : ""}
-    </div>
-  </section>`;
 }
 
 function pedagogSection(s: Settings, honors: HonorRow[]): SafeHtml {

@@ -16,6 +16,8 @@ import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton, statusPill } from "./layout.js";
 import { handleUpload, imageUploadField } from "./uploads.js";
 import { jobTotals } from "./job-stats.js";
+import { medalChoiceArt, medalFormPreview, medalOptions } from "./medals.js";
+import { MEDAL_KINDS, METALS, RIBBON_COLORS, RIBBON_PATTERNS, medalLook, medalSvg } from "../lib/medals.js";
 
 /**
  * Generisk redigering (skapa, lista, ändra, publicera, ta bort) för innehållstyperna.
@@ -91,6 +93,8 @@ export interface Resource {
   listQuery?: string;
   /** Extra ruta överst på redigeringssidan för en befintlig post (t.ex. annonsens statistik). */
   editIntro?: (db: D1Database, row: Row) => Promise<SafeHtml | string>;
+  /** Ruta överst i formuläret som följer de osparade värdena (t.ex. förhandsvisningen av en medalj). */
+  formIntro?: (values: Values) => SafeHtml;
   /** Körs efter sparning. true = stanna kvar på redigeringssidan (där editIntro visar en varning) i stället för listan. */
   stayAfterSave?: (data: Record<string, unknown>) => Promise<boolean>;
 }
@@ -100,6 +104,7 @@ const BOARD_TABS = [
   { href: "/admin/utskott", label: "Utskott" },
   { href: "/admin/kursombud", label: "Kursombud" },
   { href: "/admin/utmarkelser", label: "Utmärkelser" },
+  { href: "/admin/medaljer", label: "Ordnar och medaljer" },
   { href: "/admin/uppdrag", label: "Lediga uppdrag" },
 ];
 const JOB_TABS = [
@@ -382,32 +387,128 @@ export const RESOURCES: Resource[] = [
     title: "Utmärkelser",
     singular: "utmärkelse",
     newLabel: "Lägg till",
-    lead: "Hedersmedlemmar, utdelade utmärkelser och Årets pedagog. Visas på Om oss.",
+    lead: "Hedersmedlemmar, mottagare av föreningens ordnar och medaljer och Årets pedagog. Visas på Om oss.",
     orderBy: "year DESC, sort_order, name",
     publishable: true,
     publishLabels: ["Visas", "Dold"],
     navActive: "/admin/styrelsen",
     tabs: BOARD_TABS,
     emptyText: "Inga hedersmedlemmar eller pristagare är inlagda ännu.",
+    listQuery:
+      "SELECT h.*, m.name AS medal_name FROM honors h LEFT JOIN medals m ON m.id = h.medal_id ORDER BY h.year DESC, h.sort_order, h.name",
     fields: [
       {
         name: "kind",
         label: "Typ",
         type: "radio",
         required: true,
-        options: Object.entries(HONOR_KINDS).map(([value, label]) => ({ value, label })),
+        options: [
+          { value: "hedersmedlem", label: HONOR_KINDS.hedersmedlem, hint: "Personen visas bland hedersmedlemmarna" },
+          { value: "utmarkelse", label: HONOR_KINDS.utmarkelse, hint: "Någon som har fått en av föreningens ordnar eller medaljer" },
+          { value: "arets_pedagog", label: HONOR_KINDS.arets_pedagog, hint: "Visas under Årets pedagog" },
+        ],
+      },
+      {
+        name: "medal_id",
+        label: "Vilken orden eller medalj?",
+        type: "select",
+        nullable: true,
+        optionsFrom: medalOptions,
+        showIf: { field: "kind", value: "utmarkelse" },
+        help: "Saknas den i listan? Lägg till den under fliken Ordnar och medaljer.",
       },
       { name: "name", label: "Namn", type: "text", required: true, max: 120 },
-      { name: "year", label: "År", type: "number", min: 2011, max: 2100, nullable: true },
+      { name: "year", label: "År", type: "number", min: 2011, max: 2100, nullable: true, help: "Året personen blev hedersmedlem eller fick utmärkelsen." },
       { name: "description", label: "Motivering", type: "textarea", rows: 4, max: 1000 },
       { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR)." },
-      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999 },
+      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Bestämmer ordningen bland dem som har samma år. Lägst nummer först." },
     ],
     listColumns: [
       { label: "", render: (r) => thumb(r.photo_key), className: "col-thumb" },
       { label: "Namn", render: (r) => html`<a class="row-title" href="/admin/utmarkelser/${r.id}">${String(r.name)}</a>` },
-      { label: "Typ", render: (r) => HONOR_KINDS[r.kind as keyof typeof HONOR_KINDS] ?? "" },
+      { label: "Typ", render: (r) => (r.kind === "utmarkelse" && r.medal_name ? String(r.medal_name) : (HONOR_KINDS[r.kind as keyof typeof HONOR_KINDS] ?? "")) },
       { label: "År", render: (r) => (r.year ? String(r.year) : "–") },
+      { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
+    ],
+    titleOf: (r) => String(r.name),
+  },
+  {
+    path: "medaljer",
+    table: "medals",
+    title: "Ordnar och medaljer",
+    singular: "orden eller medalj",
+    newLabel: "Lägg till orden eller medalj",
+    lead: "Belöningssystemets ordnar och medaljer, i den ordning de visas på Om oss. Vem som har fått dem lägger du in under fliken Utmärkelser.",
+    orderBy: "sort_order, id",
+    publishable: true,
+    publishLabels: ["Visas", "Dold"],
+    navActive: "/admin/styrelsen",
+    tabs: BOARD_TABS,
+    emptyText: "Inga ordnar eller medaljer är inlagda ännu. Lägg till den första – den ritas automatiskt utifrån dina val.",
+    listQuery: "SELECT m.*, (SELECT COUNT(*) FROM honors h WHERE h.medal_id = m.id) AS recipient_count FROM medals m ORDER BY m.sort_order, m.id",
+    formIntro: medalFormPreview,
+    fields: [
+      { name: "name", label: "Namn", type: "text", required: true, max: 120, help: "T.ex. Förtjänstmedaljen i guld." },
+      {
+        name: "kind",
+        label: "Slag",
+        type: "radio",
+        required: true,
+        options: Object.entries(MEDAL_KINDS).map(([value, o]) => ({ value, label: o.label, hint: o.hint, art: medalChoiceArt({ kind: value }) })),
+      },
+      {
+        name: "metal",
+        label: "Metall",
+        type: "radio",
+        required: true,
+        wrapClass: "field-swatches",
+        options: Object.entries(METALS).map(([value, o]) => ({ value, label: o.label, art: medalChoiceArt({ metal: value }) })),
+      },
+      {
+        name: "ribbon_pattern",
+        label: "Bandets mönster",
+        type: "radio",
+        required: true,
+        options: Object.entries(RIBBON_PATTERNS).map(([value, o]) => ({ value, label: o.label, hint: o.hint, art: medalChoiceArt({ ribbon_pattern: value }) })),
+      },
+      {
+        name: "ribbon_1",
+        label: "Bandets huvudfärg",
+        type: "radio",
+        required: true,
+        wrapClass: "field-swatches",
+        options: Object.entries(RIBBON_COLORS).map(([value, o]) => ({ value, label: o.label, art: medalChoiceArt({ color: value }) })),
+      },
+      {
+        name: "ribbon_2",
+        label: "Bandets andra färg",
+        type: "radio",
+        required: true,
+        wrapClass: "field-swatches",
+        help: "Används inte när bandet är enfärgat.",
+        options: Object.entries(RIBBON_COLORS).map(([value, o]) => ({ value, label: o.label, art: medalChoiceArt({ color: value }) })),
+      },
+      { name: "description", label: "Vad belönas?", type: "textarea", rows: 5, max: 1200, help: "Visas när besökaren öppnar medaljen. T.ex. vem som kan få den och för vad." },
+      { name: "founded", label: "Instiftad år", type: "number", min: 2011, max: 2100, nullable: true },
+      {
+        name: "image_key",
+        label: "Foto på den riktiga medaljen",
+        type: "text",
+        upload: "image",
+        nullable: true,
+        help: "Valfritt. Visas i stället för den ritade medaljen. Bäst blir en PNG med genomskinlig bakgrund där bandet hänger rakt uppåt.",
+      },
+      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägst nummer visas först – lägg den finaste utmärkelsen först." },
+    ],
+    listColumns: [
+      {
+        label: "",
+        render: (r) => (r.image_key ? thumb(r.image_key) : html`<span class="thumb thumb-medal" aria-hidden="true">${medalSvg(medalLook(r as Record<string, unknown>), `lista${r.id}`)}</span>`),
+        className: "col-thumb",
+      },
+      { label: "Namn", render: (r) => html`<a class="row-title" href="/admin/medaljer/${r.id}">${String(r.name)}</a>` },
+      { label: "Slag", render: (r) => MEDAL_KINDS[r.kind as keyof typeof MEDAL_KINDS]?.label ?? "" },
+      { label: "Mottagare", render: (r) => (Number(r.recipient_count) ? String(r.recipient_count) : "–") },
       { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
     ],
     titleOf: (r) => String(r.name),
@@ -820,6 +921,7 @@ function editForm(r: Resource, fields: AdminField[], session: Session, action: s
   return html`<form class="admin-form" method="post" action="${action}"${hasUpload ? html` enctype="multipart/form-data"` : ""} novalidate data-dirty-check>
     ${csrfField(session)}
     ${errorSummary(errors, fields)}
+    ${r.formIntro ? r.formIntro(values) : ""}
     <div class="admin-card">
       ${fields
         .filter((f) => !f.schedule)
@@ -906,6 +1008,13 @@ export function newHandler(r: Resource) {
       values.source = "lank";
     }
     if (r.path === "jobb") values.kind = "praktik";
+    if (r.path === "medaljer") Object.assign(values, { kind: "medalj", metal: "guld", ribbon_pattern: "mittrand", ribbon_1: "gul", ribbon_2: "svart" });
+    if (r.path === "utmarkelser") {
+      // "Lägg till mottagare" från en medalj förväljer den
+      const medal = c.url.searchParams.get("medalj");
+      const ok = medal && fields.find((f) => f.name === "medal_id")?.options?.some((o) => o.value === medal);
+      Object.assign(values, ok ? { kind: "utmarkelse", medal_id: medal, year: String(new Date().getFullYear()) } : { kind: "hedersmedlem" });
+    }
     // "Lägg upp en tjänst" från en partner eller arbetsgivare förväljer den
     const q = c.url.searchParams;
     const pre = q.get("partner") ? `p:${q.get("partner")}` : q.get("arbetsgivare") ? `c:${q.get("arbetsgivare")}` : "";
@@ -933,7 +1042,8 @@ async function renderEdit(c: RequestContext, session: Session, r: Resource, fiel
         ? html`${pub ? html`<a class="btn btn-outline btn-sm" href="${pub}" target="_blank" rel="noopener">${icon("external", "icon icon-sm")}Visa på webbplatsen</a>` : ""}
             ${r.duplicable ? postButton(session, `/admin/${r.path}/${row.id}/kopiera`, "Kopiera") : ""}
             ${r.path === "partners" ? html`<a class="btn btn-outline btn-sm" href="/admin/jobb/ny?partner=${row.id}">+ Lägg upp en tjänst</a>` : ""}
-            ${r.path === "arbetsgivare" ? html`<a class="btn btn-outline btn-sm" href="/admin/jobb/ny?arbetsgivare=${row.id}">+ Lägg upp en tjänst</a>` : ""}`
+            ${r.path === "arbetsgivare" ? html`<a class="btn btn-outline btn-sm" href="/admin/jobb/ny?arbetsgivare=${row.id}">+ Lägg upp en tjänst</a>` : ""}
+            ${r.path === "medaljer" ? html`<a class="btn btn-outline btn-sm" href="/admin/utmarkelser/ny?medalj=${row.id}">+ Lägg till mottagare</a>` : ""}`
         : undefined,
     })}
     ${row && r.editIntro ? await r.editIntro(c.env.DB, row) : ""}

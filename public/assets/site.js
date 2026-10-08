@@ -564,3 +564,207 @@
     }, STEP);
   });
 })();
+
+(function () {
+  "use strict";
+  var root = document.documentElement;
+  /* ---------- Om oss: hedersmedlemmar och utmärkelser (src/pages/honors.ts) ----------
+     Utan skriptet syns allt: korten i en rad, alla band med sina medaljer under varandra och mynten med
+     baksidan under framsidan. Här blir det bläddring, flikar, filter och mynt som vänds. */
+  var calm = root.getAttribute("data-motion") === "av" || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var scrollMode = calm ? "auto" : "smooth";
+
+  // Kabinettet: pilar till porträttgalleriet
+  document.querySelectorAll("[data-scroller]").forEach(function (list) {
+    var nav = list.parentNode.querySelector("[data-scroller-nav]");
+    if (!nav) return;
+    var btns = nav.querySelectorAll("button");
+    function update() {
+      var max = list.scrollWidth - list.clientWidth - 2;
+      nav.hidden = max <= 0;
+      btns[0].disabled = list.scrollLeft <= 2;
+      btns[1].disabled = list.scrollLeft >= max;
+    }
+    btns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var item = list.firstElementChild;
+        var gap = parseFloat(getComputedStyle(list).columnGap) || 0;
+        var step = item ? item.getBoundingClientRect().width + gap : list.clientWidth * 0.8;
+        list.scrollBy({ left: Number(b.getAttribute("data-dir")) * step, behavior: scrollMode });
+      });
+    });
+    list.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    update();
+  });
+
+  // Matrikeln: filtrera på hedersmedlemmar eller en viss medalj
+  var filterBox = document.querySelector("[data-filters]");
+  var filterList = document.querySelector("[data-filter-list]");
+  if (filterBox && filterList) {
+    var fButtons = Array.prototype.slice.call(filterBox.querySelectorAll("[data-filter]"));
+    var fRows = Array.prototype.slice.call(filterList.querySelectorAll("[data-tag]"));
+    var applyFilter = function (tag) {
+      fButtons.forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-filter") === tag)); });
+      var lastYear = null;
+      fRows.forEach(function (r) {
+        r.hidden = tag !== "alla" && r.getAttribute("data-tag") !== tag;
+        if (r.hidden) return;
+        // Året skrivs ut tydligt bara på första raden för varje år bland de rader som syns
+        var y = r.querySelector(".hm-year");
+        if (y) { y.classList.toggle("is-repeat", y.textContent === lastYear); lastYear = y.textContent; }
+      });
+    };
+    filterBox.hidden = false;
+    fButtons.forEach(function (b) { b.addEventListener("click", function () { applyFilter(b.getAttribute("data-filter")); }); });
+    document.querySelectorAll("[data-filter-link]").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        var tag = a.getAttribute("data-filter-link");
+        var btn = filterBox.querySelector('[data-filter="' + tag + '"]');
+        if (!btn) return;
+        e.preventDefault();
+        applyFilter(tag);
+        filterBox.parentNode.scrollIntoView({ behavior: scrollMode, block: "start" });
+        btn.focus({ preventScroll: true });
+      });
+    });
+  }
+
+  // Ordensbandet: banden blir flikar
+  document.querySelectorAll("[data-tabs]").forEach(function (rack) {
+    var tabs = Array.prototype.slice.call(rack.querySelectorAll("[data-tab]"));
+    var panels = tabs.map(function (t) { return document.getElementById(t.getAttribute("data-tab")); });
+    if (tabs.length < 2 || panels.some(function (p) { return !p; })) return;
+    panels[0].parentNode.classList.add("is-tabbed");
+    rack.setAttribute("role", "tablist");
+    tabs.forEach(function (t, i) {
+      t.setAttribute("role", "tab");
+      t.id = "flik-" + panels[i].id;
+      t.setAttribute("aria-controls", panels[i].id);
+      t.removeAttribute("aria-current");
+      panels[i].setAttribute("role", "tabpanel");
+      panels[i].setAttribute("aria-labelledby", t.id);
+      panels[i].tabIndex = 0;
+    });
+    function select(i, animate) {
+      tabs.forEach(function (t, j) {
+        var on = i === j;
+        t.setAttribute("aria-selected", String(on));
+        t.tabIndex = on ? 0 : -1;
+        panels[j].hidden = !on;
+        panels[j].classList.remove("is-entering");
+      });
+      if (animate) { void panels[i].offsetWidth; panels[i].classList.add("is-entering"); }
+      // Håll vald flik i bild när banden går att svepa i sidled (mobil)
+      var t = tabs[i], left = t.offsetLeft - rack.offsetLeft;
+      if (left < rack.scrollLeft || left + t.offsetWidth > rack.scrollLeft + rack.clientWidth) rack.scrollTo({ left: left - 16, behavior: scrollMode });
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener("click", function (e) { e.preventDefault(); select(i, true); });
+      t.addEventListener("keydown", function (e) {
+        var to = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : null;
+        if (to === null) return;
+        e.preventDefault();
+        to = (to + tabs.length) % tabs.length;
+        select(to, true);
+        tabs[to].focus();
+      });
+    });
+    var start = panels.findIndex(function (p) { return "#" + p.id === location.hash; });
+    select(start < 0 ? 0 : start, false);
+  });
+
+  // Kortleken: bläddra bland hedersmedlemmarna
+  document.querySelectorAll("[data-deck]").forEach(function (deck) {
+    var cards = Array.prototype.slice.call(deck.querySelectorAll("[data-deck-card]"));
+    var n = cards.length;
+    var controls = deck.querySelector("[data-deck-controls]");
+    if (n < 2 || !controls) return;
+    var current = deck.querySelector("[data-deck-current]");
+    var index = deck.parentNode.querySelector(".hd-index");
+    var links = index ? Array.prototype.slice.call(index.querySelectorAll("[data-deck-go]")) : [];
+    var status = document.createElement("p");
+    status.className = "sr-only";
+    status.setAttribute("aria-live", "polite");
+    deck.appendChild(status);
+    var at = 0;
+
+    function layout(announce) {
+      cards.forEach(function (c, i) {
+        var pos = (i - at + n) % n;
+        var front = pos === 0;
+        c.setAttribute("data-pos", pos <= 3 ? String(pos) : "ute");
+        c.setAttribute("aria-hidden", String(!front));
+        c.inert = !front;
+      });
+      if (current) current.textContent = String(at + 1);
+      links.forEach(function (a, i) { a.setAttribute("aria-current", String(i === at)); });
+      var name = cards[at].querySelector(".hd-name");
+      if (announce && name) status.textContent = name.textContent + ", " + (at + 1) + " av " + n;
+    }
+    function go(to, dir) {
+      to = (to + n) % n;
+      if (to === at) return;
+      var moving = dir > 0 ? cards[at] : cards[to];
+      var cls = dir > 0 ? "is-thrown" : "is-returning";
+      at = to;
+      moving.classList.remove("is-thrown", "is-returning");
+      void moving.offsetWidth;
+      moving.classList.add(cls);
+      window.setTimeout(function () { moving.classList.remove(cls); }, 650);
+      layout(true);
+    }
+    deck.classList.add("is-ready");
+    controls.hidden = false;
+    layout(false);
+
+    deck.querySelector("[data-deck-prev]").addEventListener("click", function () { go(at - 1, -1); });
+    deck.querySelector("[data-deck-next]").addEventListener("click", function () { go(at + 1, 1); });
+    deck.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") { e.preventDefault(); go(at + 1, 1); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); go(at - 1, -1); }
+    });
+    links.forEach(function (a, i) {
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        go(i, i > at ? 1 : -1);
+        var r = deck.getBoundingClientRect();
+        if (r.top < 0 || r.bottom > window.innerHeight) deck.scrollIntoView({ behavior: scrollMode, block: "center" });
+      });
+    });
+    // Svep (eller dra med musen) åt vänster för nästa, åt höger för föregående
+    var stack = deck.querySelector("[data-deck-cards]");
+    var startX = null, startY = 0;
+    stack.addEventListener("pointerdown", function (e) { startX = e.clientX; startY = e.clientY; });
+    stack.addEventListener("pointerup", function (e) {
+      if (startX === null) return;
+      var dx = e.clientX - startX, dy = e.clientY - startY;
+      startX = null;
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+      if (dx < 0) go(at + 1, 1); else go(at - 1, -1);
+    });
+    stack.addEventListener("pointercancel", function () { startX = null; });
+  });
+
+  // Kortleken: mynten vänds för att visa baksidan
+  document.querySelectorAll(".hd-coin").forEach(function (coin) {
+    var inner = coin.querySelector("[data-flip]");
+    var btn = coin.querySelector("[data-flip-btn]");
+    if (!inner || !btn) return;
+    var front = inner.querySelector(".hd-front");
+    var back = inner.querySelector(".hd-back");
+    function set(on) {
+      inner.classList.toggle("is-flipped", on);
+      btn.setAttribute("aria-expanded", String(on));
+      front.inert = on;
+      back.inert = !on;
+      front.setAttribute("aria-hidden", String(on));
+      back.setAttribute("aria-hidden", String(!on));
+    }
+    coin.classList.add("is-ready");
+    btn.hidden = false;
+    set(false);
+    btn.addEventListener("click", function () { set(!inner.classList.contains("is-flipped")); });
+    front.addEventListener("click", function () { set(true); });
+  });
+})();
