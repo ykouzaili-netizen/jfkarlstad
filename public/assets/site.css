@@ -736,9 +736,13 @@ main:focus { outline: none; }
   align-items: end;
 }
 @media (min-width: 1000px) {
+  /* Texten får hela bredden så att rubriken blir låg och bred; evenemangsrutan ligger i samma rad,
+     nedtill till höger bredvid knapparna (ingressen är smal nog för att aldrig nå dit). */
   .hero-inner { grid-template-columns: minmax(0, 1fr) auto; }
+  .hero-copy { grid-row: 1; grid-column: 1 / -1; }
+  .hero-next { grid-row: 1; grid-column: 2; align-self: end; position: relative; z-index: 1; }
 }
-.hero-copy { max-width: 900px; }
+.hero-copy { max-width: 1120px; }
 .scroll-anchor { display: block; height: 0; }
 
 /* Textens placering (Texter och sidor → Startsidan → Toppen av sidan) */
@@ -752,7 +756,9 @@ main:focus { outline: none; }
 .hero-align-hoger .hero-actions { justify-content: flex-end; }
 @media (min-width: 1000px) {
   .hero-align-hoger .hero-inner { grid-template-columns: auto minmax(0, 1fr); }
-  .hero-align-hoger .hero-next { order: -1; }
+  .hero-align-hoger .hero-next { grid-column: 1; }
+  /* Centrerad text: evenemangsrutan ligger under texten som tidigare. */
+  .hero-align-mitten :is(.hero-copy, .hero-next) { grid-row: auto; grid-column: 1; }
 }
 
 .eyebrow {
@@ -782,10 +788,11 @@ main:focus { outline: none; }
 
 .hero-title {
   margin-top: 22px;
-  font-size: calc(clamp(2.75rem, 1.4rem + 5.6vw, 6.5rem) * var(--display-scale));
-  line-height: 1.02;
+  font-size: calc(clamp(2.5rem, 1.25rem + 4.4vw, 5.5rem) * var(--display-scale));
+  line-height: 1.04;
   letter-spacing: -0.025em;
-  max-width: 15ch;
+  max-width: 21ch;
+  text-wrap: balance;
   text-shadow: 0 2px 30px rgb(0 0 0 / 0.25);
 }
 .hero-lead {
