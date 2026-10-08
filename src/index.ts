@@ -130,6 +130,16 @@ async function mediaFromStorage(c: RequestContext, key: string): Promise<Respons
   });
 }
 
+/** Värdnamnet i SITE_URL om det är en egen domän, annars null (workers.dev eller lokalt = ingen omdirigering). */
+function canonicalHost(env: Env): string | null {
+  try {
+    const host = new URL(env.SITE_URL).hostname;
+    return host.endsWith(".workers.dev") || host === "localhost" || host === "127.0.0.1" ? null : host;
+  } catch {
+    return null;
+  }
+}
+
 export default {
   async fetch(req: Request, env: Env, exec: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
@@ -137,6 +147,16 @@ export default {
     // Endast HTTPS (utom lokalt).
     if (url.protocol === "http:" && !["localhost", "127.0.0.1"].includes(url.hostname)) {
       url.protocol = "https:";
+      return redirect(url.toString(), 301);
+    }
+    // En enda adress för sajten: www.jfkarlstad.se och den gamla workers.dev-adressen skickas vidare till SITE_URL.
+    // Görs bara när SITE_URL är en egen domän (aldrig mot workers.dev) och bara för visningar – ett formulär
+    // som skickas från en gammal flik tas emot som vanligt.
+    const canonical = canonicalHost(env);
+    if (canonical && url.hostname !== canonical && !["localhost", "127.0.0.1"].includes(url.hostname) && (req.method === "GET" || req.method === "HEAD")) {
+      url.hostname = canonical;
+      url.protocol = "https:";
+      url.port = "";
       return redirect(url.toString(), 301);
     }
     // Ta bort avslutande snedstreck: /kalender/ → /kalender
