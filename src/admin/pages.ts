@@ -65,6 +65,9 @@ export async function dashboard(c: RequestContext, session: Session): Promise<Re
   const recent = log!.results as { action: string; entity: string; summary: string | null; user_email: string | null; created_at: string }[];
   const newCount = await newMessageCount(db);
   const smtp = mailConfigured(c.env);
+  const unsentMail = smtp
+    ? ((await db.prepare("SELECT COUNT(*) AS n FROM submissions WHERE status = 'ny' AND email_sent = 0 AND created_at >= datetime('now', '-30 days') AND created_at <= datetime('now', '-2 minutes')").first<{ n: number }>())?.n ?? 0)
+    : 0;
   const s = await loadSettings(db);
   let handover: { done: number; total: number } | null = null;
   if (isAdmin) handover = handoverProgress(s);
@@ -97,8 +100,10 @@ export async function dashboard(c: RequestContext, session: Session): Promise<Re
           ${quick.map((q) => html`<li><a class="quick-card" href="${q.href}">${icon(q.icon)}<span>${q.label}</span></a></li>`)}
         </ul>
         ${!smtp
-          ? html`<div class="alert alert-warn">E-postnotiser är inte inställda ännu, så nya meddelanden syns bara här i panelen. ${isAdmin ? "Se README:n för hur du lägger in SMTP-uppgifterna." : ""}</div>`
-          : ""}
+          ? html`<div class="alert alert-warn">E-postnotiser är inte inställda ännu, så nya meddelanden syns bara här i panelen. ${isAdmin ? html`<a href="/admin/e-post">Så slår du på dem</a>` : "Be en administratör slå på dem."}</div>`
+          : unsentMail
+            ? html`<div class="alert alert-warn"><strong>${unsentMail === 1 ? "Ett nytt meddelande" : `${unsentMail} nya meddelanden`} kunde inte mejlas ut.</strong> De finns här i panelen. ${isAdmin ? html`<a href="/admin/e-post">Se vad som är fel</a>` : "Be en administratör titta under E-post."}</div>`
+            : ""}
         ${oldWaiting
           ? html`<div class="alert alert-warn"><strong>${oldWaiting} ${oldWaiting === 1 ? "meddelande har" : "meddelanden har"} väntat på svar i mer än en vecka.</strong> <a href="/admin/meddelanden">Visa meddelandena</a></div>`
           : ""}

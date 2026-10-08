@@ -41,6 +41,8 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   via `src/lib/instagram.ts` (cron, kräver secret `INSTAGRAM_TOKEN`). Bilderna lagras på sajten; besökaren kontaktar aldrig Instagram.
 - **Formulär** i `src/pages/forms.ts`: validering (`src/lib/forms.ts`), honungsfälla + tidstoken + rate limiting (`src/lib/security.ts`),
   valfri Turnstile, sparas alltid i D1 först, e-post via SMTP (`src/lib/mail.ts`, `cloudflare:sockets`) är best effort.
+  SMTP-inställningarna läses via `mailConfig()` (trimmar inklistrade värden). Adminsidan **E-post** (`src/admin/mail-page.ts`) visar
+  vilka inställningar som finns och skickar ett testmejl med begripligt felbesked per steg (`SmtpError.step`).
 - **Cron** (varje timme): `src/lib/maintenance.ts` rensar sessioner, rate limits, meddelanden > 12 mån, logg > 24 mån,
   statistik > 3 år och gammal versionshistorik, och mejlar en påminnelse om meddelanden som väntat > 7 dagar.
 - **Publicering:** GitHub-repot är kopplat till Workers Builds – push till `main` = deploy. Build-kommandot är `npm run build` (typkontroll).

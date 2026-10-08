@@ -103,6 +103,7 @@ export async function adminLayout(
       title: "Administration",
       items: [
         { href: "/admin/anvandare", label: "Användare", icon: "user", adminOnly: true },
+        { href: "/admin/e-post", label: "E-post", icon: "mail", adminOnly: true },
         { href: "/admin/styrelseskifte", label: "Styrelseskifte", icon: "checklist", adminOnly: true },
         { href: "/admin/logg", label: "Ändringslogg", icon: "history", adminOnly: true },
         { href: "/admin/konto", label: "Mitt konto", icon: "lock", mobileOnly: true },

@@ -766,3 +766,10 @@ a.admin-user:hover { background: var(--c-hover); }
 .job-stats-num { font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .job-stats-label { font-size: 0.8125rem; color: var(--c-muted); }
 .job-stats-more { margin-left: auto; font-size: 0.875rem; }
+
+/* E-post */
+.mail-table code { font-size: 0.8125rem; }
+.mail-table .field-error { margin-top: 6px; }
+.mail-detail { margin-top: 10px; font-size: 0.8125rem; }
+.mail-detail summary { cursor: pointer; font-weight: 600; }
+.mail-detail code { display: block; margin-top: 6px; white-space: pre-wrap; word-break: break-word; }

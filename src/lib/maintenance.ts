@@ -1,6 +1,6 @@
 import { ensureInstagramSchema, instagramConfigured, syncInstagram } from "./instagram.js";
 import type { Env } from "../env.js";
-import { mailConfigured, sendMail } from "./mail.js";
+import { mailConfigured, mailRecipient, sendMail } from "./mail.js";
 
 /** Städning varje timme. Håller databasen liten och uppfyller lagringstiderna i integritetspolicyn. */
 export async function runMaintenance(env: Env): Promise<void> {
@@ -44,7 +44,7 @@ async function remindAboutWaitingMessages(env: Env): Promise<void> {
   const lines = results.map((m) => `- ${m.subject || "(inget ämne)"}`);
   try {
     await sendMail(env, {
-      to: [env.MAIL_TO || env.SMTP_USER!],
+      to: [mailRecipient(env)],
       subject: results.length === 1 ? "Påminnelse: ett meddelande väntar på svar" : `Påminnelse: ${results.length} meddelanden väntar på svar`,
       text: `Hej!\n\n${results.length === 1 ? "Ett meddelande" : `${results.length} meddelanden`} till föreningen har väntat på svar i mer än en vecka:\n\n${lines.join("\n")}\n\nLäs och svara i adminpanelen:\n${site}/admin/meddelanden\n\nMarkera meddelandet som hanterat när det är klart, så kommer det inga fler påminnelser om det.\n\n/ JFK:s webbplats`,
     });

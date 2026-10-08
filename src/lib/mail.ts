@@ -17,8 +17,48 @@ export interface MailMessage {
   replyTo?: string;
 }
 
+/**
+ * Inställningarna med mellanslag och radbrytningar bortrensade – de följer lätt med när man klistrar in
+ * i Cloudflare, och ett lösenord med ett osynligt mellanslag på slutet ger bara "fel lösenord".
+ */
+export interface MailConfig {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  to: string;
+  implicitTls: boolean;
+}
+
+export function mailConfig(env: Env): MailConfig | null {
+  const host = (env.SMTP_HOST ?? "").trim();
+  const user = (env.SMTP_USER ?? "").trim();
+  const pass = (env.SMTP_PASS ?? "").replace(/^[\r\n]+|[\r\n]+$/g, "");
+  if (!host || !user || !pass) return null;
+  const port = parseInt((env.SMTP_PORT ?? "").trim() || "465", 10) || 465;
+  // 465 = SSL/TLS direkt (One.com standard). Andra portar använder STARTTLS, om inte SMTP_TLS=implicit.
+  return { host, port, user, pass, to: (env.MAIL_TO ?? "").trim() || user, implicitTls: port === 465 || (env.SMTP_TLS ?? "").trim() === "implicit" };
+}
+
 export function mailConfigured(env: Env): boolean {
-  return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
+  return mailConfig(env) !== null;
+}
+
+/** Adressen som notiserna skickas till (MAIL_TO, annars avsändaradressen). */
+export function mailRecipient(env: Env): string {
+  return mailConfig(env)?.to ?? "";
+}
+
+/** Vilket steg i samtalet med e-postservern som gick fel – används för begripliga felmeddelanden i adminpanelen. */
+export type SmtpStep = "anslutning" | "kryptering" | "inloggning" | "avsandare" | "mottagare" | "meddelande";
+
+export class SmtpError extends Error {
+  constructor(
+    readonly step: SmtpStep,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
 const TIMEOUT_MS = 15000;
@@ -116,12 +156,10 @@ class SmtpConnection {
 }
 
 export async function sendMail(env: Env, msg: MailMessage): Promise<void> {
-  if (!mailConfigured(env)) throw new Error("SMTP är inte konfigurerat");
-  const host = env.SMTP_HOST!;
-  const port = parseInt(env.SMTP_PORT || "465", 10);
-  const user = env.SMTP_USER!;
-  // 465 = SSL/TLS direkt (One.com standard). Andra portar använder STARTTLS, om inte SMTP_TLS=implicit.
-  const implicitTls = port === 465 || env.SMTP_TLS === "implicit";
+  const cfg = mailConfig(env);
+  if (!cfg) throw new Error("SMTP är inte konfigurerat");
+  const { host, port, user, implicitTls } = cfg;
+  let step: SmtpStep = "anslutning";
 
   const socket = connect({ hostname: host, port }, { secureTransport: implicitTls ? "on" : "starttls", allowHalfOpen: false });
   const smtp = new SmtpConnection(socket);
@@ -132,22 +170,27 @@ export async function sendMail(env: Env, msg: MailMessage): Promise<void> {
     const ehloName = new URL(env.SITE_URL).hostname || "localhost";
     let ehlo = await smtp.command(`EHLO ${ehloName}`, [250]);
     if (!implicitTls) {
+      step = "kryptering";
       if (!/STARTTLS/i.test(ehlo.text)) throw new Error("SMTP: servern erbjuder inte STARTTLS");
       await smtp.command("STARTTLS", [220]);
       smtp.upgrade();
       ehlo = await smtp.command(`EHLO ${ehloName}`, [250]);
     }
 
+    step = "inloggning";
     if (/AUTH[ =][^\n]*PLAIN/i.test(ehlo.text)) {
-      await smtp.command(`AUTH PLAIN ${b64(`\0${user}\0${env.SMTP_PASS}`)}`, [235]);
+      await smtp.command(`AUTH PLAIN ${b64(`\0${user}\0${cfg.pass}`)}`, [235]);
     } else {
       await smtp.command("AUTH LOGIN", [334]);
       await smtp.command(b64(user), [334]);
-      await smtp.command(b64(env.SMTP_PASS!), [235]);
+      await smtp.command(b64(cfg.pass), [235]);
     }
 
+    step = "avsandare";
     await smtp.command(`MAIL FROM:<${clean(user)}>`, [250]);
+    step = "mottagare";
     for (const to of msg.to) await smtp.command(`RCPT TO:<${clean(to)}>`, [250, 251]);
+    step = "meddelande";
     await smtp.command("DATA", [354]);
 
     const domain = user.split("@")[1] ?? "localhost";
@@ -172,6 +215,8 @@ export async function sendMail(env: Env, msg: MailMessage): Promise<void> {
     } catch {
       /* spelar ingen roll */
     }
+  } catch (err) {
+    throw new SmtpError(step, err instanceof Error ? err.message : String(err));
   } finally {
     await smtp.close();
   }
