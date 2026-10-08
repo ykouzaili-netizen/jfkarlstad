@@ -153,8 +153,11 @@ export default {
     // En enda adress för sajten: www.jfkarlstad.se och den gamla workers.dev-adressen skickas vidare till SITE_URL.
     // Görs bara när SITE_URL är en egen domän (aldrig mot workers.dev) och bara för visningar – ett formulär
     // som skickas från en gammal flik tas emot som vanligt.
+    // TILLFÄLLIGT AVSTÄNGT för workers.dev (2026-10-08) medan DNS-flytten till Cloudflare sprids: för många nät pekar
+    // jfkarlstad.se ännu på den gamla sajten hos One.com, så workers.dev-adressen ska fungera som reservadress.
+    // Slå på igen genom att ta bort villkoret om workers.dev när jfkarlstad.se pekar på Cloudflare överallt.
     const canonical = canonicalHost(env);
-    if (canonical && url.hostname !== canonical && !["localhost", "127.0.0.1"].includes(url.hostname) && (req.method === "GET" || req.method === "HEAD")) {
+    if (canonical && url.hostname !== canonical && !url.hostname.endsWith(".workers.dev") && !["localhost", "127.0.0.1"].includes(url.hostname) && (req.method === "GET" || req.method === "HEAD")) {
       url.hostname = canonical;
       url.protocol = "https:";
       url.port = "";
