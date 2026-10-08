@@ -16,7 +16,7 @@ import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton, statusPill } from "./layout.js";
 import { handleUpload, imageUploadField } from "./uploads.js";
 import { jobTotals } from "./job-stats.js";
-import { DESIGN_OPTIONS, medalFormPreview, medalOptions } from "./medals.js";
+import { CUSTOM_DESIGN, DESIGN_OPTIONS, medalFormPreview, medalOptions } from "./medals.js";
 import { MEDAL_KINDS, medalImageUrl } from "../lib/medals.js";
 
 /**
@@ -438,25 +438,35 @@ export const RESOURCES: Resource[] = [
     title: "Ordnar och medaljer",
     singular: "orden eller medalj",
     newLabel: "Lägg till orden eller medalj",
-    lead: "Belöningssystemets ordnar och medaljer, i den ordning de visas på Om oss. Vem som har fått dem lägger du in under fliken Utmärkelser.",
+    lead: "Belöningssystemets ordnar och medaljer, i den ordning de visas på Om oss. Lägg till nya, byt namn och beskrivning, dölj eller ta bort. Vem som har fått dem lägger du in under fliken Utmärkelser.",
     orderBy: "sort_order, id",
     publishable: true,
     publishLabels: ["Visas", "Dold"],
     navActive: "/admin/styrelsen",
     tabs: BOARD_TABS,
-    emptyText: "Inga ordnar eller medaljer är inlagda ännu. Lägg till den första och välj vilken av föreningens medaljer det är.",
+    emptyText: "Inga ordnar eller medaljer är inlagda ännu. Lägg till den första – ge den ett namn och välj bild.",
     listQuery: "SELECT m.*, (SELECT COUNT(*) FROM honors h WHERE h.medal_id = m.id) AS recipient_count FROM medals m ORDER BY m.sort_order, m.id",
     formIntro: medalFormPreview,
     fields: [
       { name: "name", label: "Namn", type: "text", required: true, max: 120, help: "T.ex. Förtjänstmedaljen i guld." },
+      { name: "description", label: "Beskrivning", type: "textarea", rows: 5, max: 1200, help: "Vad belönas, och vem kan få den? Visas när besökaren öppnar medaljen." },
       {
         name: "design",
-        label: "Vilken medalj?",
+        label: "Bild",
         type: "radio",
         required: true,
         wrapClass: "field-medals",
-        help: "Föreningens medaljer. Bilden visas på webbplatsen.",
+        help: "Välj en av föreningens medaljbilder, eller Egen bild för en medalj som inte finns bland dem.",
         options: DESIGN_OPTIONS,
+      },
+      {
+        name: "image_key",
+        label: "Egen bild",
+        type: "text",
+        upload: "image",
+        nullable: true,
+        showIf: { field: "design", value: CUSTOM_DESIGN },
+        help: "Bäst blir en PNG med genomskinlig bakgrund där bandet hänger rakt uppåt, ungefär 220 × 460 pixlar eller större.",
       },
       {
         name: "kind",
@@ -466,18 +476,11 @@ export const RESOURCES: Resource[] = [
         help: "Ordet som står vid utmärkelsen, t.ex. ”Medalj · Instiftad 2025”.",
         options: Object.entries(MEDAL_KINDS).map(([value, o]) => ({ value, label: o.label })),
       },
-      { name: "description", label: "Vad belönas?", type: "textarea", rows: 5, max: 1200, help: "Visas när besökaren öppnar medaljen. T.ex. vem som kan få den och för vad." },
       { name: "founded", label: "Instiftad år", type: "number", min: 2011, max: 2100, nullable: true },
-      {
-        name: "image_key",
-        label: "Eget foto (valfritt)",
-        type: "text",
-        upload: "image",
-        nullable: true,
-        help: "Behövs bara för en medalj som saknas bland bilderna ovan. Visas i stället för den valda bilden. Bäst blir en PNG med genomskinlig bakgrund där bandet hänger rakt uppåt.",
-      },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägst nummer visas först – lägg den finaste utmärkelsen först." },
     ],
+    beforeSave: async (_db, values): Promise<Errors> =>
+      values.design === CUSTOM_DESIGN && !values.image_key ? { image_key: "Ladda upp en bild på medaljen, eller välj en av föreningens bilder ovan." } : {},
     listColumns: [
       {
         label: "",

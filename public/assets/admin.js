@@ -1392,15 +1392,22 @@
   });
 })();
 
-// Ordnar och medaljer: förhandsvisningen överst följer valet av medaljbild.
+// Ordnar och medaljer: förhandsvisningen överst följer valet av bild.
 (function () {
   var img = document.querySelector("[data-medal-preview-img]");
   var form = img && img.closest("form");
   if (!form) return;
   form.addEventListener("change", function (e) {
-    if (e.target.name !== "design") return;
-    // Samma adress som i bilden bredvid valet (med versionsnummer)
-    var art = e.target.closest(".choice") && e.target.closest(".choice").querySelector("img");
-    img.src = art ? art.getAttribute("src") : "/assets/medaljer/medalj-" + e.target.value + ".png";
+    if (e.target.name === "design") {
+      var choice = e.target.closest(".choice");
+      var art = choice && choice.querySelector("img");
+      var src = art ? art.getAttribute("src") : img.getAttribute("data-photo");
+      img.hidden = !src;
+      if (src) img.src = src;
+    } else if (e.target.name === "image_key" && e.target.files && e.target.files[0]) {
+      // Visa den valda filen direkt, innan den sparas
+      img.src = URL.createObjectURL(e.target.files[0]);
+      img.hidden = false;
+    }
   });
 })();

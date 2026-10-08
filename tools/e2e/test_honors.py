@@ -6,7 +6,7 @@ Testet lägger själv in en medalj, en mottagare och en hedersmedlem via adminpa
 """
 import re
 
-from common import BASE, OUT, check, done, login, sync_playwright, expect  # noqa: F401
+from common import BASE, OUT, check, done, login, sync_playwright, expect, test_image  # noqa: F401
 
 MEDAL = "Testmedaljen"
 RECIPIENT = "Testa Mottagare"
@@ -36,7 +36,20 @@ def run() -> None:
         preview = page.locator("[data-medal-preview-img]")
         check(preview.count() == 1, "förhandsvisningen av medaljen finns i formuläret")
         before = preview.get_attribute("src")
-        check(page.locator('input[name="design"]').count() == 10, "alla tio medaljbilder går att välja")
+        page.goto(f"{BASE}/admin/medaljer")
+        check(page.locator("a.row-title").count() >= 10, "föreningens tio medaljer finns som platser i listan")
+        check("Dold" in page.content(), "…och är dolda tills de fått namn")
+        page.goto(f"{BASE}/admin/medaljer/ny")
+        check(page.locator('input[name="design"]').count() == 11, "tio medaljbilder och Egen bild går att välja")
+        # Egen bild utan uppladdad fil ger ett tydligt fel
+        page.fill('input[name="name"]', MEDAL)
+        page.locator('input[name="design"][value="egen"]').check(force=True)
+        check(page.locator('input[name="image_key"]').first.is_visible(), "uppladdningen visas för Egen bild")
+        page.locator(".admin-form-actions button[type=submit]").click()
+        page.wait_for_load_state("networkidle")
+        check("Ladda upp en bild på medaljen" in page.content(), "Egen bild kräver en uppladdad bild")
+        preview = page.locator("[data-medal-preview-img]")
+        before = preview.get_attribute("src")
         page.locator('input[name="design"][value="07"]').check(force=True)
         check(preview.get_attribute("src") != before and "medalj-07.png" in preview.get_attribute("src"), "förhandsvisningen följer valet")
         img = page.request.get(f"{BASE}{preview.get_attribute('src')}")
@@ -49,6 +62,19 @@ def run() -> None:
         check(MEDAL in page.content(), "medaljen syns i listan")
         medal_href = page.locator(f'a.row-title:has-text("{MEDAL}")').last.get_attribute("href")
         medal_id = medal_href.rsplit("/", 1)[-1]
+
+        # Byt namn och ladda upp en egen bild
+        page.goto(f"{BASE}{medal_href}")
+        page.fill('input[name="name"]', MEDAL + " II")
+        page.fill('textarea[name="description"]', "Ny beskrivning i testet.")
+        page.locator('input[name="design"][value="egen"]').check(force=True)
+        page.set_input_files('input[type="file"][name="image_key"]', str(test_image(OUT / "medalj.jpg", (440, 920))))
+        page.locator(".admin-form-actions button[type=submit]").click()
+        page.wait_for_load_state("networkidle")
+        check(f"{MEDAL} II" in page.content(), "namnet går att ändra")
+        page.goto(f"{BASE}{medal_href}")
+        check(page.locator('textarea[name="description"]').input_value() == "Ny beskrivning i testet.", "beskrivningen går att ändra")
+        check("/media/" in (page.locator("[data-medal-preview-img]").get_attribute("src") or ""), "den egna bilden visas i förhandsvisningen")
 
         page.goto(f"{BASE}{medal_href}")
         page.locator('a:has-text("Lägg till mottagare")').click()
