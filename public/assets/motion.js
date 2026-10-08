@@ -33,7 +33,7 @@
   var GROUPS = [
     ".card-grid", ".value-grid", ".partner-main", ".stat-grid", ".honor-grid", ".rep-grid", ".position-grid",
     ".person-grid", ".package-grid", ".gallery-grid", ".committee-grid", ".cm-grid", ".step-list",
-    ".hk-vitrine", ".hm-catalog", ".hd-coins",
+    ".hk-vitrine", ".hd-coins",
     ".purpose-list", ".job-list", ".doc-list", ".faq-list", ".contact-list", ".check-list",
   ].map(function (s) { return "main " + s + " > *"; }).join(",");
   // Bilder som avtäcks (bara i Full).

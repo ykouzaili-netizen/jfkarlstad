@@ -570,7 +570,7 @@
   var root = document.documentElement;
   /* ---------- Om oss: hedersmedlemmar och utmärkelser (src/pages/honors.ts) ----------
      Utan skriptet syns allt: korten i en rad, alla band med sina medaljer under varandra och mynten med
-     baksidan under framsidan. Här blir det bläddring, flikar, filter och mynt som vänds. */
+     baksidan under framsidan. Här blir det bläddring, flikar och mynt som vänds. */
   var calm = root.getAttribute("data-motion") === "av" || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   var scrollMode = calm ? "auto" : "smooth";
 
@@ -597,38 +597,6 @@
     window.addEventListener("resize", update);
     update();
   });
-
-  // Matrikeln: filtrera på hedersmedlemmar eller en viss medalj
-  var filterBox = document.querySelector("[data-filters]");
-  var filterList = document.querySelector("[data-filter-list]");
-  if (filterBox && filterList) {
-    var fButtons = Array.prototype.slice.call(filterBox.querySelectorAll("[data-filter]"));
-    var fRows = Array.prototype.slice.call(filterList.querySelectorAll("[data-tag]"));
-    var applyFilter = function (tag) {
-      fButtons.forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-filter") === tag)); });
-      var lastYear = null;
-      fRows.forEach(function (r) {
-        r.hidden = tag !== "alla" && r.getAttribute("data-tag") !== tag;
-        if (r.hidden) return;
-        // Året skrivs ut tydligt bara på första raden för varje år bland de rader som syns
-        var y = r.querySelector(".hm-year");
-        if (y) { y.classList.toggle("is-repeat", y.textContent === lastYear); lastYear = y.textContent; }
-      });
-    };
-    filterBox.hidden = false;
-    fButtons.forEach(function (b) { b.addEventListener("click", function () { applyFilter(b.getAttribute("data-filter")); }); });
-    document.querySelectorAll("[data-filter-link]").forEach(function (a) {
-      a.addEventListener("click", function (e) {
-        var tag = a.getAttribute("data-filter-link");
-        var btn = filterBox.querySelector('[data-filter="' + tag + '"]');
-        if (!btn) return;
-        e.preventDefault();
-        applyFilter(tag);
-        filterBox.parentNode.scrollIntoView({ behavior: scrollMode, block: "start" });
-        btn.focus({ preventScroll: true });
-      });
-    });
-  }
 
   // Ordensbandet: banden blir flikar
   document.querySelectorAll("[data-tabs]").forEach(function (rack) {

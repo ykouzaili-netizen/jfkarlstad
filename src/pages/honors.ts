@@ -11,16 +11,15 @@ import { emptyState } from "../views/components.js";
 /**
  * Om oss → Hedersmedlemmar och utmärkelser.
  *
- * Samma innehåll i fyra utseenden (Texter och sidor → Om oss → Utseende):
+ * Samma innehåll i tre utseenden (Texter och sidor → Om oss → Utseende):
  *  - kabinett  Mörk museimonter: medaljerna i strålkastarljus, porträttgalleri med mässingsskyltar.
- *  - matrikel  Typografisk förteckning år för år med filter, och ett ordensregister.
  *  - band      Varje medaljs band är en flik; medaljen svänger fram med sina mottagare.
  *  - kortlek   Hedersmedlemmarna som en kortlek, medaljerna som mynt med en baksida.
  *
- * Allt fungerar utan JavaScript (site.js gör bläddring, flikar, filter och vändning smidigare).
+ * Allt fungerar utan JavaScript (site.js gör bläddring, flikar och vändning smidigare).
  */
 
-export const HONOR_STYLES = ["kabinett", "matrikel", "band", "kortlek"] as const;
+export const HONOR_STYLES = ["kabinett", "band", "kortlek"] as const;
 export type HonorStyle = (typeof HONOR_STYLES)[number];
 
 export interface MedalWithRecipients extends MedalRow {
@@ -48,16 +47,7 @@ export function honorsData(honors: HonorRow[], medals: MedalRow[]): HonorsData {
 
 export function honorsSection(s: Settings, data: HonorsData): SafeHtml {
   const style = (HONOR_STYLES as readonly string[]).includes(s.honors_style) ? (s.honors_style as HonorStyle) : "kabinett";
-  switch (style) {
-    case "matrikel":
-      return matrikel(s, data);
-    case "band":
-      return band(s, data);
-    case "kortlek":
-      return kortlek(s, data);
-    default:
-      return kabinett(s, data);
-  }
+  return style === "kortlek" ? kortlek(s, data) : style === "band" ? band(s, data) : kabinett(s, data);
 }
 
 // ───────────────────────── Gemensamt ─────────────────────────
@@ -65,8 +55,6 @@ export function honorsSection(s: Settings, data: HonorsData): SafeHtml {
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"];
 const roman = (i: number) => ROMAN[i] ?? String(i + 1);
 
-/** Hedersmedlemskapets eget band (svart med gul mittrand) – används som flik och märke. */
-const HONORARY_LOOK: MedalLook = medalLook({ kind: "medalj", metal: "guld", ribbon_pattern: "tre", ribbon_1: "svart", ribbon_2: "gul" });
 
 function title(s: Settings): SafeHtml {
   return html`<h2 class="section-title" id="utmarkelser"${ek(s, "honors_title")}>${s.honors_title}</h2>`;
@@ -101,6 +89,9 @@ function portrait(h: HonorRow, sizes: string, cls: string): SafeHtml {
     ? picture(h.photo_key, { alt: "", sizes, className: `${cls}-img`, width: 600, height: 750 })
     : html`<span class="${cls}-initials" aria-hidden="true">${initials(h.name)}</span>`;
 }
+
+/** Hedersmedlemskapets eget band (svart med gul mittrand) – används som flik och märke i Ordensbandet. */
+const HONORARY_LOOK: MedalLook = medalLook({ kind: "medalj", metal: "guld", ribbon_pattern: "tre", ribbon_1: "svart", ribbon_2: "gul" });
 
 const editMember = (s: Settings, h: HonorRow) => ec(s, `/admin/utmarkelser/${h.id}`, `Utmärkelser › ${h.name}`);
 const editMedal = (s: Settings, m: MedalRow) => ec(s, `/admin/medaljer/${m.id}`, `Ordnar och medaljer › ${m.name}`);
@@ -206,98 +197,7 @@ function kabinettPortrait(s: Settings, h: HonorRow): SafeHtml {
   </li>`;
 }
 
-// ───────────────────────── 2. Matrikeln ─────────────────────────
-
-interface RegisterRow {
-  h: HonorRow;
-  tag: string;
-  medal: MedalWithRecipients | null;
-}
-
-function matrikel(s: Settings, d: HonorsData): SafeHtml {
-  const rows: RegisterRow[] = [
-    ...d.members.map((h) => ({ h, tag: "heder", medal: null })),
-    ...d.medals.flatMap((m) => m.recipients.map((h) => ({ h, tag: `m${m.id}`, medal: m }))),
-  ].sort((a, b) => (b.h.year ?? 0) - (a.h.year ?? 0) || a.h.sort_order - b.h.sort_order || a.h.name.localeCompare(b.h.name, "sv"));
-  const awarded = d.medals.filter((m) => m.recipients.length);
-  const filters = [
-    { tag: "alla", label: html`<span${ek(s, "honors_filter_all")}>${s.honors_filter_all}</span>`, n: rows.length },
-    ...(d.members.length ? [{ tag: "heder", label: html`<span class="hm-seal" aria-hidden="true">§</span>${s.honors_members_title}`, n: d.members.length }] : []),
-    ...awarded.map((m) => ({ tag: `m${m.id}`, label: html`<span class="hm-chip">${ribbonBarSvg(medalLook(m), `hmf${m.id}`)}</span>${m.name}`, n: m.recipients.length })),
-  ];
-  let lastYear: number | null | undefined;
-
-  return html`<section class="honors honors--matrikel" aria-labelledby="utmarkelser">
-    <div class="container">
-      <header class="hm-head">
-        ${title(s)}
-        <div class="prose prose-lg"${ek(s, "honors_text")}>${paragraphs(s.honors_text)}</div>
-      </header>
-
-      <div class="hm-register">
-        <div class="hm-bar">
-          <h3 class="hm-reg-title"${ek(s, "honors_register_title")}>${s.honors_register_title}</h3>
-          ${filters.length > 2
-            ? html`<div class="hm-filters" role="group" aria-label="${s.honors_register_title}" data-filters hidden>
-                ${filters.map((f, i) => html`<button type="button" class="hm-filter" data-filter="${f.tag}" aria-pressed="${i === 0 ? "true" : "false"}">${f.label}<span class="hm-filter-n">${f.n}</span></button>`)}
-              </div>`
-            : ""}
-        </div>
-        ${rows.length
-          ? html`<ol class="hm-list" data-filter-list>${rows.map((r) => {
-              const newYear = r.h.year !== lastYear;
-              lastYear = r.h.year;
-              return matrikelRow(s, r, newYear);
-            })}</ol>`
-          : emptyState(s.honors_members_empty, ek(s, "honors_members_empty"))}
-      </div>
-
-      <div class="hm-orders">
-        <div class="hm-orders-intro">
-          <h3 class="hm-reg-title"${ek(s, "rewards_title")}>${s.rewards_title}</h3>
-          <div class="prose"${ek(s, "rewards_text")}>${paragraphs(s.rewards_text)}</div>
-        </div>
-        ${d.medals.length
-          ? html`<ol class="hm-catalog">${d.medals.map(
-              (m, i) => html`<li class="hm-medal" id="medalj-${m.id}"${editMedal(s, m)}>
-                <span class="hm-roman" aria-hidden="true">${roman(i)}</span>
-                <span class="hm-art">${medalArt(m, "hm", "120px")}</span>
-                <div class="hm-medal-body">
-                  <h4 class="hm-medal-name">${m.name}</h4>
-                  <p class="hm-meta">${medalMeta(s, m)} · ${m.recipients.length ? html`<a href="#utmarkelser" data-filter-link="m${m.id}">${countText(s, m.recipients.length)}</a>` : countText(s, 0)}</p>
-                  ${m.description ? html`<div class="hm-medal-text">${paragraphs(m.description)}</div>` : ""}
-                </div>
-              </li>`,
-            )}</ol>`
-          : emptyState(s.honors_medals_empty, ek(s, "honors_medals_empty"))}
-      </div>
-      ${looseAwards(s, d)}
-    </div>
-  </section>`;
-}
-
-function matrikelRow(s: Settings, r: RegisterRow, newYear: boolean): SafeHtml {
-  const what = r.medal
-    ? html`<span class="hm-chip">${ribbonBarSvg(medalLook(r.medal), `hmr${r.h.id}`)}</span><span>${r.medal.name}</span>`
-    : html`<span class="hm-seal" aria-hidden="true">§</span><span>${s.honors_members_title}</span>`;
-  const line = html`<span class="hm-year${newYear ? "" : " is-repeat"}">${r.h.year ?? "–"}</span>
-    <span class="hm-name">${r.h.name}</span>
-    <span class="hm-what">${what}</span>`;
-  const more = r.h.description || r.h.photo_key;
-  return html`<li class="hm-row" data-tag="${r.tag}"${editMember(s, r.h)}>
-    ${more
-      ? html`<details class="hm-details">
-          <summary class="hm-line">${line}<span class="hm-plus" aria-hidden="true"></span></summary>
-          <div class="hm-detail">
-            ${r.h.photo_key ? html`<div class="hm-photo">${picture(r.h.photo_key, { alt: "", sizes: "120px", className: "hm-photo-img", width: 240, height: 300 })}</div>` : ""}
-            ${r.h.description ? html`<p class="hm-why">${r.h.description}</p>` : ""}
-          </div>
-        </details>`
-      : html`<div class="hm-line">${line}</div>`}
-  </li>`;
-}
-
-// ───────────────────────── 3. Ordensbandet ─────────────────────────
+// ───────────────────────── 2. Ordensbandet ─────────────────────────
 
 function band(s: Settings, d: HonorsData): SafeHtml {
   const tabs = [
@@ -370,7 +270,7 @@ function bandMedal(s: Settings, m: MedalWithRecipients): SafeHtml {
   </div>`;
 }
 
-// ───────────────────────── 4. Kortleken ─────────────────────────
+// ───────────────────────── 3. Kortleken ─────────────────────────
 
 function kortlek(s: Settings, d: HonorsData): SafeHtml {
   const n = d.members.length;

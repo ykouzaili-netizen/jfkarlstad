@@ -1,4 +1,4 @@
-"""Hedersmedlemmar och belöningssystemet på Om oss: adminpanelen och de fyra utseendena.
+"""Hedersmedlemmar och belöningssystemet på Om oss: adminpanelen och de tre utseendena.
 
 Kör mot en nollställd förhandsvisning:  npm run preview:node -- --reset
                                          python3 tools/e2e/test_honors.py
@@ -68,7 +68,7 @@ def run() -> None:
         page.locator(".admin-form-actions button[type=submit]").click()
         page.wait_for_load_state("networkidle")
 
-        for style in ["kabinett", "matrikel", "band", "kortlek"]:
+        for style in ["kabinett", "band", "kortlek"]:
             print(f"Om oss: {style}")
             set_style(page, style)
             page.goto(f"{BASE}/om-oss")
@@ -84,14 +84,6 @@ def run() -> None:
                 check(RECIPIENT in pop.inner_text(), "kabinett: rutan visar mottagaren")
                 page.keyboard.press("Escape")
                 expect(pop).to_be_hidden()
-            if style == "matrikel":
-                sec.locator(f'[data-filter="m{medal_id}"]').click()
-                visible = sec.locator(".hm-row:visible")
-                check(visible.count() == 1 and RECIPIENT in visible.first.inner_text(), "matrikel: filtret visar bara medaljens mottagare")
-                sec.locator('[data-filter="alla"]').click()
-                row = sec.locator(".hm-row", has_text=MEMBER)
-                row.locator("summary").click()
-                check("trogen tjänst" in row.inner_text(), "matrikel: raden öppnas med motiveringen")
             if style == "band":
                 tab = sec.locator(f'[data-tab="band-m{medal_id}"]')
                 tab.click()
