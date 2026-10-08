@@ -5,3 +5,6 @@ node_modules/
 tools/local-preview/.data/
 *.log
 .DS_Store
+
+# Pythons cache från e2e-testerna
+__pycache__/
