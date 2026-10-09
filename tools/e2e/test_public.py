@@ -76,6 +76,17 @@ with sync_playwright() as p:
             check(label.strip() == "Stäng", f"menyknappens text växlar ({label!r})")
         check(not errors, f"inga JavaScript-fel ({name}) {errors[:3]}")
         page.close()
+    # Engagera dig → Fler sätt att påverka
+    print("Fler sätt att påverka")
+    page = browser.new_page()
+    page.goto(BASE + "/engagera-dig")
+    check(page.locator("#fler-satt-att-paverka").count() == 1, "Engagera dig har avsnittet Fler sätt att påverka")
+    page.locator("a.ways-btn-ink").click()
+    page.wait_for_load_state()
+    check("/jf-paverka" in page.url and page.locator("input[name=typ][value=initiativ]").is_checked(), "JF Initiativ-knappen förväljer JF Initiativ i formuläret")
+    page.goto(BASE + "/jf-paverka?typ=<script>")
+    check(page.locator("input[name=typ]:checked").count() == 0, "okända typer i adressen ignoreras")
+    page.close()
     # Gamla webbplatsens adresser skickas vidare (301) till motsvarande sida
     print("Gamla adresser")
     page = browser.new_page()
