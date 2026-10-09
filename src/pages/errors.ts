@@ -23,7 +23,7 @@ export async function notFoundPage(c: RequestContext): Promise<Response> {
       </ul>
     </div>
   </section>`;
-  return htmlResponse(c, layout(c, s, { title: s.notfound_title, noindex: true }, content), 404);
+  return htmlResponse(c, layout(c, s, { title: s.notfound_title, noindex: true, pageId: "felsidor" }, content), 404);
 }
 
 /** Används om något går riktigt fel. Får inte vara beroende av databasen. */

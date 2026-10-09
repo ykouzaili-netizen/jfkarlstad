@@ -136,6 +136,18 @@ function blockColorFields<const P extends string>(p: P) {
   ] as const;
 }
 
+/**
+ * Färgerna för en hel sida (sist under varje sida i Texter och sidor). Gäller sidans innehåll mellan
+ * sidhuvudet och sidfoten; avsnitt med egna färger behåller dem. Läses av pageColorCss() i settings.ts.
+ */
+function pageColors<const I extends string>(id: I) {
+  return sec("sidans-farger", "Sidans färger", [
+    color(`pg_${id}_c_bg` as `pg_${I}_c_bg`, "Hela sidan – färg: bakgrund", "", { help: "Bakgrunden bakom allt innehåll på just den här sidan. Tomt (”Standard”) = sajtens bakgrundsfärg under Utseende. När du byter bakgrund frågar panelen om text och detaljer ska anpassas så att de syns." }),
+    color(`pg_${id}_c_text` as `pg_${I}_c_text`, "Hela sidan – färg: rubriker och text", ""),
+    color(`pg_${id}_c_accent` as `pg_${I}_c_accent`, "Hela sidan – färg: detaljer", "", { help: "Understrykningar, ikoner, små etiketter och liknande detaljer på sidan." }),
+  ], "Färgerna gäller bara den här sidan – sidhuvudet och sidfoten behåller sajtens färger, och avsnitt som har egna färger behåller dem. Vill du byta färg på hela webbplatsen på en gång gör du det under Utseende.");
+}
+
 export const PAGES = [
   page("startsida", "Startsidan", "/", [
     sec("toppen", "Toppen av sidan", [
@@ -320,6 +332,7 @@ export const PAGES = [
       text("insta_pause", "Knapp: pausa", "Pausa", small),
       text("insta_play", "Knapp: spela", "Spela", small),
     ], "Inläggen lägger du till under Instagram i menyn till vänster. Länken och kontonamnet ändrar du under Gemensamt → Kontaktuppgifter och länkar."),
+    pageColors("startsida"),
   ]),
 
   page("om-oss", "Om oss", "/om-oss", [
@@ -457,6 +470,7 @@ export const PAGES = [
       area("elsa_text", "ELSA – text", "Den lokala avdelningen av European Law Students' Association. ELSA ordnar bland annat föreläsningar i juridisk engelska, ELSA Law Schools – sommar- och vinterkurser på en till två veckor – och STEP, ett utbytesprogram för praktik utomlands."),
       ...blockColorFields("om_oss_samarbeten"),
     ]),
+    pageColors("om-oss"),
   ]),
 
   page("bli-medlem", "Bli medlem", "/bli-medlem", [
@@ -489,6 +503,7 @@ export const PAGES = [
       text("member_faq_link", "Länk till alla frågor", "Fler vanliga frågor", small),
       ...blockColorFields("bli_medlem_faq"),
     ], "Frågorna själva ändrar du under Vanliga frågor i menyn (kategorin Medlemskap visas här)."),
+    pageColors("bli-medlem"),
   ]),
 
   page("for-studenter", "För studenter", "/for-studenter", [
@@ -567,6 +582,7 @@ export const PAGES = [
       text("gallery_open", "Text för skärmläsare på bilderna", "öppnas i större format i ny flik", { more: true }),
       ...blockColorFields("for_studenter_galleri"),
     ], "Bilderna laddar du upp under Bildgalleri i menyn."),
+    pageColors("for-studenter"),
   ]),
 
   page("karriar", "Jobb och praktik", "/karriar", [
@@ -599,6 +615,7 @@ export const PAGES = [
       text("job_expired", "Text när ansökningstiden gått ut", "Ansökningstiden har gått ut.", small),
       text("job_all", "Länk till alla tjänster", "Alla lediga tjänster", small),
     ]),
+    pageColors("karriar"),
   ]),
 
   page("engagera-dig", "Engagera dig", "/engagera-dig", [
@@ -697,6 +714,7 @@ export const PAGES = [
       text("engage_thanks_title", "Rubrik", "Tack för ditt intresse!", { required: true }),
       area("engage_thanks_text", "Text", "Någon i styrelsen hör av sig till dig så snart vi kan, oftast inom en vecka."),
     ], "Visas när någon har skickat formuläret."),
+    pageColors("engagera-dig"),
   ]),
 
   page("for-foretag", "För företag", "/for-foretag", [
@@ -747,6 +765,7 @@ export const PAGES = [
       text("companies_thanks_title", "Rubrik", "Tack för ert intresse!", { required: true }),
       area("companies_thanks_text", "Text", "Vår arbetsmarknadsansvariga hör av sig inom några dagar för att prata vidare om ett samarbete."),
     ], "Visas när någon har skickat formuläret."),
+    pageColors("for-foretag"),
   ]),
 
   page("partners", "Partners", "/partners", [
@@ -770,6 +789,7 @@ export const PAGES = [
       text("partner_jobs_title", "Rubrik för lediga tjänster", "Lediga tjänster hos {namn}", { ...small, help: "{namn} byts ut mot partnerns namn." }),
       text("partner_all", "Länk till alla partners", "Alla samarbetspartners", small),
     ]),
+    pageColors("partners"),
   ]),
 
   page("aktuellt", "Nyheter", "/aktuellt", [
@@ -786,6 +806,7 @@ export const PAGES = [
     sec("artikel", "Sidan för en nyhet", [
       text("news_all", "Länk till alla nyheter", "Alla nyheter", small),
     ]),
+    pageColors("aktuellt"),
   ]),
 
   page("kalender", "Kalender", "/kalender", [
@@ -829,6 +850,7 @@ export const PAGES = [
       text("event_add", "Knapp: lägg till i kalendern", "Lägg till i kalendern", small),
       text("event_all", "Länk till alla evenemang", "Alla evenemang", small),
     ]),
+    pageColors("kalender"),
   ]),
 
   page("dokument", "Dokument", "/dokument", [
@@ -864,6 +886,7 @@ export const PAGES = [
       text("doc_cat_protokoll", "Kategori: protokoll", "Protokoll", small),
       text("doc_cat_ovrigt", "Kategori: övrigt", "Övrigt", small),
     ]),
+    pageColors("dokument"),
   ]),
 
   page("faq", "Vanliga frågor", "/faq", [
@@ -877,6 +900,7 @@ export const PAGES = [
       area("faq_cta_text", "Rutan längst ned – text", "Skicka din fråga så svarar vi så snart vi kan."),
       text("faq_cta_button", "Rutan längst ned – knapp", "Kontakta oss", small),
     ], "Frågorna och svaren ändrar du under Vanliga frågor i menyn."),
+    pageColors("faq"),
   ]),
 
   page("jf-paverka", "JF Påverka", "/jf-paverka", [
@@ -916,6 +940,7 @@ export const PAGES = [
       text("paverka_thanks_title", "Rubrik", "Tack för att du gör din röst hörd!", { required: true }),
       area("paverka_thanks_text", "Text", "Ditt inskick tas upp på nästa styrelsemöte. Om du lämnade kontaktuppgifter kan vi återkoppla till dig."),
     ], "Visas när någon har skickat formuläret."),
+    pageColors("jf-paverka"),
   ]),
 
   page("kontakt", "Kontakt", "/kontakt", [
@@ -945,6 +970,7 @@ export const PAGES = [
       text("contact_thanks_title", "Rubrik", "Tack för ditt meddelande!", { required: true }),
       area("contact_thanks_text", "Text", "Vi har tagit emot det och återkommer så snart vi kan, oftast inom några dagar."),
     ], "Visas när någon har skickat formuläret."),
+    pageColors("kontakt"),
   ]),
 
   page("sok", "Sök", "/sok", [
@@ -964,6 +990,7 @@ export const PAGES = [
       text("search_group_faq", "Grupp: frågor", "Vanliga frågor", small),
       text("search_group_partners", "Grupp: partners", "Partners", small),
     ]),
+    pageColors("sok"),
   ]),
 
   page("gemensamt", "Gemensamt (sidhuvud, sidfot och knappar)", "/", [
@@ -1134,6 +1161,7 @@ export const PAGES = [
       text("cookies_external_title", "Externa tjänster – rubrik", "Externa tjänster", { more: true }),
       md("cookies_external_text", "Externa tjänster – text", "Vi bäddar inte in Instagram, YouTube, kartor eller liknande, eftersom sådana tjänster ofta sätter egna kakor. I stället länkar vi ut till dem – det är först när du klickar som du lämnar vår webbplats.\n\nInläggen från vårt eget Instagramkonto på startsidan visas från vår egen webbplats: bilderna hämtas och lagras här, så din webbläsare kontaktar inte Instagram förrän du klickar på ett inlägg.\n\nLäs mer om hur vi behandlar personuppgifter i vår [integritetspolicy](/integritetspolicy).", { more: true, help: MD_HELP }),
     ]),
+    pageColors("integritet"),
   ]),
 
   page("felsidor", "Felsidan (sidan finns inte)", "/sidan-finns-inte", [
@@ -1150,6 +1178,7 @@ export const PAGES = [
         help: "En per rad: den gamla adressen, en pil och sidan den ska till – t.ex. /om-jfk/styrelsen.html → /om-oss#styrelsen. Hela adresser som https://jfkarlstad.se/... går också bra. Adresser från den gamla webbplatsen (.html-sidor, PDF:er och gamla mappar) skickas redan vidare automatiskt till den sida som passar bäst – här lägger du bara till eller ändrar enskilda.",
       }),
     ], "Bokmärken, gamla länkar och sökträffar till den gamla webbplatsen hamnar rätt. Google uppdaterar sina sökträffar till de nya adresserna efter några veckor."),
+    pageColors("felsidor"),
   ]),
 ] as const;
 

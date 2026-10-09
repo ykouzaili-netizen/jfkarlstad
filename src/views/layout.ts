@@ -1,5 +1,5 @@
 import { html, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { blockColorCss, ek, HEADING_FONTS, headingFont, imageFits, introStyle, isMarked, motionLevel, siteLayout, themeCss, type Settings } from "../lib/settings.js";
+import { blockColorCss, ek, pageColorCss, pageIdForPath, HEADING_FONTS, headingFont, imageFits, introStyle, isMarked, motionLevel, siteLayout, themeCss, type Settings } from "../lib/settings.js";
 import { textStyleCss } from "../lib/pagelayout.js";
 import { imageFitCss } from "../lib/imagefit.js";
 import { telHref } from "../lib/format.js";
@@ -21,6 +21,8 @@ export interface PageMeta {
   jsonLd?: object[];
   /** Sidhuvudet ligger genomskinligt ovanpå en helskärmsbild (startsidan). */
   overlayHeader?: boolean;
+  /** Sidan i textregistret (för sidans egna färger). Standard: räknas ut från sökvägen. */
+  pageId?: string;
 }
 
 /** Prefix för bilder som valts i adminpanelen men inte sparats ännu (bara i förhandsvisningen). */
@@ -250,7 +252,7 @@ ${favicon(s)}
 <link rel="preload" href="/assets/fonts/montserrat.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${HEADING_FONTS[headingFont(s)].file}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css?v=${ASSET_VERSION}">
-<style nonce="${c.nonce}">${raw(themeCss(s) + blockColorCss(s) + imageFitCss(imageFits(s)) + textStyleCss(siteLayout(s).styles) + transitions)}</style>
+<style nonce="${c.nonce}">${raw(themeCss(s) + pageColorCss(s, meta.pageId ?? pageIdForPath(path)) + blockColorCss(s) + imageFitCss(imageFits(s)) + textStyleCss(siteLayout(s).styles) + transitions)}</style>
 ${intro ? html`<script src="/assets/intro-check.js?v=${ASSET_VERSION}"></script><script src="/assets/intro.js?v=${ASSET_VERSION}" defer></script>` : ""}
 <script src="/assets/site.js?v=${ASSET_VERSION}" defer></script>
 ${motion === "av" ? "" : html`<script src="/assets/motion.js?v=${ASSET_VERSION}" defer></script>`}

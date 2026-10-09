@@ -667,6 +667,28 @@ with sync_playwright() as p:
     check("2 av 11 steg klara" in page.content(), "checklistan sparar framstegen")
     page.screenshot(path=str(OUT / "styrelseskifte.png"), full_page=True)
 
+    # ───────── Sidans färger ─────────
+    print("Sidans färger")
+    page.goto(f"{BASE}/admin/texter?sida=kontakt&falt=pg_kontakt_c_bg")
+    check(page.locator('input[name="pg_kontakt_c_bg"]').count() >= 1, "varje sida har färgfält under Sidans färger")
+    for name, val in [("pg_kontakt_c_bg", "#0b0740"), ("pg_kontakt_c_text", "#ffffff")]:
+        page.locator(f'input[type="text"][name="{name}"]').first.evaluate("(e, v) => { e.value = v; e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); }", val)
+    page.click("#texter-form .sticky-actions button[type=submit]")
+    page.wait_for_url(re.compile(r"klart=texter"))
+    page.goto(f"{BASE}/kontakt")
+    main_bg = page.evaluate("getComputedStyle(document.querySelector('#innehall')).backgroundColor")
+    hdr_bg = page.evaluate("getComputedStyle(document.querySelector('.site-header') || document.body).backgroundColor")
+    title = page.evaluate("getComputedStyle(document.querySelector('#innehall h1')).color")
+    check(main_bg == "rgb(11, 7, 64)" and title == "rgb(255, 255, 255)", f"kontaktsidan får sin egen bakgrund och text ({main_bg}, {title})")
+    check(hdr_bg != "rgb(11, 7, 64)", "sidhuvudet behåller sajtens färg")
+    page.goto(f"{BASE}/kalender")
+    check(page.evaluate("getComputedStyle(document.querySelector('#innehall')).backgroundColor") != "rgb(11, 7, 64)", "andra sidor påverkas inte")
+    page.goto(f"{BASE}/admin/texter?sida=kontakt&falt=pg_kontakt_c_bg")
+    for name in ["pg_kontakt_c_bg", "pg_kontakt_c_text"]:
+        page.locator(f'input[type="text"][name="{name}"]').first.evaluate("(e) => { e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); }")
+    page.click("#texter-form .sticky-actions button[type=submit]")
+    page.wait_for_url(re.compile(r"klart=texter"))
+
     # ───────── Kalenderprenumeration ─────────
     st, ics, hdr = get("/kalender.ics")
     check(st == 200 and ics.startswith("BEGIN:VCALENDAR") and "text/calendar" in hdr.get("content-type", ""), "kalenderflödet fungerar")
