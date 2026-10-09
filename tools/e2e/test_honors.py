@@ -40,7 +40,7 @@ def run() -> None:
         check(page.locator("a.row-title").count() >= 10, "föreningens tio medaljer finns som platser i listan")
         check("Dold" in page.content(), "…och är dolda tills de fått namn")
         page.goto(f"{BASE}/admin/medaljer/ny")
-        check(page.locator('input[name="design"]').count() == 11, "tio medaljbilder och Egen bild går att välja")
+        check(page.locator('input[name="design"]').count() == 13, "tolv medaljbilder och Egen bild går att välja")
         # Egen bild utan uppladdad fil ger ett tydligt fel
         page.fill('input[name="name"]', MEDAL)
         page.locator('input[name="design"][value="egen"]').check(force=True)

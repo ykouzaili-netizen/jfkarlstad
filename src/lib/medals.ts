@@ -2,7 +2,7 @@
  * Belöningssystemets ordnar och medaljer.
  *
  * Medaljernas utseende är föreningens egna bilder (förlagan från styrelsen 2026-10-08), urklippta ur styrelsens
- * PNG (genomskinlig bakgrund) utan bearbetning till public/assets/medaljer/medalj-01.png … -10.png. I adminpanelen väljer man vilken bild en medalj har.
+ * PNG (genomskinlig bakgrund) utan bearbetning till public/assets/medaljer/medalj-01.png … -12.png (11 och 12 tillkom 2026-10-09). I adminpanelen väljer man vilken bild en medalj har.
  * Ett uppladdat foto (fältet image_key) visas i stället för bilden om det finns.
  */
 
@@ -37,6 +37,8 @@ export const MEDAL_DESIGNS = {
   "08": { label: "Våg i brons – rött band", width: 212, height: 479 },
   "09": { label: "Våg i brons – blått band", width: 212, height: 479 },
   "10": { label: "Stjärna i brons – blått band", width: 219, height: 477 },
+  "11": { label: "Stjärna i silver med JK – blått och rött band", width: 204, height: 456 },
+  "12": { label: "Våg i guld – gult band", width: 195, height: 456 },
 } as const;
 export type MedalDesign = keyof typeof MEDAL_DESIGNS;
 
@@ -45,7 +47,7 @@ export function medalDesign(v: unknown): MedalDesign {
 }
 
 /** Höj när bilderna byts ut – filerna i /assets cachas ett år. */
-const MEDAL_IMAGES_VERSION = "3";
+const MEDAL_IMAGES_VERSION = "4";
 export const medalImageUrl = (design: unknown) => `/assets/medaljer/medalj-${medalDesign(design)}.png?v=${MEDAL_IMAGES_VERSION}`;
 
 export const medalQuery = {
