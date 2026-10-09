@@ -1,6 +1,6 @@
 import { applyLayoutRow, arrangeBlocks, emptyLayout, type BlockRender, type SiteLayout } from "./pagelayout.js";
 import { FIT_PREFIX, parseFit, type ImageFit } from "./imagefit.js";
-import { isHex, readableOn } from "./color.js";
+import { contrastRatio, isHex, readableOn } from "./color.js";
 
 import { ALL_FIELDS, editUrlFor, FIELD_INDEX, type TextKey } from "./texts.js";
 import { raw, type SafeHtml } from "./html.js";
@@ -243,9 +243,31 @@ export function blockColors(s: Settings, pageId: string, blockId: string): { cls
   return { cls: ` ${name} has-colors`, css: `.${name}{${vars}}` };
 }
 
+/**
+ * Egna färger för utseendet Ordensbandet (Hedersmedlemmar och utmärkelser på Om oss). Tomt = gul yta med svart text.
+ * Detaljerna (linjen över banden, mottagarnas brickor och initialer) följer texten om de inte är valda; texten i
+ * brickorna har bakgrundens färg – eller svart/vitt om den skulle bli svårläst.
+ */
+export function honorsBandCss(s: Settings): string {
+  const pick = (v: string) => (isHex(v) ? v.toLowerCase() : "");
+  const bg = pick(s.honors_band_c_bg);
+  const text = pick(s.honors_band_c_text);
+  const detail = pick(s.honors_band_c_accent);
+  if (!bg && !text && !detail) return "";
+  let vars = "";
+  if (bg) vars += `--hb-bg:${bg};`;
+  // På en mörk bakgrund blir de ljusa korten för hedersmedlemmarna svårlästa – tona dem med textfärgen i stället.
+  if (bg && contrastRatio(bg, "#ffffff") > contrastRatio(bg, "#141414")) vars += "--hb-card:color-mix(in srgb,var(--hb-text) 10%,transparent);";
+  if (text) vars += `--hb-text:${text};`;
+  if (detail) vars += `--hb-detail:${detail};`;
+  const d = detail || text;
+  if (d && bg && contrastRatio(d, bg) < 3) vars += `--hb-on-detail:${readableOn(d)};`;
+  return `.honors--band{${vars}}`;
+}
+
 /** CSS för alla avsnitt med egna färger (skrivs i sidans <style> i layout.ts). Värdena är kontrollerade hexkoder. */
 export function blockColorCss(s: Settings): string {
-  let css = "";
+  let css = honorsBandCss(s);
   for (const [pageId, blocks] of Object.entries(BLOCK_COLORS)) {
     for (const blockId of Object.keys(blocks)) css += blockColors(s, pageId, blockId)?.css ?? "";
   }

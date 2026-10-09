@@ -3669,12 +3669,13 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 
 /* ---------- 2. Ordensbandet ---------- */
 
-.honors--band { background: var(--c-accent); color: var(--c-on-accent); }
-.honors--band .section-title { color: var(--c-on-accent); }
-.honors--band .empty-state { border-color: color-mix(in srgb, var(--c-on-accent) 30%, transparent); color: inherit; }
+/* Färgerna kan ändras under Texter och sidor → Om oss → Hedersmedlemmar och utmärkelser (honorsBandCss i settings.ts) */
+.honors--band { --hb-bg: var(--c-accent); --hb-text: var(--c-on-accent); --hb-detail: var(--hb-text); --hb-on-detail: var(--hb-bg); --hb-card: color-mix(in srgb, var(--c-surface) 45%, transparent); background: var(--hb-bg); color: var(--hb-text); }
+.honors--band .section-title { color: var(--hb-text); }
+.honors--band .empty-state { border-color: color-mix(in srgb, var(--hb-text) 30%, transparent); color: inherit; }
 .hb-head { display: grid; gap: 28px 64px; align-items: end; }
 .hb-head .prose { margin-top: 16px; }
-.hb-aside { padding-left: 24px; border-left: 2px solid var(--c-on-accent); }
+.hb-aside { padding-left: 24px; border-left: 2px solid var(--hb-detail); }
 .hb-aside-title { font-size: calc(1.25rem * var(--display-scale)); margin-bottom: 8px; }
 .hb-aside .prose { font-size: 0.9375rem; }
 
@@ -3689,7 +3690,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   scrollbar-color: color-mix(in srgb, var(--c-on-accent) 35%, transparent) transparent;
 }
 /* Stången som banden hänger i */
-.hb-rack { border-top: 5px solid var(--c-on-accent); }
+.hb-rack { border-top: 5px solid var(--hb-detail); }
 .hb-tab {
   flex: 1 0 118px;
   max-width: 260px;
@@ -3709,7 +3710,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   transition: transform 0.45s var(--ease-out);
 }
 .hb-ribbon-img, .hb-ribbon-img img { display: block; width: 100%; height: auto; }
-.hb-ribbon--heder { background: linear-gradient(90deg, var(--c-on-accent) 0 36%, var(--c-surface) 36% 39%, var(--c-accent) 39% 61%, var(--c-surface) 61% 64%, var(--c-on-accent) 64%); }
+.hb-ribbon--heder { background: linear-gradient(90deg, var(--hb-detail) 0 36%, var(--c-surface) 36% 39%, var(--hb-bg) 39% 61%, var(--c-surface) 61% 64%, var(--hb-detail) 64%); }
 .hb-tab:hover .hb-ribbon { transform: scaleY(1.12); }
 .hb-tab[aria-current="true"] .hb-ribbon, .hb-tab[aria-selected="true"] .hb-ribbon { transform: scaleY(1.4); }
 .hb-tab-label {
@@ -3721,7 +3722,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 }
 .hb-tab:hover .hb-tab-label { opacity: 1; }
 .hb-tab[aria-current="true"] .hb-tab-label, .hb-tab[aria-selected="true"] .hb-tab-label { opacity: 1; margin-top: 30px; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.3em; }
-.hb-tab:focus-visible { outline-color: var(--c-on-accent); outline-offset: 2px; }
+.hb-tab:focus-visible { outline-color: var(--hb-text); outline-offset: 2px; }
 
 .hb-panels { margin-top: clamp(24px, 4vw, 48px); }
 .hb-panel {
@@ -3731,9 +3732,9 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   padding-block: 24px;
   scroll-margin-top: calc(var(--header-h) + 24px);
 }
-.hb-panel + .hb-panel { border-top: 1px solid color-mix(in srgb, var(--c-on-accent) 22%, transparent); }
+.hb-panel + .hb-panel { border-top: 1px solid color-mix(in srgb, var(--hb-text) 22%, transparent); }
 .js .hb-panels.is-tabbed .hb-panel { border-top: 0; }
-.hb-panel:focus-visible { outline-color: var(--c-on-accent); }
+.hb-panel:focus-visible { outline-color: var(--hb-text); }
 .hb-stage { position: relative; display: grid; place-items: start center; min-height: 300px; }
 .hb-stage::before {
   content: "";
@@ -3760,15 +3761,15 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .hb-info .prose { margin-top: 16px; }
 .hb-sub { margin-top: 28px; font-family: var(--font-body); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 .hb-tags { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.hb-tags li { display: inline-flex; align-items: baseline; gap: 8px; padding: 9px 16px; border-radius: 999px; background: var(--c-on-accent); color: var(--c-accent); }
+.hb-tags li { display: inline-flex; align-items: baseline; gap: 8px; padding: 9px 16px; border-radius: 999px; background: var(--hb-detail); color: var(--hb-on-detail); }
 .hb-tags-name { font-weight: 600; font-size: 0.9375rem; }
 .hb-tags-year { font-size: 0.75rem; opacity: 0.75; font-variant-numeric: tabular-nums; }
 .hb-tags-none { margin-top: 10px; font-style: italic; opacity: 0.75; }
 .hb-people { list-style: none; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); margin-top: 22px; }
-.hb-person { display: flex; gap: 14px; align-items: flex-start; padding: 16px; border-radius: var(--radius); background: color-mix(in srgb, var(--c-surface) 45%, transparent); }
+.hb-person { display: flex; gap: 14px; align-items: flex-start; padding: 16px; border-radius: var(--radius); background: var(--hb-card); }
 .hb-face { flex: none; width: 56px; height: 56px; border-radius: 50%; overflow: hidden; }
 .hb-face-img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.hb-face-initials { display: grid; place-items: center; width: 100%; height: 100%; background: var(--c-on-accent); color: var(--c-accent); font-family: var(--font-display); font-size: 1.25rem; }
+.hb-face-initials { display: grid; place-items: center; width: 100%; height: 100%; background: var(--hb-detail); color: var(--hb-on-detail); font-family: var(--font-display); font-size: 1.25rem; }
 .hb-person-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .hb-person-name { font-family: var(--font-display); font-weight: var(--display-weight); font-size: 1.125rem; line-height: 1.25; }
 .hb-person-year { font-size: 0.8125rem; opacity: 0.75; }
