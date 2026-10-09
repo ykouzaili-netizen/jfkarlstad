@@ -2,7 +2,7 @@ import { applyLayoutRow, arrangeBlocks, emptyLayout, type BlockRender, type Site
 import { FIT_PREFIX, parseFit, type ImageFit } from "./imagefit.js";
 import { contrastRatio, isHex, readableOn } from "./color.js";
 
-import { ALL_FIELDS, editUrlFor, FIELD_INDEX, type TextKey } from "./texts.js";
+import { ALL_FIELDS, editUrlFor, FIELD_INDEX, PAGES, type TextKey } from "./texts.js";
 import { raw, type SafeHtml } from "./html.js";
 
 /**
@@ -298,6 +298,46 @@ export function pedagogCss(s: Settings): string {
   if (text || bg) vars += `--pd-text:${text || readableOn(bg)};`;
   if (accent) vars += `--pd-accent:${accent};--pd-on-accent:${readableOn(accent)};`;
   return `.pedagog--plaketter{${vars}}`;
+}
+
+/**
+ * Vilken sida i textregistret en adress hör till (för sidans egna färger): exakt adress eller den längsta
+ * sidadress som adressen börjar med, t.ex. /aktuellt/en-nyhet → aktuellt. Startsidan bara på "/".
+ */
+export function pageIdForPath(path: string): string | null {
+  let best: { id: string; len: number } | null = null;
+  for (const p of PAGES) {
+    if (p.id === "gemensamt") continue;
+    const hit = p.path === "/" ? path === "/" : path === p.path || path.startsWith(p.path + "/");
+    if (hit && (!best || p.path.length > best.len)) best = { id: p.id, len: p.path.length };
+  }
+  return best?.id ?? null;
+}
+
+/**
+ * Egna färger för en hel sida (Texter och sidor → sidan → Sidans färger). Gäller innehållet (main), inte
+ * sidhuvud och sidfot. Bara det som styrelsen valt används – adminpanelen föreslår att anpassa text och
+ * detaljer när bakgrunden byts. Med en egen textfärg som inte syns mot korten tonas korten i stället.
+ */
+export function pageColorCss(s: Settings, pageId: string | null): string {
+  if (!pageId) return "";
+  const get = (k: string) => {
+    const v = (s as Record<string, string>)[`pg_${pageId}_c_${k}`];
+    return isHex(v) ? v.toLowerCase() : "";
+  };
+  const bg = get("bg");
+  const text = get("text");
+  const accent = get("accent");
+  if (!bg && !text && !accent) return "";
+  let vars = "";
+  if (bg) vars += `--c-bg:${bg};background:${bg};`;
+  if (text) {
+    vars += `--c-text:${text};--c-muted:color-mix(in srgb,${text} 74%,transparent);--c-border:color-mix(in srgb,${text} 14%,transparent);--c-hover:color-mix(in srgb,${text} 8%,transparent);color:${text};`;
+    const surface = isHex(s.color_surface) ? s.color_surface : "#ffffff";
+    if (contrastRatio(text, surface) < 4.5) vars += `--c-surface:color-mix(in srgb,${text} 8%,${bg || "var(--c-bg)"});`;
+  }
+  if (accent) vars += `--c-accent:${accent};--c-on-accent:${readableOn(accent)};`;
+  return `#innehall{${vars}}`;
 }
 
 /** CSS för alla avsnitt med egna färger (skrivs i sidans <style> i layout.ts). Värdena är kontrollerade hexkoder. */
