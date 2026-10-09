@@ -12,6 +12,7 @@ MEDAL = "Testmedaljen"
 RECIPIENT = "Testa Mottagare"
 MEMBER = "Testa Hedersmedlem"
 MEMBER2 = "Testa Tvåa"
+MEMBER3 = "Testa Trea"
 
 
 def set_style(page, style: str) -> None:
@@ -112,6 +113,12 @@ def run() -> None:
         page.fill('textarea[name="description"]', "Den andra hedersmedlemmen. Med två meningar.")
         page.locator(".admin-form-actions button[type=submit]").click()
         page.wait_for_load_state("networkidle")
+        page.goto(f"{BASE}/admin/utmarkelser/ny")
+        page.fill('input[name="name"]', MEMBER3)
+        page.fill('input[name="year"]', "2023")
+        page.fill('textarea[name="description"]', "Ett tidigare år.")
+        page.locator(".admin-form-actions button[type=submit]").click()
+        page.wait_for_load_state("networkidle")
 
         print("Admin: flytta hedersmedlemmar inom året")
         page.goto(f"{BASE}/admin/utmarkelser")
@@ -139,6 +146,15 @@ def run() -> None:
                 rows = [x.strip() for x in sec.locator(".hg-row .hg-name").all_inner_texts()]
                 check(rows.index(MEMBER2) < rows.index(MEMBER), "galleri: ordningen från adminpanelen följer med")
                 check(sec.locator(".hg-year-label", has_text="2024").count() == 1, "galleri: året visas en gång")
+                trea = sec.locator(".hg-row", has_text=MEMBER3)
+                check(trea.is_hidden(), "galleri: bara det senaste året visas från början")
+                toggle = sec.locator(".hg-toggle")
+                check("Visa tidigare hedersmedlemmar" in toggle.inner_text() and "2023" in toggle.inner_text(), "galleri: knappen för tidigare år visar årsspannet")
+                toggle.click()
+                expect(trea).to_be_visible()
+                check("Dölj tidigare" in toggle.inner_text(), "galleri: knappen fäller ut och byter text")
+                toggle.click()
+                expect(trea).to_be_hidden()
                 sec.locator(".hg-row", has_text=MEMBER2).locator("button", has_text="Läs diplomet").click()
                 dip = page.locator(".hg-dialog:popover-open")
                 expect(dip).to_be_visible()
@@ -182,8 +198,53 @@ def run() -> None:
                 check(coin.locator("[data-flip-btn]").get_attribute("aria-expanded") == "true", "kortlek: myntet vänds")
             page.screenshot(path=str(OUT / f"heders-{style}.png"), full_page=False)
 
+        print("Årets pedagog: Plaketterna")
+        for name, year, text in [("Testa Pedagog", "2023", "Först. Sedan mer."), ("Testa Pedagog", "2024", "Andra gången."), ("Tova Lärare", "2022", "En annan pristagare.")]:
+            page.goto(f"{BASE}/admin/utmarkelser/ny")
+            page.locator('input[name="kind"][value="arets_pedagog"]').check(force=True)
+            page.fill('input[name="name"]', name)
+            page.fill('input[name="year"]', year)
+            page.fill('textarea[name="description"]', text)
+            page.locator(".admin-form-actions button[type=submit]").click()
+            page.wait_for_load_state("networkidle")
+        page.goto(f"{BASE}/om-oss")
+        pd = page.locator("section.pedagog--plaketter")
+        check(pd.count() == 1, "pedagog: Plaketterna är standardutseendet")
+        card = pd.locator(".pd-card", has_text="Testa Pedagog")
+        check(card.count() == 1, "pedagog: två gånger pristagare visas en gång")
+        check([t.split()[-1] for t in card.locator(".pd-plaque").all_inner_texts()] == ["2023", "2024"], "pedagog: en plakett per år, äldst först")
+        check("2 gånger" in card.inner_text(), "pedagog: ”Pristagare 2 gånger”")
+        bg = pd.evaluate("e => getComputedStyle(e).backgroundColor")
+        check(bg in ("rgb(20, 20, 20)",), f"pedagog: bakgrunden är sajtens primära färg ({bg})")
+        pd.locator("[data-pd-filter] button[data-y='2022']").click()
+        check("is-out" in (card.get_attribute("class") or "") and "is-hit" in (pd.locator(".pd-card", has_text="Tova Lärare").get_attribute("class") or ""), "pedagog: årsvalet tonar ned de andra")
+        pd.locator("[data-pd-filter] button[data-y='']").click()
+        card.locator(".pd-face").click()
+        dlg = page.locator(".pd-dialog:popover-open")
+        expect(dlg).to_have_count(1)
+        check("Andra gången" in dlg.inner_text() and dlg.locator(".dp-crest").count() == 1, "pedagog: porträttet öppnar det senaste diplomet med loggan")
+        dlg.locator(".dp-step--next").click()
+        expect(page.locator(".pd-dialog:popover-open")).to_have_count(1)
+        check("Först." in page.locator(".pd-dialog:popover-open").inner_text(), "pedagog: pilen visar nästa (äldre) diplom – bara ett öppet åt gången")
+        page.mouse.click(6, 450)
+        expect(page.locator(".pd-dialog:popover-open")).to_have_count(0)
+        check(True, "pedagog: klick utanför stänger diplomet")
+        page.goto(f"{BASE}/admin/texter?sida=om-oss&falt=pedagog_c_bg")
+        page.locator('input[name="pedagog_c_bg"]').first.evaluate("(e) => { e.value = '#0b0740'; e.dispatchEvent(new Event('input', {bubbles: true})); }")
+        page.click("#texter-form .sticky-actions button[type=submit]")
+        page.wait_for_url(re.compile(r"klart=texter"))
+        page.goto(f"{BASE}/om-oss")
+        bg = page.locator("section.pedagog--plaketter").evaluate("e => getComputedStyle(e).backgroundColor")
+        check(bg == "rgb(11, 7, 64)", f"pedagog: egen bakgrundsfärg från adminpanelen ({bg})")
+        txt = page.locator("section.pedagog--plaketter .pd-name").first.evaluate("e => getComputedStyle(e).color")
+        check(txt == "rgb(255, 255, 255)", f"pedagog: texten blir ljus på mörk egen bakgrund ({txt})")
+        page.goto(f"{BASE}/admin/texter?sida=om-oss&falt=pedagog_c_bg")
+        page.locator('input[name="pedagog_c_bg"]').first.evaluate("(e) => { e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); }")
+        page.click("#texter-form .sticky-actions button[type=submit]")
+        page.wait_for_url(re.compile(r"klart=texter"))
+
         print("Städar")
-        for path, label in [("utmarkelser", RECIPIENT), ("utmarkelser", MEMBER), ("utmarkelser", MEMBER2), ("medaljer", MEDAL)]:
+        for path, label in [("utmarkelser", RECIPIENT), ("utmarkelser", MEMBER), ("utmarkelser", MEMBER2), ("utmarkelser", MEMBER3), ("utmarkelser", "Testa Pedagog"), ("utmarkelser", "Testa Pedagog"), ("utmarkelser", "Tova Lärare"), ("medaljer", MEDAL)]:
             page.goto(f"{BASE}/admin/{path}")
             row = page.locator("tr", has=page.locator(f'a.row-title:has-text("{label}")')).last
             page.once("dialog", lambda d: d.accept())

@@ -282,9 +282,27 @@ export function honorsGalleryCss(s: Settings): string {
   return `.honors--galleri{${vars}}`;
 }
 
+/**
+ * Egna färger för Årets pedagog, utseendet Plaketterna. Standard (i site.css) är sajtens primära färg som
+ * bakgrund och accentfärgen på plaketterna. Textfärgen på plaketterna räknas ut (svart eller vit).
+ */
+export function pedagogCss(s: Settings): string {
+  const pick = (v: string) => (isHex(v) ? v.toLowerCase() : "");
+  const bg = pick(s.pedagog_c_bg);
+  const text = pick(s.pedagog_c_text);
+  const accent = pick(s.pedagog_c_accent);
+  if (!bg && !text && !accent) return "";
+  let vars = "";
+  if (bg) vars += `--pd-bg:${bg};`;
+  // Ny bakgrund utan vald textfärg: läsbar text räknas ut i stället för att behålla den som passade den gamla.
+  if (text || bg) vars += `--pd-text:${text || readableOn(bg)};`;
+  if (accent) vars += `--pd-accent:${accent};--pd-on-accent:${readableOn(accent)};`;
+  return `.pedagog--plaketter{${vars}}`;
+}
+
 /** CSS för alla avsnitt med egna färger (skrivs i sidans <style> i layout.ts). Värdena är kontrollerade hexkoder. */
 export function blockColorCss(s: Settings): string {
-  let css = honorsBandCss(s) + honorsGalleryCss(s);
+  let css = honorsBandCss(s) + honorsGalleryCss(s) + pedagogCss(s);
   for (const [pageId, blocks] of Object.entries(BLOCK_COLORS)) {
     for (const blockId of Object.keys(blocks)) css += blockColors(s, pageId, blockId)?.css ?? "";
   }
