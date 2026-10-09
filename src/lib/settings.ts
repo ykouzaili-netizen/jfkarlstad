@@ -265,9 +265,26 @@ export function honorsBandCss(s: Settings): string {
   return `.honors--band{${vars}}`;
 }
 
+/**
+ * Egna färger för utseendet Porträttgalleriet. Samma variabler som avsnittsfärgerna (blockColors), så att
+ * text, tunna linjer och detaljer följer med – men bara för just det utseendet.
+ */
+export function honorsGalleryCss(s: Settings): string {
+  const pick = (v: string) => (isHex(v) ? v.toLowerCase() : "");
+  const bg = pick(s.honors_gallery_c_bg);
+  const text = pick(s.honors_gallery_c_text);
+  const accent = pick(s.honors_gallery_c_accent);
+  if (!bg && !text && !accent) return "";
+  let vars = "";
+  if (bg) vars += `--c-bg:${bg};--c-surface:${bg};`;
+  if (text) vars += `--c-text:${text};--c-muted:color-mix(in srgb,${text} 74%,transparent);--c-border:color-mix(in srgb,${text} 14%,transparent);--c-hover:color-mix(in srgb,${text} 8%,transparent);`;
+  if (accent) vars += `--c-accent:${accent};--c-on-accent:${readableOn(accent)};`;
+  return `.honors--galleri{${vars}}`;
+}
+
 /** CSS för alla avsnitt med egna färger (skrivs i sidans <style> i layout.ts). Värdena är kontrollerade hexkoder. */
 export function blockColorCss(s: Settings): string {
-  let css = honorsBandCss(s);
+  let css = honorsBandCss(s) + honorsGalleryCss(s);
   for (const [pageId, blocks] of Object.entries(BLOCK_COLORS)) {
     for (const blockId of Object.keys(blocks)) css += blockColors(s, pageId, blockId)?.css ?? "";
   }

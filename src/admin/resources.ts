@@ -77,6 +77,8 @@ export interface Resource {
   emptyText: string;
   /** Ordningen ändras med Flytta upp/ned direkt i listan (kolumnen sort_order numreras om). Kräver att orderBy börjar med sort_order. */
   movable?: boolean;
+  /** Flytta bara bland poster med samma värden i de här kolumnerna (t.ex. hedersmedlemmar inom sitt år). */
+  moveGroup?: string[];
   /** Kan kopieras ("Kopiera" i listan) – kopian blir ett opublicerat utkast. */
   duplicable?: boolean;
   /** Vilket menyval i sidomenyn som ska vara markerat (för typer som visas som flikar). */
@@ -386,6 +388,8 @@ export const RESOURCES: Resource[] = [
   },
   {
     path: "utmarkelser",
+    movable: true,
+    moveGroup: ["kind", "medal_id", "year"],
     table: "honors",
     title: "Utmärkelser",
     singular: "utmärkelse",
@@ -424,7 +428,7 @@ export const RESOURCES: Resource[] = [
       { name: "year", label: "År", type: "number", min: 2011, max: 2100, nullable: true, help: "Året personen blev hedersmedlem eller fick utmärkelsen." },
       { name: "description", label: "Motivering", type: "textarea", rows: 10, max: 4000, help: "Tom rad = nytt stycke." },
       { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR)." },
-      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Bestämmer ordningen bland dem som har samma år. Lägst nummer först." },
+      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Bestämmer ordningen bland dem som har samma år. Lägst nummer först – enklast är att använda pilarna i listan." },
     ],
     listColumns: [
       { label: "", render: (r) => thumb(r.photo_key), className: "col-thumb" },
@@ -955,7 +959,10 @@ export function listHandler(r: Resource) {
           ${csrfField(session)}<input type="hidden" name="riktning" value="${dir}">
           <button class="btn btn-outline btn-sm btn-move" type="submit" aria-label="Flytta ${dir === "upp" ? "upp" : "ned"} ${r.titleOf(row)}" title="Flytta ${dir === "upp" ? "upp" : "ned"}"${disabled ? html` disabled` : ""}${!disabled && moved === row.id && movedDir === dir ? html` autofocus` : ""}>${icon(dir === "upp" ? "arrowUp" : "arrowDown", "icon icon-sm")}</button>
         </form>`;
-      return html`<td class="col-move"><div class="move-buttons">${btn("upp", i === 0)}${btn("ned", i === results.length - 1)}</div></td>`;
+      // Med moveGroup räknas bara poster i samma grupp (t.ex. samma år och typ) – andra rader kan ligga emellan.
+      const peers = results.filter((x) => sameGroup(r, x, row));
+      const pos = peers.indexOf(row);
+      return html`<td class="col-move"><div class="move-buttons">${btn("upp", pos <= 0)}${btn("ned", pos === peers.length - 1)}</div></td>`;
     };
     const content = html`
       ${adminHead(r.title, { lead: r.lead, actions: html`${r.listActions ?? ""}<a class="btn btn-primary" href="/admin/${r.path}/ny">+ ${r.newLabel}</a>` })}
@@ -1189,6 +1196,11 @@ export function toggleHandler(r: Resource) {
 }
 
 /** Flytta upp/ned i listan: byter plats med grannen och numrerar om hela listan (10, 20, 30 …). */
+/** Hör två poster till samma flyttgrupp (moveGroup)? Utan moveGroup hör alla ihop. */
+function sameGroup(r: Resource, a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  return (r.moveGroup ?? []).every((k) => (a[k] ?? null) === (b[k] ?? null));
+}
+
 export function moveHandler(r: Resource) {
   return async (c: RequestContext, session: Session): Promise<Response> => {
     const form = await c.req.formData();
@@ -1196,7 +1208,11 @@ export function moveHandler(r: Resource) {
     const db = c.env.DB;
     const id = Number(c.params.id);
     const up = form.get("riktning") === "upp";
-    const { results } = await db.prepare(`SELECT id FROM ${r.table} ORDER BY ${r.orderBy}`).all<{ id: number }>();
+    const cols = r.moveGroup ?? [];
+    const all = (await db.prepare(`SELECT ${["id", ...cols].join(", ")} FROM ${r.table} ORDER BY ${r.orderBy}`).all<Record<string, unknown> & { id: number }>()).results;
+    const me = all.find((x) => x.id === id);
+    // Med moveGroup flyttas posten bara bland dem i samma grupp (t.ex. samma år); grupperna numreras om var för sig.
+    const results = me ? all.filter((x) => sameGroup(r, x, me)) : all;
     const i = results.findIndex((x) => x.id === id);
     const j = up ? i - 1 : i + 1;
     if (i >= 0 && j >= 0 && j < results.length) {

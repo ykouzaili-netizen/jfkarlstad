@@ -11,6 +11,7 @@ from common import BASE, OUT, check, done, login, sync_playwright, expect, test_
 MEDAL = "Testmedaljen"
 RECIPIENT = "Testa Mottagare"
 MEMBER = "Testa Hedersmedlem"
+MEMBER2 = "Testa Tvåa"
 
 
 def set_style(page, style: str) -> None:
@@ -105,8 +106,27 @@ def run() -> None:
         page.fill('textarea[name="description"]', "För lång och trogen tjänst i testet.")
         page.locator(".admin-form-actions button[type=submit]").click()
         page.wait_for_load_state("networkidle")
+        page.goto(f"{BASE}/admin/utmarkelser/ny")
+        page.fill('input[name="name"]', MEMBER2)
+        page.fill('input[name="year"]', "2024")
+        page.fill('textarea[name="description"]', "Den andra hedersmedlemmen. Med två meningar.")
+        page.locator(".admin-form-actions button[type=submit]").click()
+        page.wait_for_load_state("networkidle")
 
-        for style in ["kabinett", "band", "kortlek"]:
+        print("Admin: flytta hedersmedlemmar inom året")
+        page.goto(f"{BASE}/admin/utmarkelser")
+        row = lambda name: page.locator("tr", has=page.locator(f'a.row-title:has-text("{name}")')).last
+        titles = lambda: [x.strip() for x in page.locator("a.row-title").all_inner_texts()]
+        check(titles().index(MEMBER) < titles().index(MEMBER2), "samma år och ordning sorteras efter namn")
+        check(row(MEMBER).locator("button[aria-label^='Flytta upp']").is_disabled(), "den första i året kan inte flyttas upp (inte in i ett annat år)")
+        check(row(MEMBER2).locator("button[aria-label^='Flytta ned']").is_disabled(), "den sista i året kan inte flyttas ned")
+        check(row(RECIPIENT).locator("button[aria-label^='Flytta upp']").is_disabled() and row(RECIPIENT).locator("button[aria-label^='Flytta ned']").is_disabled(),
+              "en medaljmottagare flyttas inte bland hedersmedlemmarna")
+        row(MEMBER2).locator("button[aria-label^='Flytta upp']").click()
+        page.wait_for_load_state()
+        check(titles().index(MEMBER2) < titles().index(MEMBER), "Flytta upp byter plats inom året")
+
+        for style in ["galleri", "kabinett", "band", "kortlek"]:
             print(f"Om oss: {style}")
             set_style(page, style)
             page.goto(f"{BASE}/om-oss")
@@ -115,6 +135,27 @@ def run() -> None:
             text = sec.inner_text()
             check(MEDAL in text and MEMBER in text, f"{style}: medaljen och hedersmedlemmen finns med")
 
+            if style == "galleri":
+                rows = [x.strip() for x in sec.locator(".hg-row .hg-name").all_inner_texts()]
+                check(rows.index(MEMBER2) < rows.index(MEMBER), "galleri: ordningen från adminpanelen följer med")
+                check(sec.locator(".hg-year-label", has_text="2024").count() == 1, "galleri: året visas en gång")
+                sec.locator(".hg-row", has_text=MEMBER2).locator("button", has_text="Läs diplomet").click()
+                dip = page.locator(".hg-dialog:popover-open")
+                expect(dip).to_be_visible()
+                check(MEMBER2 in dip.inner_text() and "hedersmedlem 2024" in dip.inner_text().lower(), "galleri: diplomet visar namn och år")
+                crest = dip.locator("img.dp-crest")
+                page.wait_for_function("() => { const i = document.querySelector('.hg-dialog:popover-open img.dp-crest'); return i && i.complete && i.naturalWidth > 0; }", timeout=5000)
+                check(crest.count() == 1, "galleri: diplomet har JFK-loggan")
+                page.keyboard.press("Escape")
+                expect(page.locator(".hg-dialog:popover-open")).to_have_count(0)
+                more = sec.locator(".hg-row", has_text=MEMBER2).locator("button", has_text="Läs diplomet")
+                more.click()
+                page.mouse.click(640, 450)
+                check(page.locator(".hg-dialog:popover-open").count() == 1, "galleri: klick i diplomet stänger det inte")
+                page.mouse.click(6, 450)
+                expect(page.locator(".hg-dialog:popover-open")).to_have_count(0)
+                check(True, "galleri: klick utanför diplomet stänger det")
+                check(page.evaluate("document.querySelectorAll('[popover]').length") >= 2, "galleri: ett diplom per person")
             if style == "kabinett":
                 sec.locator(".hk-case", has_text=MEDAL).click()
                 pop = page.locator(f"#medalj-{medal_id}")
@@ -142,7 +183,7 @@ def run() -> None:
             page.screenshot(path=str(OUT / f"heders-{style}.png"), full_page=False)
 
         print("Städar")
-        for path, label in [("utmarkelser", RECIPIENT), ("utmarkelser", MEMBER), ("medaljer", MEDAL)]:
+        for path, label in [("utmarkelser", RECIPIENT), ("utmarkelser", MEMBER), ("utmarkelser", MEMBER2), ("medaljer", MEDAL)]:
             page.goto(f"{BASE}/admin/{path}")
             row = page.locator("tr", has=page.locator(f'a.row-title:has-text("{label}")')).last
             page.once("dialog", lambda d: d.accept())
