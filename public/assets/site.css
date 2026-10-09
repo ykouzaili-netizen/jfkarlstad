@@ -2146,17 +2146,25 @@ html:not(:has(.section-nav)) main > section:nth-child(n + 3),
 
 /* Partnersida */
 .partner-hero { display: grid; gap: 24px; align-items: center; }
-@media (min-width: 760px) { .partner-hero { grid-template-columns: 220px 1fr; gap: 40px; } }
+@media (min-width: 760px) { .partner-hero { grid-template-columns: 300px 1fr; gap: 44px; } }
+/* Logotypens ruta: logotypen ryms alltid helt (contain) – breda ordmärken och nästan kvadratiska märken
+   skalas ned tills de får plats inom rutans luft, aldrig beskurna och aldrig utanför ramen. */
 .partner-hero-logo {
   display: grid; place-items: center;
-  aspect-ratio: 1;
-  max-width: 220px;
-  padding: 28px;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  width: 100%;
+  max-width: 300px;
+  aspect-ratio: 3 / 2;
+  padding: clamp(20px, 3vw, 32px);
   border-radius: var(--radius-lg);
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   text-align: center;
+  overflow: hidden;
 }
+.partner-hero-logo .partner-logo { display: block; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: contain; }
+.partner-hero-logo img.partner-logo[data-img] { object-fit: contain !important; object-position: 50% 50% !important; transform: none !important; }
+.partner-hero-logo .partner-wordmark { overflow-wrap: anywhere; }
 
 /* Nyhet */
 .article-hero .news-date { display: block; margin-bottom: 12px; }
