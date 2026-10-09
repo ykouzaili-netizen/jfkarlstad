@@ -5,7 +5,7 @@ import { committeeImages, loadCommittees, type CommitteeRow } from "../lib/commi
 import { boardQuery, partnerQuery, positionQuery, rows, type BoardRow, type PartnerRow, type PositionRow } from "../lib/content.js";
 import { errorSummary, renderField, validate, type Errors, type FieldSpec, type FormUiTexts, type Values } from "../lib/forms.js";
 import { checkFormToken, clientIp, formToken, rateLimit, turnstileEnabled, verifyTurnstile } from "../lib/security.js";
-import { mailConfigured, mailRecipient, sendMail } from "../lib/mail.js";
+import { formRecipients, mailConfigured, sendMail } from "../lib/mail.js";
 import { renderInline, renderMarkdown } from "../lib/markdown.js";
 import { htmlResponse, redirect } from "../lib/http.js";
 import { isHex } from "../lib/color.js";
@@ -592,7 +592,7 @@ function summarize(id: FormId, s: Settings, v: Values): { subject: string; messa
 
 async function notifyBoard(env: Env, submissionId: number, id: FormId, v: Values, subject: string, message: string, data: Record<string, string>, anonymous: boolean): Promise<void> {
   if (!mailConfigured(env)) return;
-  const to = mailRecipient(env);
+  const to = await formRecipients(env, id);
   const site = env.SITE_URL.replace(/\/$/, "");
   const label = FORM_LABELS[id];
   const parts = [
@@ -611,7 +611,7 @@ async function notifyBoard(env: Env, submissionId: number, id: FormId, v: Values
   ];
   try {
     await sendMail(env, {
-      to: [to],
+      to,
       subject: `[JFK] ${label}: ${subject}`.slice(0, 180),
       text: parts.join("\n"),
       replyTo: anonymous ? undefined : v.epost || undefined,

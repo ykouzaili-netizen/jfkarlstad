@@ -49,6 +49,27 @@ export function mailRecipient(env: Env): string {
   return mailConfig(env)?.to ?? "";
 }
 
+/** Inställningen med egna mottagare för ett formulär (adminpanelen → E-post), t.ex. "mail_to:paverka". */
+export const FORM_RECIPIENT_PREFIX = "mail_to:";
+
+/** Giltiga adresser i en kommaseparerad lista, eller null om någon är ogiltig. */
+export function parseAddresses(value: string): string[] | null {
+  const list = value.split(/[,;\s]+/).map((a) => a.trim()).filter(Boolean);
+  return list.every((a) => /^[^\s@<>",;]+@[^\s@<>",;]+\.[a-z]{2,}$/i.test(a)) ? list.slice(0, 5) : null;
+}
+
+/** Vart notisen för ett formulär ska: formulärets egna mottagare om de finns, annars MAIL_TO. */
+export async function formRecipients(env: Env, form: string): Promise<string[]> {
+  try {
+    const row = await env.DB.prepare("SELECT value FROM settings WHERE key = ?").bind(FORM_RECIPIENT_PREFIX + form).first<{ value: string }>();
+    const list = row?.value ? parseAddresses(row.value) : null;
+    if (list?.length) return list;
+  } catch {
+    /* databasen svarar inte – använd standardadressen */
+  }
+  return [mailRecipient(env)];
+}
+
 /** Vilket steg i samtalet med e-postservern som gick fel – används för begripliga felmeddelanden i adminpanelen. */
 export type SmtpStep = "anslutning" | "kryptering" | "inloggning" | "avsandare" | "mottagare" | "meddelande";
 

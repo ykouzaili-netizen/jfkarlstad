@@ -27,7 +27,7 @@ import { mediaAdjustPage, mediaAdjustSubmit, mediaDeleteSubmit, mediaLibraryPage
 import { partnerStatsCsv, partnerStatsPage } from "./stats-pages.js";
 import { adminSearchPage } from "./search.js";
 import { handoverPage, handoverSubmit } from "./handover.js";
-import { mailPage, mailTestSubmit } from "./mail-page.js";
+import { mailPage, mailRecipientsSubmit, mailTestSubmit } from "./mail-page.js";
 
 export function registerAdminRoutes(router: Router): void {
   // Utan inloggning
@@ -95,6 +95,7 @@ export function registerAdminRoutes(router: Router): void {
     .post("/admin/utseende", requireUser(appearanceSubmit, "admin"))
     .get("/admin/e-post", requireUser(mailPage, "admin"))
     .post("/admin/e-post/test", requireUser(mailTestSubmit, "admin"))
+    .post("/admin/e-post/mottagare", requireUser(mailRecipientsSubmit, "admin"))
     .get("/admin/anvandare", requireUser((c, s) => usersPage(c, s), "admin"))
     .post("/admin/anvandare", requireUser(userCreate, "admin"))
     .post("/admin/anvandare/:id/lank", requireUser(userLink, "admin"))

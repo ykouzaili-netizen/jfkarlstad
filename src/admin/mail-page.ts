@@ -1,5 +1,6 @@
 import { html, type SafeHtml } from "../lib/html.js";
-import { mailConfig, sendMail, SmtpError, type SmtpStep } from "../lib/mail.js";
+import { FORM_RECIPIENT_PREFIX, mailConfig, parseAddresses, sendMail, SmtpError, type SmtpStep } from "../lib/mail.js";
+import { FORM_LABELS, type FormId } from "../pages/forms.js";
 import { rateLimit } from "../lib/security.js";
 import type { Env } from "../env.js";
 import type { RequestContext } from "../router.js";
@@ -95,8 +96,23 @@ async function unsentCount(db: D1Database): Promise<number> {
   return row?.n ?? 0;
 }
 
-async function render(c: RequestContext, session: Session, result?: { ok: true; to: string } | { ok: false; title: string; text: SafeHtml; detail: string } | { limited: true }): Promise<Response> {
+type RecipientState = { values: Record<string, string>; errors: Record<string, string>; saved?: boolean };
+
+/** Formulärens egna mottagare (tomt = standardadressen). */
+async function loadRecipients(db: D1Database): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  try {
+    const { results } = await db.prepare("SELECT key, value FROM settings WHERE key LIKE ?").bind(FORM_RECIPIENT_PREFIX + "%").all<{ key: string; value: string }>();
+    for (const r of results) out[r.key.slice(FORM_RECIPIENT_PREFIX.length)] = r.value;
+  } catch {
+    /* tom lista */
+  }
+  return out;
+}
+
+async function render(c: RequestContext, session: Session, result?: { ok: true; to: string } | { ok: false; title: string; text: SafeHtml; detail: string } | { limited: true }, recipients?: RecipientState): Promise<Response> {
   const rows = settingRows(c.env);
+  const rec: RecipientState = recipients ?? { values: await loadRecipients(c.env.DB), errors: {} };
   const cfg = mailConfig(c.env);
   const missing = rows.filter((r) => !r.value && (r.name === "SMTP_HOST" || r.name === "SMTP_USER" || r.name === "SMTP_PASS"));
   const unsent = await unsentCount(c.env.DB);
@@ -142,6 +158,24 @@ async function render(c: RequestContext, session: Session, result?: { ok: true; 
         </tbody>
       </table>
     </section>
+    <section class="admin-card" id="mottagare">
+      <h2 class="card-heading">Vart skickas notiserna?</h2>
+      <p class="muted">Varje formulär kan ha egna mottagare. Lämna tomt så går notisen till standardadressen${cfg ? html` (<strong>${cfg.to}</strong>)` : ""}. Flera adresser skiljs åt med komma.</p>
+      ${rec.saved ? html`<div class="alert alert-ok" role="status">Mottagarna är sparade. Nästa inskick mejlas till de nya adresserna.</div>` : ""}
+      <form class="admin-form" method="post" action="/admin/e-post/mottagare" novalidate>
+        ${csrfField(session)}
+        ${(Object.keys(FORM_LABELS) as FormId[]).map((id) => {
+          const err = rec.errors[id];
+          return html`<div class="field${err ? " has-error" : ""}">
+            <label class="field-label" for="mottagare-${id}">${FORM_LABELS[id]}</label>
+            ${id === "paverka" ? html`<p class="field-help" id="mottagare-${id}-hjalp">Inskicken är anonyma – mejlet innehåller aldrig namn, e-post eller IP-adress.</p>` : ""}
+            <input type="text" inputmode="email" id="mottagare-${id}" name="${id}" value="${rec.values[id] ?? ""}" placeholder="${cfg?.to ?? "Standardadressen"}" autocomplete="off" spellcheck="false" maxlength="300"${err ? html` aria-invalid="true" aria-describedby="mottagare-${id}-fel"` : id === "paverka" ? html` aria-describedby="mottagare-${id}-hjalp"` : ""}>
+            ${err ? html`<p class="field-error" id="mottagare-${id}-fel">${err}</p>` : ""}
+          </div>`;
+        })}
+        <button class="btn btn-primary" type="submit">Spara mottagare</button>
+      </form>
+    </section>
     <section class="admin-card">
       <h2 class="card-heading">Skicka ett testmejl</h2>
       ${cfg
@@ -180,4 +214,31 @@ export async function mailTestSubmit(c: RequestContext, session: Session): Promi
     console.error("Testmejlet misslyckades", step ?? "", message);
     return render(c, session, { ok: false, ...explain(step, message, c.env), detail: message });
   }
+}
+
+/** Spara formulärens egna mottagare. Tomt fält = standardadressen (raden tas bort). */
+export async function mailRecipientsSubmit(c: RequestContext, session: Session): Promise<Response> {
+  const form = await c.req.formData();
+  if (!checkCsrf(c, session, form)) return render(c, session, { ok: false, title: "Sidan hade hunnit bli för gammal.", text: html`Ladda om sidan och prova igen.`, detail: "csrf" });
+  const values: Record<string, string> = {};
+  const errors: Record<string, string> = {};
+  for (const id of Object.keys(FORM_LABELS)) {
+    const v = String(form.get(id) ?? "").trim().slice(0, 300);
+    values[id] = v;
+    if (v && !parseAddresses(v)) errors[id] = "Skriv hela e-postadresser, t.ex. viceordforande@jfkarlstad.se. Flera adresser skiljs åt med komma.";
+  }
+  if (Object.keys(errors).length) return render(c, session, undefined, { values, errors });
+  const db = c.env.DB;
+  const before = await loadRecipients(db);
+  const changed = Object.keys(values).filter((id) => (before[id] ?? "") !== (parseAddresses(values[id]!) ?? []).join(", "));
+  await db.batch(
+    Object.keys(values).map((id) => {
+      const list = parseAddresses(values[id]!) ?? [];
+      return list.length
+        ? db.prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").bind(FORM_RECIPIENT_PREFIX + id, list.join(", "))
+        : db.prepare("DELETE FROM settings WHERE key = ?").bind(FORM_RECIPIENT_PREFIX + id);
+    }),
+  );
+  if (changed.length) await audit(c.env, session, "ändrade", "e-postmottagare", null, changed.map((id) => FORM_LABELS[id as FormId]).join(", "));
+  return render(c, session, undefined, { values: await loadRecipients(db), errors: {}, saved: true });
 }
