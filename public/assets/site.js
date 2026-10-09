@@ -736,3 +736,27 @@
     front.addEventListener("click", function () { set(true); });
   });
 })();
+
+/* Hedersmedlemmar, Porträttgalleriet: tidslinjen fylls och punkterna blir ifyllda när man scrollar förbi.
+   Utan JS (eller med minskad rörelse) är allt ifyllt från början. */
+(function () {
+  var g = document.querySelector("[data-hg]");
+  if (!g || !("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var rows = g.querySelectorAll(".hg-row"), on = false, queued = false;
+  g.classList.add("is-live");
+  function frame() {
+    queued = false;
+    var r = g.getBoundingClientRect(), mid = innerHeight * 0.62;
+    var p = Math.min(1, Math.max(0, (mid - r.top) / r.height));
+    g.style.setProperty("--hg-p", (p * 100).toFixed(2) + "%");
+    for (var i = 0; i < rows.length; i++) {
+      var b = rows[i].getBoundingClientRect();
+      rows[i].classList.toggle("is-seen", b.top + b.height / 2 < mid);
+    }
+  }
+  function onScroll() { if (on && !queued) { queued = true; requestAnimationFrame(frame); } }
+  new IntersectionObserver(function (e) { on = e[0].isIntersecting; if (on) onScroll(); }, { rootMargin: "200px 0px" }).observe(g);
+  addEventListener("scroll", onScroll, { passive: true });
+  addEventListener("resize", onScroll, { passive: true });
+  frame();
+})();

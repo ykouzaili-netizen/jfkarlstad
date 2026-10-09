@@ -15,11 +15,12 @@ import { emptyState } from "../views/components.js";
  *  - kabinett  Mörk museimonter: medaljerna i strålkastarljus, porträttgalleri med mässingsskyltar.
  *  - band      Varje medaljs band är en flik; medaljen svänger fram med sina mottagare.
  *  - kortlek   Hedersmedlemmarna som en kortlek, medaljerna som mynt med en baksida.
+ *  - galleri   Porträttgalleriet: tidslinje genom åren, porträtten växlar sida, motiveringen som ett diplom.
  *
  * Allt fungerar utan JavaScript (site.js gör bläddring, flikar och vändning smidigare).
  */
 
-export const HONOR_STYLES = ["kabinett", "band", "kortlek"] as const;
+export const HONOR_STYLES = ["kabinett", "band", "kortlek", "galleri"] as const;
 export type HonorStyle = (typeof HONOR_STYLES)[number];
 
 export interface MedalWithRecipients extends MedalRow {
@@ -47,7 +48,7 @@ export function honorsData(honors: HonorRow[], medals: MedalRow[]): HonorsData {
 
 export function honorsSection(s: Settings, data: HonorsData): SafeHtml {
   const style = (HONOR_STYLES as readonly string[]).includes(s.honors_style) ? (s.honors_style as HonorStyle) : "kabinett";
-  return style === "kortlek" ? kortlek(s, data) : style === "band" ? band(s, data) : kabinett(s, data);
+  return style === "galleri" ? galleri(s, data) : style === "kortlek" ? kortlek(s, data) : style === "band" ? band(s, data) : kabinett(s, data);
 }
 
 // ───────────────────────── Gemensamt ─────────────────────────
@@ -347,4 +348,94 @@ function kortlekCoin(s: Settings, m: MedalWithRecipients): SafeHtml {
       <span class="hd-flip-icon" aria-hidden="true">${icon("history", "icon icon-sm")}</span><span${ek(s, "honors_flip")}>${s.honors_flip}</span><span class="sr-only">: ${m.name}</span>
     </button>
   </li>`;
+}
+
+// ───────────────────────── 4. Porträttgalleriet ─────────────────────────
+
+/** Första meningen i motiveringen – visas under namnet. */
+function firstSentence(text: string): string {
+  const first = text.trim().split(/\n\s*\n/)[0] ?? "";
+  const m = /^(.+?[.!?])(\s|$)/.exec(first);
+  return (m?.[1] ?? first).trim();
+}
+
+function galleri(s: Settings, d: HonorsData): SafeHtml {
+  const years: { year: number | null; people: HonorRow[] }[] = [];
+  for (const h of d.members) {
+    const last = years[years.length - 1];
+    if (last && last.year === h.year) last.people.push(h);
+    else years.push({ year: h.year, people: [h] });
+  }
+  let n = 0;
+  return html`<section class="honors honors--galleri" aria-labelledby="utmarkelser">
+    <div class="container">
+      <header class="hg-head">
+        ${title(s)}
+        <div class="prose prose-lg"${ek(s, "honors_text")}>${paragraphs(s.honors_text)}</div>
+      </header>
+
+      ${d.members.length
+        ? html`<div class="hg" data-hg>
+            <span class="hg-line" aria-hidden="true"><i></i></span>
+            ${years.map(
+              (y) => html`<div class="hg-year">${y.year ? html`<span class="hg-year-label">${y.year}</span>` : ""}</div>
+                <ol class="hg-list" aria-label="${y.year ? `${s.honors_members_title} ${y.year}` : s.honors_members_title}">
+                  ${y.people.map((h) => galleriRow(s, h, n++))}
+                </ol>`,
+            )}
+          </div>`
+        : emptyState(s.honors_members_empty, ek(s, "honors_members_empty"))}
+
+      <div class="hd-orders">
+        <div class="hd-orders-intro">
+          <h3 class="hd-orders-title"${ek(s, "rewards_title")}>${s.rewards_title}</h3>
+          <div class="prose"${ek(s, "rewards_text")}>${paragraphs(s.rewards_text)}</div>
+        </div>
+        ${d.medals.length
+          ? html`<ul class="hd-coins">${d.medals.map((m) => kortlekCoin(s, m))}</ul>`
+          : emptyState(s.honors_medals_empty, ek(s, "honors_medals_empty"))}
+      </div>
+      ${looseAwards(s, d)}
+    </div>
+  </section>`;
+}
+
+function galleriRow(s: Settings, h: HonorRow, i: number): SafeHtml {
+  const id = `diplom-${h.id}`;
+  const open = h.description
+    ? html`<button type="button" class="hg-more" popovertarget="${id}"><span${ek(s, "honors_read_diploma")}>${s.honors_read_diploma}</span>${icon("arrowRight", "icon icon-sm")}<span class="sr-only">: ${h.name}</span></button>`
+    : "";
+  return html`<li class="hg-row${i % 2 ? " hg-row--flip" : ""}"${editMember(s, h)}>
+    <div class="hg-fig">
+      ${h.description
+        ? html`<button type="button" class="hg-photo" popovertarget="${id}" aria-label="${s.honors_read_diploma}: ${h.name}">${portrait(h, "(min-width: 900px) 340px, 90vw", "hg-photo")}</button>`
+        : html`<div class="hg-photo">${portrait(h, "(min-width: 900px) 340px, 90vw", "hg-photo")}</div>`}
+    </div>
+    <div class="hg-txt">
+      ${h.year ? html`<p class="hg-kicker"${ek(s, "honors_diploma_kicker")}>${fill(s.honors_diploma_kicker, { år: h.year })}</p>` : ""}
+      <h3 class="hg-name">${h.name}</h3>
+      ${h.description ? html`<p class="hg-excerpt">${firstSentence(h.description)}</p>` : ""}
+      ${open}
+    </div>
+    ${h.description ? diploma(s, h, id) : ""}
+  </li>`;
+}
+
+/** Motiveringen som ett diplom (popover – öppnas och stängs utan JavaScript). */
+function diploma(s: Settings, h: HonorRow, id: string): SafeHtml {
+  return html`<div class="hg-dialog" id="${id}" popover role="dialog" aria-labelledby="${id}-namn">
+    <article class="dp">
+      <button type="button" class="dp-close" popovertarget="${id}" popovertargetaction="hide">${icon("close", "icon")}<span class="sr-only">${s.honors_close}</span></button>
+      <img class="dp-crest" src="/assets/diplom-logo.webp?v=1" alt="" width="480" height="503" loading="lazy" decoding="async">
+      <span class="dp-photo">${portrait(h, "160px", "dp-photo")}</span>
+      ${h.year ? html`<p class="dp-kicker"${ek(s, "honors_diploma_kicker")}>${fill(s.honors_diploma_kicker, { år: h.year })}</p>` : ""}
+      <h3 class="dp-name" id="${id}-namn">${h.name}</h3>
+      <p class="dp-orn" aria-hidden="true">§</p>
+      <div class="dp-text">${paragraphs(h.description)}</div>
+      <div class="dp-foot">
+        <span class="dp-sign"${ek(s, "honors_diploma_sign")}>${s.honors_diploma_sign}</span>
+        ${h.year ? html`<span class="dp-sign"${ek(s, "honors_diploma_rule")}>${fill(s.honors_diploma_rule, { år: h.year })}</span>` : ""}
+      </div>
+    </article>
+  </div>`;
 }
