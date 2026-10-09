@@ -76,7 +76,7 @@
 .admin-main:focus { outline: none; }
 
 @media (max-width: 899px) {
-  .admin-shell { grid-template-columns: 1fr; }
+  .admin-shell { grid-template-columns: minmax(0, 1fr); }
   .admin-menu-toggle { display: inline-grid; }
   .admin-nav { display: none; position: fixed; inset: 64px 0 0 0; z-index: 39; height: auto; border-right: 0; }
   .admin-nav.is-open { display: block; }
@@ -788,3 +788,15 @@ a.admin-user:hover { background: var(--c-hover); }
 .medal-preview-title { font-weight: 600; }
 .thumb-medal { display: grid; place-items: center; background: var(--c-bg); overflow: hidden; }
 .thumb-medal img { width: 22px; height: auto; }
+
+/* Flytta upp/ned i listor med egen ordning (medaljer, utskott, styrelsen, uppdrag) */
+.admin-table .col-move { width: 1%; white-space: nowrap; padding-right: 4px; }
+.move-buttons { display: inline-flex; gap: 4px; }
+.btn-move { min-width: 36px; min-height: 36px; padding: 0; justify-content: center; }
+.btn-move .icon { margin: 0; }
+.btn-move:disabled { opacity: 0.3; cursor: default; }
+.admin-table tr { scroll-margin-top: 140px; }
+.admin-table tr.is-moved > td { background: color-mix(in srgb, var(--c-accent) 22%, transparent); transition: background-color 1.2s ease; }
+@media (max-width: 760px) {
+  .admin-table td.col-move { float: right; width: auto; padding-top: 2px; }
+}

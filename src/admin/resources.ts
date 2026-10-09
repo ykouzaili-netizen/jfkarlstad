@@ -75,6 +75,8 @@ export interface Resource {
   /** Extra kolumner vid sparning, t.ex. publiceringsdatum. */
   extraColumns?: (v: Values, existing: Row | null) => Record<string, unknown>;
   emptyText: string;
+  /** Ordningen ändras med Flytta upp/ned direkt i listan (kolumnen sort_order numreras om). Kräver att orderBy börjar med sort_order. */
+  movable?: boolean;
   /** Kan kopieras ("Kopiera" i listan) – kopian blir ett opublicerat utkast. */
   duplicable?: boolean;
   /** Vilket menyval i sidomenyn som ska vara markerat (för typer som visas som flikar). */
@@ -356,6 +358,7 @@ export const RESOURCES: Resource[] = [
   },
   {
     path: "styrelsen",
+    movable: true,
     table: "board_members",
     title: "Styrelsen",
     singular: "styrelseledamot",
@@ -434,6 +437,7 @@ export const RESOURCES: Resource[] = [
   },
   {
     path: "medaljer",
+    movable: true,
     table: "medals",
     title: "Ordnar och medaljer",
     singular: "orden eller medalj",
@@ -477,7 +481,7 @@ export const RESOURCES: Resource[] = [
         options: Object.entries(MEDAL_KINDS).map(([value, o]) => ({ value, label: o.label })),
       },
       { name: "founded", label: "Instiftad år", type: "number", min: 2011, max: 2100, nullable: true },
-      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägst nummer visas först – lägg den finaste utmärkelsen först." },
+      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägst nummer visas först. Enklast är att använda pilarna Flytta upp och Flytta ned i listan." },
     ],
     beforeSave: async (_db, values): Promise<Errors> =>
       values.design === CUSTOM_DESIGN && !values.image_key ? { image_key: "Ladda upp en bild på medaljen, eller välj en av föreningens bilder ovan." } : {},
@@ -797,6 +801,7 @@ export const RESOURCES: Resource[] = [
   },
   {
     path: "utskott",
+    movable: true,
     table: "committees",
     title: "Utskott",
     singular: "utskott",
@@ -834,6 +839,7 @@ export const RESOURCES: Resource[] = [
   },
   {
     path: "uppdrag",
+    movable: true,
     table: "positions",
     title: "Lediga uppdrag",
     singular: "uppdrag",
@@ -941,6 +947,16 @@ export function resourceTabs(tabs: { href: string; label: string }[] | undefined
 export function listHandler(r: Resource) {
   return async (c: RequestContext, session: Session): Promise<Response> => {
     const { results } = await c.env.DB.prepare(r.listQuery ?? `SELECT * FROM ${r.table} ORDER BY ${r.orderBy}`).all<Row>();
+    // Efter Flytta upp/ned: markera raden och sätt fokus på samma knapp igen, så att man kan trycka flera gånger i rad.
+    const moved = Number(c.url.searchParams.get("flyttad")) || 0;
+    const movedDir = c.url.searchParams.get("riktning") === "upp" ? "upp" : "ned";
+    const moveCell = (row: Row, i: number) => {
+      const btn = (dir: "upp" | "ned", disabled: boolean) => html`<form class="inline-form" method="post" action="/admin/${r.path}/${row.id}/flytta">
+          ${csrfField(session)}<input type="hidden" name="riktning" value="${dir}">
+          <button class="btn btn-outline btn-sm btn-move" type="submit" aria-label="Flytta ${dir === "upp" ? "upp" : "ned"} ${r.titleOf(row)}" title="Flytta ${dir === "upp" ? "upp" : "ned"}"${disabled ? html` disabled` : ""}${!disabled && moved === row.id && movedDir === dir ? html` autofocus` : ""}>${icon(dir === "upp" ? "arrowUp" : "arrowDown", "icon icon-sm")}</button>
+        </form>`;
+      return html`<td class="col-move"><div class="move-buttons">${btn("upp", i === 0)}${btn("ned", i === results.length - 1)}</div></td>`;
+    };
     const content = html`
       ${adminHead(r.title, { lead: r.lead, actions: html`${r.listActions ?? ""}<a class="btn btn-primary" href="/admin/${r.path}/ny">+ ${r.newLabel}</a>` })}
       ${resourceTabs(r.tabs, `/admin/${r.path}`)}
@@ -948,10 +964,11 @@ export function listHandler(r: Resource) {
       ${results.length
         ? html`<div class="admin-card admin-card-flush">
             <table class="admin-table">
-              <thead><tr>${r.listColumns.map((cl) => html`<th scope="col" class="${cl.className ?? ""}">${cl.label ? cl.label : html`<span class="sr-only">Bild</span>`}</th>`)}<th scope="col" class="col-actions"><span class="sr-only">Åtgärder</span></th></tr></thead>
+              <thead><tr>${r.movable ? html`<th scope="col" class="col-move">Ordning</th>` : ""}${r.listColumns.map((cl) => html`<th scope="col" class="${cl.className ?? ""}">${cl.label ? cl.label : html`<span class="sr-only">Bild</span>`}</th>`)}<th scope="col" class="col-actions"><span class="sr-only">Åtgärder</span></th></tr></thead>
               <tbody>
                 ${results.map(
-                  (row) => html`<tr>
+                  (row, i) => html`<tr id="rad-${row.id}"${moved === row.id ? html` class="is-moved"` : ""}>
+                    ${r.movable ? moveCell(row, i) : ""}
                     ${r.listColumns.map((cl) => html`<td class="${cl.className ?? ""}" data-label="${cl.label}">${cl.render(row)}</td>`)}
                     <td class="col-actions">
                       <div class="row-actions">
@@ -1168,6 +1185,25 @@ export function toggleHandler(r: Resource) {
     await c.env.DB.prepare(`UPDATE ${r.table} SET ${sets.join(", ")} WHERE id = ?`).bind(next, ...Object.values(extra), id).run();
     await audit(c.env, session, next ? "publicerade" : "avpublicerade", r.singular, id, r.titleOf(row));
     return redirect(`/admin/${r.path}?klart=${next ? "publicerat" : "avpublicerat"}`, 303);
+  };
+}
+
+/** Flytta upp/ned i listan: byter plats med grannen och numrerar om hela listan (10, 20, 30 …). */
+export function moveHandler(r: Resource) {
+  return async (c: RequestContext, session: Session): Promise<Response> => {
+    const form = await c.req.formData();
+    if (!checkCsrf(c, session, form)) return redirect(`/admin/${r.path}?fel=csrf`, 303);
+    const db = c.env.DB;
+    const id = Number(c.params.id);
+    const up = form.get("riktning") === "upp";
+    const { results } = await db.prepare(`SELECT id FROM ${r.table} ORDER BY ${r.orderBy}`).all<{ id: number }>();
+    const i = results.findIndex((x) => x.id === id);
+    const j = up ? i - 1 : i + 1;
+    if (i >= 0 && j >= 0 && j < results.length) {
+      [results[i], results[j]] = [results[j]!, results[i]!];
+      await db.batch(results.map((x, k) => db.prepare(`UPDATE ${r.table} SET sort_order = ? WHERE id = ?`).bind((k + 1) * 10, x.id)));
+    }
+    return redirect(`/admin/${r.path}?flyttad=${id}&riktning=${up ? "upp" : "ned"}`, 303);
   };
 }
 

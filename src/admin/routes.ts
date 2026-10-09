@@ -21,7 +21,7 @@ import {
 } from "./pages.js";
 import { previewHandler, siteMapHandler } from "./preview.js";
 import { jobStatsCsv, jobStatsPage } from "./job-stats.js";
-import { RESOURCES, instagramSyncSubmit, deleteHandler, duplicateHandler, editHandler, listHandler, newHandler, saveHandler, toggleHandler } from "./resources.js";
+import { RESOURCES, instagramSyncSubmit, deleteHandler, duplicateHandler, editHandler, listHandler, moveHandler, newHandler, saveHandler, toggleHandler } from "./resources.js";
 import { historyPage, historyRestore, menuSubmit, textsPage, textsSubmit, undoSubmit, resetLayoutSubmit } from "./texts.js";
 import { mediaAdjustPage, mediaAdjustSubmit, mediaDeleteSubmit, mediaLibraryPage, mediaPickerFragment, mediaUploadSubmit } from "./media-pages.js";
 import { partnerStatsCsv, partnerStatsPage } from "./stats-pages.js";
@@ -86,6 +86,7 @@ export function registerAdminRoutes(router: Router): void {
       .post(`/admin/${r.path}/:id/radera`, requireUser(deleteHandler(r)));
     if (r.publishable) router.post(`/admin/${r.path}/:id/publicera`, requireUser(toggleHandler(r)));
     if (r.duplicable) router.post(`/admin/${r.path}/:id/kopiera`, requireUser(duplicateHandler(r)));
+    if (r.movable) router.post(`/admin/${r.path}/:id/flytta`, requireUser(moveHandler(r)));
   }
 
   // Endast administratörer

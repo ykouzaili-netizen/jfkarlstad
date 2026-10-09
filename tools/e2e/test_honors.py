@@ -39,6 +39,18 @@ def run() -> None:
         page.goto(f"{BASE}/admin/medaljer")
         check(page.locator("a.row-title").count() >= 10, "föreningens tio medaljer finns som platser i listan")
         check("Dold" in page.content(), "…och är dolda tills de fått namn")
+        # Flytta upp/ned direkt i listan
+        names = lambda: [x.strip() for x in page.locator("a.row-title").all_inner_texts()]
+        order = names()
+        page.locator("tbody tr").nth(2).locator("button[aria-label^='Flytta upp']").click()
+        page.wait_for_load_state()
+        now = names()
+        check(now[1] == order[2] and now[2] == order[1], "Flytta upp byter plats med medaljen ovanför")
+        check(page.evaluate("document.activeElement.getAttribute('aria-label') || ''").startswith("Flytta upp"), "fokus stannar på knappen så att man kan flytta flera steg")
+        check(page.locator("tbody tr").first.locator("button[aria-label^='Flytta upp']").is_disabled(), "den översta kan inte flyttas upp")
+        page.locator("tbody tr").nth(1).locator("button[aria-label^='Flytta ned']").click()
+        page.wait_for_load_state()
+        check(names()[:3] == order[:3], "Flytta ned återställer ordningen")
         page.goto(f"{BASE}/admin/medaljer/ny")
         check(page.locator('input[name="design"]').count() == 13, "tolv medaljbilder och Egen bild går att välja")
         # Egen bild utan uppladdad fil ger ett tydligt fel
