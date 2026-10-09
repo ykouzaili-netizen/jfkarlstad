@@ -5,6 +5,7 @@ import type { Env } from "./env.js";
 import { Router, type RequestContext } from "./router.js";
 import { randomToken, redirect, textResponse } from "./lib/http.js";
 import { findRedirect, looksLikeOldAddress } from "./lib/legacy.js";
+import { importHonorPhotos } from "./lib/honor-import.js";
 import { getFile } from "./lib/storage.js";
 import { homePage } from "./pages/home.js";
 import { aboutPage } from "./pages/about.js";
@@ -181,6 +182,8 @@ export default {
       // Utskottstabellen (och flytten av den gamla listan) för adminpanelens Utskott och bildbanken.
       // Hela adminpanelen: bildbanken och raderingar räknar även med utskottens bilder. Körs en gång per instans.
       if (url.pathname.startsWith("/admin")) await ensureCommitteeSchema(env.DB);
+      // Engångsimport av originalet till Lydias porträtt (tas bort när den har körts, se lib/honor-import.ts).
+      if (url.pathname.startsWith("/admin") || url.pathname === "/om-oss") await importHonorPhotos(env);
       const match = router.match(req.method, url.pathname);
       if (match === "method-not-allowed") return new Response("Metoden stöds inte", { status: 405, headers: { Allow: "GET, HEAD, POST" } });
       if (!match) {
