@@ -422,7 +422,7 @@ export const RESOURCES: Resource[] = [
       },
       { name: "name", label: "Namn", type: "text", required: true, max: 120 },
       { name: "year", label: "År", type: "number", min: 2011, max: 2100, nullable: true, help: "Året personen blev hedersmedlem eller fick utmärkelsen." },
-      { name: "description", label: "Motivering", type: "textarea", rows: 4, max: 1000 },
+      { name: "description", label: "Motivering", type: "textarea", rows: 10, max: 4000, help: "Tom rad = nytt stycke." },
       { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR)." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Bestämmer ordningen bland dem som har samma år. Lägst nummer först." },
     ],

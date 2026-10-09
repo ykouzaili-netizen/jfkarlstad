@@ -109,7 +109,7 @@ function looseAwards(s: Settings, data: HonorsData): SafeHtml | string {
     <ul class="honors-loose-list">${data.loose.map(
       (h) => html`<li${editMember(s, h)}>
         <span class="honors-loose-name">${h.name}</span>${h.year ? html`<span class="honors-loose-year">${h.year}</span>` : ""}
-        ${h.description ? html`<p class="honors-loose-text">${h.description}</p>` : ""}
+        ${h.description ? html`<div class="honors-loose-text">${paragraphs(h.description)}</div>` : ""}
       </li>`,
     )}</ul>
   </div>`;
@@ -190,7 +190,7 @@ function kabinettPortrait(s: Settings, h: HonorRow): SafeHtml {
       <figcaption class="hk-plaque"><span class="hk-plaque-name">${h.name}</span>${h.year ? html`<span class="hk-plaque-year">${since(s, h)}</span>` : ""}</figcaption>
     </figure>
     ${h.description
-      ? html`<details class="hk-why"><summary${ek(s, "honors_read_more")}>${s.honors_read_more}</summary><p>${h.description}</p></details>`
+      ? html`<details class="hk-why"><summary${ek(s, "honors_read_more")}>${s.honors_read_more}</summary>${paragraphs(h.description)}</details>`
       : ""}
   </li>`;
 }
@@ -246,7 +246,7 @@ function bandMembers(s: Settings, d: HonorsData): SafeHtml {
               <span class="hb-person-body">
                 <span class="hb-person-name">${h.name}</span>
                 ${h.year ? html`<span class="hb-person-year">${since(s, h)}</span>` : ""}
-                ${h.description ? html`<details class="hb-why"><summary${ek(s, "honors_read_more")}>${s.honors_read_more}</summary><p>${h.description}</p></details>` : ""}
+                ${h.description ? html`<details class="hb-why"><summary${ek(s, "honors_read_more")}>${s.honors_read_more}</summary>${paragraphs(h.description)}</details>` : ""}
               </span>
             </li>`,
           )}</ul>`
@@ -291,7 +291,7 @@ function kortlek(s: Settings, d: HonorsData): SafeHtml {
                     <div class="hd-card-body">
                       <h4 class="hd-name">${h.name}</h4>
                       ${h.year ? html`<p class="hd-since">${since(s, h)}</p>` : ""}
-                      ${h.description ? html`<p class="hd-why">${h.description}</p>` : ""}
+                      ${h.description ? html`<div class="hd-why">${paragraphs(h.description)}</div>` : ""}
                     </div>
                     <span class="sr-only">${i + 1} / ${n}</span>
                   </article>
