@@ -347,14 +347,20 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
   return htmlResponse(c, layout(c, s, { title: s.companies_kicker, description: s.companies_lead }, content), status);
 }
 
+/** /jf-paverka?typ=initiativ förväljer JF Initiativ (länken från Engagera dig). Bara kända typer godtas. */
+function preselectType(c: RequestContext): Values | undefined {
+  const t = c.url.searchParams.get("typ");
+  return PAVERKA_TYPES.some((x) => x.value === t) ? { typ: t! } : undefined;
+}
+
 export async function paverkaPage(c: RequestContext, values?: Values, errors?: Errors, topError?: string, status = 200): Promise<Response> {
   const s = await loadSettings(c.env.DB, c.preview);
   const content = html`
     ${pageHeader(s, { kickerKey: "paverka_kicker", hero: "paverka", titleKey: "paverka_page_title", leadKey: "paverka_lead" })}
     <section class="section section-tight-top">
       <div class="container form-layout">
-        <div>
-          ${await formBlock(c, s, "paverka", fieldsFor("paverka", s), values, errors, topError)}
+        <div id="paverka-formular">
+          ${await formBlock(c, s, "paverka", fieldsFor("paverka", s), values ?? preselectType(c), errors, topError)}
         </div>
         <aside class="stack">
           ${contentPhoto(s, "paverka_image", "paverka_image_alt")}
@@ -427,8 +433,48 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
       </div>
     </section>`
           : closedSection(c, s, signup),
+      fler: () => moreWays(s),
     })}`;
   return htmlResponse(c, layout(c, s, { title: s.engage_title, description: s.engage_lead }, content), status);
+}
+
+/** Fler sätt att påverka: JF Påverka och JF Initiativ för den som vill engagera sig utanför styrelse och utskott. */
+function moreWays(s: Settings): SafeHtml {
+  const steps = lines(s.engage_more_init_steps);
+  const points = lines(s.engage_more_paverka_points);
+  return html`<section class="section" aria-labelledby="fler-satt-att-paverka">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title" id="fler-satt-att-paverka"${ek(s, "engage_more_title")}>${s.engage_more_title}</h2>
+          ${s.engage_more_lead ? html`<p class="section-lead"${ek(s, "engage_more_lead")}>${s.engage_more_lead}</p>` : ""}
+        </div>
+      </div>
+      <div class="ways">
+        <article class="ways-card ways-card--paverka">
+          <span class="ways-icon" aria-hidden="true">${icon("megaphone")}</span>
+          <p class="ways-kicker"${ek(s, "engage_more_paverka_kicker")}>${s.engage_more_paverka_kicker}</p>
+          <h3 class="ways-title"${ek(s, "engage_more_paverka_title")}>${s.engage_more_paverka_title}</h3>
+          <p class="ways-text"${ek(s, "engage_more_paverka_text")}>${s.engage_more_paverka_text}</p>
+          ${points.length ? html`<ul class="ways-points"${ek(s, "engage_more_paverka_points")}>${points.map((x) => html`<li>${icon("check", "icon icon-sm")}<span>${x}</span></li>`)}</ul>` : ""}
+          <div class="ways-actions">
+            <a class="btn btn-primary" href="/jf-paverka#paverka-formular"${ek(s, "engage_more_paverka_button")}>${s.engage_more_paverka_button}${icon("arrowRight", "icon icon-sm")}</a>
+            ${s.engage_more_paverka_note ? html`<p class="ways-note"${ek(s, "engage_more_paverka_note")}>${icon("lock", "icon icon-sm")} ${s.engage_more_paverka_note}</p>` : ""}
+          </div>
+        </article>
+        <article class="ways-card ways-card--initiativ">
+          <span class="ways-icon" aria-hidden="true">${icon("sparkle")}</span>
+          <p class="ways-kicker"${ek(s, "engage_more_init_kicker")}>${s.engage_more_init_kicker}</p>
+          <h3 class="ways-title"${ek(s, "engage_more_init_title")}>${s.engage_more_init_title}</h3>
+          <p class="ways-text"${ek(s, "engage_more_init_text")}>${s.engage_more_init_text}</p>
+          ${steps.length ? html`<ol class="ways-steps"${ek(s, "engage_more_init_steps")}>${steps.map((x) => html`<li>${x}</li>`)}</ol>` : ""}
+          <div class="ways-actions">
+            <a class="btn ways-btn-ink" href="/jf-paverka?typ=initiativ#paverka-formular"${ek(s, "engage_more_init_button")}>${s.engage_more_init_button}${icon("arrowRight", "icon icon-sm")}</a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>`;
 }
 
 /** Avsnittet som visas i stället för formuläret när anmälan är stängd, med de egna färgerna. */

@@ -69,7 +69,7 @@ export const PAGE_LAYOUTS: Record<string, PageLayoutDef> = {
     ],
   },
   karriar: { paths: ["/karriar"], blocks: [] },
-  "engagera-dig": { paths: ["/engagera-dig"], blocks: [{ id: "uppdrag" }, { id: "utskott" }, { id: "formular" }] },
+  "engagera-dig": { paths: ["/engagera-dig"], blocks: [{ id: "uppdrag" }, { id: "utskott" }, { id: "formular" }, { id: "fler", anchor: "fler-satt-att-paverka" }] },
   "for-foretag": { paths: ["/for-foretag"], blocks: [{ id: "varfor" }, { id: "paket" }, { id: "formular" }] },
   partners: { paths: ["/partners"], blocks: [] },
   aktuellt: { paths: ["/aktuellt"], blocks: [] },
