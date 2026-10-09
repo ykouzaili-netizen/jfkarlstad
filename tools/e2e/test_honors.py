@@ -148,6 +148,13 @@ def run() -> None:
                 check(crest.count() == 1, "galleri: diplomet har JFK-loggan")
                 page.keyboard.press("Escape")
                 expect(page.locator(".hg-dialog:popover-open")).to_have_count(0)
+                more = sec.locator(".hg-row", has_text=MEMBER2).locator("button", has_text="Läs diplomet")
+                more.click()
+                page.mouse.click(640, 450)
+                check(page.locator(".hg-dialog:popover-open").count() == 1, "galleri: klick i diplomet stänger det inte")
+                page.mouse.click(6, 450)
+                expect(page.locator(".hg-dialog:popover-open")).to_have_count(0)
+                check(True, "galleri: klick utanför diplomet stänger det")
                 check(page.evaluate("document.querySelectorAll('[popover]').length") >= 2, "galleri: ett diplom per person")
             if style == "kabinett":
                 sec.locator(".hk-case", has_text=MEDAL).click()

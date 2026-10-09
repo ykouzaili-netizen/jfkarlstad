@@ -760,3 +760,14 @@
   addEventListener("resize", onScroll, { passive: true });
   frame();
 })();
+
+/* Diplomen i Porträttgalleriet: klick på den mörka ytan utanför diplomet stänger det (krysset och Esc fungerar alltid),
+   och ett diplom som öppnas igen börjar alltid från toppen. */
+document.addEventListener("click", function (e) {
+  var t = e.target;
+  if (t instanceof HTMLElement && t.classList.contains("hg-dialog") && t.hidePopover) t.hidePopover();
+});
+document.addEventListener("toggle", function (e) {
+  var t = e.target;
+  if (t instanceof HTMLElement && t.classList.contains("hg-dialog") && e.newState === "open") t.scrollTop = 0;
+}, true);
