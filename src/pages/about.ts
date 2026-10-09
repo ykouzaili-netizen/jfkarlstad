@@ -6,11 +6,12 @@ import { boardQuery, honorQuery, partnerQuery, type BoardRow, type HonorRow, typ
 import { htmlResponse } from "../lib/http.js";
 import { loadMedals } from "../lib/medals.js";
 import { honorsData, honorsSection } from "./honors.js";
+import { pedagogSection } from "./pedagog.js";
 import type { RequestContext } from "../router.js";
 import { joinButton, layout, picture } from "../views/layout.js";
 import { arrowLink, emptyState, partnerLogo } from "../views/components.js";
 import { icon, type IconName } from "../views/icons.js";
-import { avatar, HERO_FALLBACKS, heroStyle, heroTile, personCard, photoTop, sectionNav, type HeroImage } from "../views/page.js";
+import { HERO_FALLBACKS, heroStyle, heroTile, personCard, photoTop, sectionNav, type HeroImage } from "../views/page.js";
 
 export async function aboutPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
@@ -166,31 +167,6 @@ function boardSection(s: Settings, board: BoardRow[]): SafeHtml {
   </section>`;
 }
 
-function honorCard(s: Settings, h: HonorRow): SafeHtml {
-  return html`<li class="honor-card"${ec(s, `/admin/utmarkelser/${h.id}`, `Utmärkelser › ${h.name}`)}>
-    ${avatar(h.name, h.photo_key, "md")}
-    <div>
-      ${h.year ? html`<p class="honor-year">${h.year}</p>` : ""}
-      <h3 class="honor-name">${h.name}</h3>
-      ${h.description ? html`<p class="honor-text">${h.description}</p>` : ""}
-    </div>
-  </li>`;
-}
-
-function pedagogSection(s: Settings, honors: HonorRow[]): SafeHtml {
-  const winners = honors.filter((h) => h.kind === "arets_pedagog");
-  return html`<section class="section" aria-labelledby="arets-pedagog">
-    <div class="container">
-      <div class="section-head">
-        <div>
-          <h2 class="section-title" id="arets-pedagog"${ek(s, "pedagog_title")}>${s.pedagog_title}</h2>
-          <p class="section-lead"${ek(s, "pedagog_text")}>${s.pedagog_text}</p>
-        </div>
-      </div>
-      ${winners.length ? html`<ul class="honor-grid">${winners.map((h) => honorCard(s, h))}</ul>` : emptyState(s.pedagog_empty, ek(s, "pedagog_empty"))}
-    </div>
-  </section>`;
-}
 
 function collabCard(s: Settings, k: "juro" | "elsa"): SafeHtml {
   const img = s[`${k}_image` as const];

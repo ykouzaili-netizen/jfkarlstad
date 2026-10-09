@@ -367,6 +367,18 @@ function galleri(s: Settings, d: HonorsData): SafeHtml {
     else years.push({ year: h.year, people: [h] });
   }
   let n = 0;
+  const yearBlock = (y: { year: number | null; people: HonorRow[] }) =>
+    html`<div class="hg-year">${y.year ? html`<span class="hg-year-label">${y.year}</span>` : ""}</div>
+      <ol class="hg-list" aria-label="${y.year ? `${s.honors_members_title} ${y.year}` : s.honors_members_title}">
+        ${y.people.map((h) => galleriRow(s, h, n++))}
+      </ol>`;
+  // Årsspannet på knappen för tidigare år, t.ex. "2022–2024" (tomt om åren saknas).
+  const span = (ys: { year: number | null }[]) => {
+    const nums = ys.map((y) => y.year).filter((x): x is number => x != null);
+    if (!nums.length) return "";
+    const lo = Math.min(...nums), hi = Math.max(...nums);
+    return html`<span class="hg-toggle-years">${lo === hi ? lo : `${lo}–${hi}`}</span>`;
+  };
   return html`<section class="honors honors--galleri" aria-labelledby="utmarkelser">
     <div class="container">
       <header class="hg-head">
@@ -377,12 +389,18 @@ function galleri(s: Settings, d: HonorsData): SafeHtml {
       ${d.members.length
         ? html`<div class="hg" data-hg>
             <span class="hg-line" aria-hidden="true"><i></i></span>
-            ${years.map(
-              (y) => html`<div class="hg-year">${y.year ? html`<span class="hg-year-label">${y.year}</span>` : ""}</div>
-                <ol class="hg-list" aria-label="${y.year ? `${s.honors_members_title} ${y.year}` : s.honors_members_title}">
-                  ${y.people.map((h) => galleriRow(s, h, n++))}
-                </ol>`,
-            )}
+            ${yearBlock(years[0]!)}
+            ${years.length > 1
+              ? html`<details class="hg-earlier">
+                  <summary class="hg-toggle">
+                    <span class="hg-toggle-show"${ek(s, "honors_earlier_show")}>${s.honors_earlier_show}</span>
+                    <span class="hg-toggle-hide"${ek(s, "honors_earlier_hide")}>${s.honors_earlier_hide}</span>
+                    ${span(years.slice(1))}
+                    ${icon("chevronDown", "icon icon-sm")}
+                  </summary>
+                  <div class="hg-earlier-body">${years.slice(1).map(yearBlock)}</div>
+                </details>`
+              : ""}
           </div>`
         : emptyState(s.honors_members_empty, ek(s, "honors_members_empty"))}
 

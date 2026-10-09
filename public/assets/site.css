@@ -3994,7 +3994,7 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .hg-fig { justify-self: end; width: min(100%, 340px); }
 .hg-row--flip .hg-fig { order: 2; justify-self: start; }
 .hg-row--flip .hg-txt { justify-self: end; text-align: right; }
-.hg-photo { display: block; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; background: var(--c-surface); border-radius: var(--radius); box-shadow: 0 24px 44px -26px rgb(0 0 0 / 0.55); }
+.hg-photo { display: block; width: 100%; aspect-ratio: 4 / 5; padding: 0; border: 0; overflow: hidden; background: var(--c-surface); border-radius: var(--radius); box-shadow: 0 24px 44px -26px rgb(0 0 0 / 0.55); }
 button.hg-photo { cursor: pointer; }
 .hg-photo-img, .hg-photo-img img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; filter: grayscale(1); transition: transform 0.8s var(--ease-out); }
 button.hg-photo:hover .hg-photo-img, button.hg-photo:hover .hg-photo-img img { transform: scale(1.04); }
@@ -4017,6 +4017,41 @@ button.hg-photo:hover .hg-photo-img, button.hg-photo:hover .hg-photo-img img { t
   .hg-row--flip .hg-txt { justify-self: start; text-align: left; }
 }
 .honors--galleri .hd-orders-intro .prose { color: var(--c-muted); }
+/* Tidigare år fälls ut under det senaste året. Höjden animeras där webbläsaren klarar det (::details-content),
+   och raderna glider fram en i taget. Utan stöd öppnas den direkt. */
+.hg-earlier { position: relative; margin-top: clamp(40px, 6vw, 72px); interpolate-size: allow-keywords; }
+.hg-earlier::details-content { block-size: 0; overflow: clip; transition: block-size 0.7s var(--ease-out), content-visibility 0.7s allow-discrete; }
+.hg-earlier[open]::details-content { block-size: auto; }
+.hg-toggle { position: relative; display: flex; align-items: center; list-style: none; cursor: pointer; }
+.hg-toggle::-webkit-details-marker { display: none; }
+.hg-toggle > * { pointer-events: none; }
+.hg-toggle-show, .hg-toggle-hide, .hg-toggle-years { white-space: nowrap; }
+.hg-toggle-show, .hg-toggle-hide { padding: 12px 0 12px 24px; }
+.hg-toggle-hide { display: none; }
+.hg-earlier[open] .hg-toggle-show { display: none; }
+.hg-earlier[open] .hg-toggle-hide { display: inline; }
+.hg-toggle-years { padding: 12px 0 12px 10px; font-variant-numeric: lining-nums; opacity: 0.7; }
+.hg-toggle .icon { margin: 0 20px 0 10px; transition: transform 0.45s var(--ease-out); }
+.hg-earlier[open] .hg-toggle .icon { transform: rotate(180deg); }
+/* Själva knappen: en pill som ligger på tidslinjen, i samma stil som årtalen */
+.hg-toggle { width: fit-content; margin-inline: auto; border-radius: 999px; background: var(--c-bg); color: var(--c-text); font-weight: 600; font-size: 0.9375rem;
+  box-shadow: inset 0 0 0 2px var(--c-text), 0 0 0 8px var(--c-bg); transition: background-color 0.25s, color 0.25s; }
+.hg-toggle:hover { background: var(--c-text); color: var(--c-bg); }
+.hg-toggle:focus-visible { outline: 3px solid var(--c-text); outline-offset: 10px; }
+.hg-earlier-body { padding-top: clamp(40px, 6vw, 72px); }
+@keyframes hg-rise { from { opacity: 0; transform: translateY(28px); } }
+.hg-earlier[open] .hg-earlier-body > * { animation: hg-rise 0.8s var(--ease-out) both; }
+.hg-earlier[open] .hg-earlier-body > :nth-child(2) { animation-delay: 0.06s; }
+.hg-earlier[open] .hg-earlier-body > :nth-child(3) { animation-delay: 0.14s; }
+.hg-earlier[open] .hg-earlier-body > :nth-child(4) { animation-delay: 0.2s; }
+.hg-earlier[open] .hg-earlier-body > :nth-child(n+5) { animation-delay: 0.26s; }
+@media (max-width: 759px) {
+  .hg-toggle { margin-inline: 0; font-size: 0.875rem; }
+  .hg-toggle-show, .hg-toggle-hide { padding-left: 18px; }
+  .hg-toggle .icon { margin-right: 16px; }
+  .hg-toggle-years { display: none; }
+}
+
 
 /* Diplomet (popover) */
 /* Popovern täcker hela fönstret och scrollar själv; diplomet ligger centrerat i den. Klick på den mörka ytan runt diplomet stänger (site.js). */
@@ -4031,7 +4066,7 @@ button.hg-photo:hover .hg-photo-img, button.hg-photo:hover .hg-photo-img img { t
 .dp-close { position: absolute; top: 22px; left: 22px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: #141414; background: rgb(20 20 20 / 0.06); }
 .dp-close:hover { background: rgb(20 20 20 / 0.12); }
 .dp-crest { display: block; width: clamp(104px, 22vw, 150px); height: auto; margin: -8px auto 22px; }
-.dp-photo { display: block; width: 124px; height: 124px; margin: 0 auto; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 6px #fff, 0 0 0 7px #c9b77d; }
+.dp-photo { display: block; width: 124px; height: 124px; margin: 0 auto; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 3px #c9b77d, 0 10px 22px -10px rgb(0 0 0 / 0.45); }
 .dp-photo-img, .dp-photo-img img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; filter: grayscale(1); }
 .dp-photo-initials { display: grid; place-items: center; width: 100%; height: 100%; background: #141414; color: #f1cc4d; font-family: var(--font-display); font-size: 2.6rem; }
 .dp-kicker { margin-top: 22px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; }
@@ -4042,3 +4077,77 @@ button.hg-photo:hover .hg-photo-img, button.hg-photo:hover .hg-photo-img img { t
 .dp-text p + p { margin-top: 12px; }
 .dp-foot { display: flex; justify-content: center; gap: 16px clamp(24px, 6vw, 72px); margin-top: 34px; flex-wrap: wrap; }
 .dp-sign { min-width: 220px; padding-top: 8px; border-top: 1px solid #141414; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; }
+
+/* ───────── Årets pedagog: Plaketterna ─────────
+   Standard: sajtens primära färg som bakgrund och accentfärgen på plaketterna. Egna färger kommer som
+   --pd-bg/--pd-text/--pd-accent/--pd-on-accent från pedagogCss() i settings.ts. --pd-b/-t/-a/-oa är de färdiga
+   värdena; innehållet får dem som sajtens vanliga variabler (på .container, så att de inte refererar till sig själva). */
+.pedagog--plaketter {
+  --pd-b: var(--pd-bg, var(--c-primary)); --pd-t: var(--pd-text, var(--c-on-primary));
+  --pd-a: var(--pd-accent, var(--c-accent)); --pd-oa: var(--pd-on-accent, var(--c-on-accent));
+  background: var(--pd-b); color: var(--pd-t); overflow: hidden;
+}
+.pedagog--plaketter > .container {
+  --c-text: var(--pd-t); --c-muted: color-mix(in srgb, var(--pd-t) 74%, transparent);
+  --c-border: color-mix(in srgb, var(--pd-t) 18%, transparent); --c-hover: color-mix(in srgb, var(--pd-t) 8%, transparent);
+  --c-accent: var(--pd-a); --c-on-accent: var(--pd-oa);
+  --pd-metal: linear-gradient(180deg, color-mix(in srgb, var(--pd-a) 50%, #fff) 0%, var(--pd-a) 46%, color-mix(in srgb, var(--pd-a) 80%, #000) 54%, color-mix(in srgb, var(--pd-a) 72%, #fff) 100%);
+}
+.pd-head { text-align: center; }
+.pd-head .section-head { justify-content: center; margin-bottom: 0; }
+.pd-head .section-title { margin-top: 18px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+.pd-head .section-lead { margin-inline: auto; max-width: 62ch; font-size: 1rem; }
+.pd-orn { display: flex; align-items: center; gap: 12px; max-width: 420px; margin: 0 auto; color: var(--c-accent); font-size: 0.8125rem; letter-spacing: 0.2em; }
+.pd-orn::before, .pd-orn::after { content: ""; flex: 1; height: 1px; background: currentColor; opacity: 0.8; }
+.pd-orn--foot { margin-top: clamp(40px, 6vw, 64px); }
+
+.pd-filter { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 32px; }
+.pd-filter[hidden] { display: none; }
+.pd-filter button { min-height: 36px; padding: 6px 15px; border-radius: 999px; border: 1px solid var(--c-border); background: none; color: var(--c-muted); font-size: 0.8125rem; font-weight: 600; font-variant-numeric: lining-nums; transition: color 0.2s, border-color 0.2s, background 0.2s; }
+.pd-filter button:hover { color: var(--c-text); border-color: var(--c-accent); }
+.pd-filter button[aria-pressed="true"] { color: var(--c-on-accent); border-color: transparent; background: var(--pd-metal); }
+
+.pd-grid { --gap: clamp(16px, 3vw, 34px); list-style: none; max-width: 940px; margin: clamp(36px, 5vw, 52px) auto 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(36px, 5vw, 50px) var(--gap); }
+.pd-grid > .pd-card { flex: 0 1 calc((100% - 2 * var(--gap)) / 3); }
+.pd-card { display: grid; justify-items: center; align-content: start; text-align: center; transition: opacity 0.45s, filter 0.45s, transform 0.45s var(--ease-out); }
+.pd-card.is-out { opacity: 0.22; filter: grayscale(1); transform: scale(0.96); }
+.pd-card.is-hit { transform: translateY(-6px); }
+.pd-face { display: block; width: min(100%, 200px); aspect-ratio: 1; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; perspective: 700px; }
+.pd-photo { position: relative; display: block; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--c-text) 10%, transparent);
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform 0.25s ease-out;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-accent) 75%, transparent), 0 18px 34px -18px rgb(0 0 0 / 0.8); }
+.pd-photo-img, .pd-photo-img img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.pd-photo::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at var(--sx, 50%) var(--sy, 30%), rgb(255 255 255 / 0.35), transparent 55%); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.pd-face:hover .pd-photo::after, .pd-face:focus-visible .pd-photo::after { opacity: 1; }
+.pd-face:focus-visible { outline-offset: 6px; }
+.pd-photo-initials { display: grid; place-items: center; width: 100%; height: 100%; background: var(--c-accent); color: var(--c-on-accent); font-family: var(--font-display); font-size: 2.6rem; }
+
+.pd-rail { position: relative; display: flex; justify-content: center; gap: 8px; width: min(100%, 230px); margin: 18px 0 0; }
+.pd-rail::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: linear-gradient(90deg, transparent, var(--c-accent) 12%, var(--c-accent) 88%, transparent); }
+.pd-plaque { position: relative; display: inline-grid; place-items: center; min-width: 4.4em; padding: 0.2em 1em 0.15em; border: 0; border-radius: 999px; background: var(--pd-metal); color: var(--c-on-accent);
+  font-family: var(--font-display); font-weight: 600; font-size: 1.0625rem; line-height: 1.2; letter-spacing: 0.04em; font-variant-numeric: lining-nums;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6), inset 0 -1px 0 rgb(0 0 0 / 0.22), 0 3px 8px -3px rgb(0 0 0 / 0.6); }
+button.pd-plaque { cursor: pointer; transition: transform 0.2s var(--ease-out), filter 0.2s; }
+button.pd-plaque:hover { transform: translateY(-2px); filter: brightness(1.06); }
+.pd-name { margin-top: 14px; font-family: var(--font-display); font-weight: 500; font-size: calc(1.25rem * var(--display-scale)); line-height: 1.15; letter-spacing: 0.06em; text-transform: uppercase; text-wrap: balance; }
+.pd-times { margin-top: 6px; font-size: 0.75rem; font-weight: 600; color: var(--c-accent); }
+
+/* Diplomet för Årets pedagog (bygger på hedersmedlemmarnas diplom) */
+.pd-dialog .dp-photo-img, .pd-dialog .dp-photo-img img { filter: none; }
+.pd-dialog .dp-photo-initials { background: var(--c-accent); color: var(--c-on-accent); }
+.pd-rail--dp { margin: 18px auto 0; }
+.dp-step { position: absolute; top: 50%; width: 44px; height: 44px; margin-top: -22px; display: grid; place-items: center; border-radius: 50%; border: 0; color: #141414; background: rgb(20 20 20 / 0.06); cursor: pointer; }
+.dp-step:hover:not([disabled]) { background: rgb(20 20 20 / 0.12); }
+.dp-step[disabled] { opacity: 0.25; cursor: default; }
+.dp-step--prev { left: 22px; } .dp-step--next { right: 22px; }
+
+@media (max-width: 759px) {
+  .pd-grid > .pd-card { flex-basis: calc((100% - var(--gap)) / 2); }
+  .pd-plaque { font-size: 0.9375rem; min-width: 0; padding-inline: 0.75em; }
+  .pd-name { font-size: calc(1.0625rem * var(--display-scale)); letter-spacing: 0.04em; }
+  .pd-dialog .dp { padding-bottom: 86px; }
+  .dp-step { top: auto; bottom: 26px; margin-top: 0; }
+  .dp-step--prev { left: calc(50% - 54px); } .dp-step--next { right: calc(50% - 54px); }
+}
+/* Pedagogernas foton är urklipp ur runda bilder – zooma in en aning så att ingen kant syns i cirkeln. */
+.pd-photo-img img, img.pd-photo-img, .pd-dialog .dp-photo-img img, .pd-dialog img.dp-photo-img { transform: scale(1.07); }

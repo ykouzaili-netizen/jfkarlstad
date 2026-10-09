@@ -758,6 +758,8 @@
   new IntersectionObserver(function (e) { on = e[0].isIntersecting; if (on) onScroll(); }, { rootMargin: "200px 0px" }).observe(g);
   addEventListener("scroll", onScroll, { passive: true });
   addEventListener("resize", onScroll, { passive: true });
+  // Tidigare år fälls ut/ihop: linjen och punkterna räknas om medan höjden ändras.
+  g.addEventListener("toggle", function () { var t = performance.now(); (function tick() { frame(); if (performance.now() - t < 800) requestAnimationFrame(tick); })(); }, true);
   frame();
 })();
 
@@ -771,3 +773,51 @@ document.addEventListener("toggle", function (e) {
   var t = e.target;
   if (t instanceof HTMLElement && t.classList.contains("hg-dialog") && e.newState === "open") t.scrollTop = 0;
 }, true);
+
+/* Årets pedagog, Plaketterna: välj ett år (de andra tonas ned) och porträtten lutar sig efter pekaren.
+   Utan JS syns alla år och årsvalet är dolt. */
+(function () {
+  var filter = document.querySelector("[data-pd-filter]"), grid = document.querySelector("[data-pd-grid]");
+  if (filter && grid) {
+    filter.hidden = false;
+    filter.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      var y = b.getAttribute("data-y");
+      filter.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      grid.querySelectorAll(".pd-card").forEach(function (c) {
+        var hit = !y || c.getAttribute("data-years").split(" ").indexOf(y) >= 0;
+        c.classList.toggle("is-out", !hit);
+        c.classList.toggle("is-hit", !!y && hit);
+      });
+    });
+  }
+  if (!grid || matchMedia("(prefers-reduced-motion: reduce)").matches || !matchMedia("(hover: hover)").matches) return;
+  grid.addEventListener("pointermove", function (e) {
+    var f = e.target.closest(".pd-face");
+    if (!f) return;
+    var r = f.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height, p = f.firstElementChild;
+    p.style.setProperty("--ry", ((x - 0.5) * 16).toFixed(1) + "deg");
+    p.style.setProperty("--rx", ((0.5 - y) * 16).toFixed(1) + "deg");
+    p.style.setProperty("--sx", Math.round(x * 100) + "%");
+    p.style.setProperty("--sy", Math.round(y * 100) + "%");
+  });
+  grid.addEventListener("pointerout", function (e) {
+    var f = e.target.closest(".pd-face");
+    if (f && !f.contains(e.relatedTarget)) { f.firstElementChild.style.removeProperty("--rx"); f.firstElementChild.style.removeProperty("--ry"); }
+  });
+})();
+
+/* Diplomen för Årets pedagog: pilarna byter diplom. Utan JS öppnas nästa ovanpå (popovertarget);
+   med JS stängs det nuvarande först så att bara ett är öppet och Esc/klick utanför stänger allt. */
+document.addEventListener("click", function (e) {
+  var b = e.target instanceof Element && e.target.closest(".dp-step[popovertarget]");
+  if (!b) return;
+  var cur = b.closest("[popover]"), next = document.getElementById(b.getAttribute("popovertarget"));
+  if (!cur || !next || !cur.hidePopover) return;
+  e.preventDefault();
+  cur.hidePopover();
+  next.showPopover();
+  var same = next.querySelector(".dp-step--" + (b.classList.contains("dp-step--prev") ? "prev" : "next") + ":not([disabled])");
+  (same || next.querySelector(".dp-close")).focus();
+});
