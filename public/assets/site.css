@@ -415,6 +415,8 @@ main:focus { outline: none; }
 
   .sub-menu {
     position: absolute;
+    /* Över läsframstegslinjen under sidhuvudet (.site-header::after), som annars ritas ovanpå menyn */
+    z-index: 1;
     top: calc(100% + 10px);
     left: 0;
     min-width: 260px;
