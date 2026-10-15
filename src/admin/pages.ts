@@ -48,7 +48,7 @@ export async function dashboard(c: RequestContext, session: Session): Promise<Re
               (SELECT COUNT(*) FROM documents WHERE file_key IS NULL AND link_url IS NULL AND (body IS NULL OR body = '')) AS docs,
               (SELECT COUNT(*) FROM partners WHERE published = 1 AND (logo_key IS NULL OR logo_key = '')) AS logos,
               (SELECT COUNT(*) FROM jobs WHERE published = 1 AND deadline IS NOT NULL AND deadline < date('now')) AS expired,
-              (SELECT COUNT(*) FROM media WHERE kind = 'image' AND has_medium = 0 AND content_type IN ('image/jpeg', 'image/png', 'image/webp')) AS slow`,
+              (SELECT COUNT(*) FROM media WHERE kind = 'image' AND has_medium = 0 AND (content_type IN ('image/jpeg', 'image/png', 'image/webp') OR (content_type = '' AND (key LIKE '%.jpg' OR key LIKE '%.jpeg' OR key LIKE '%.png' OR key LIKE '%.webp')))) AS slow`,
     ),
     db.prepare(
       `SELECT 'nyheter' AS path, id, title, published_at AS at FROM news WHERE published = 1 AND published_at > datetime('now')

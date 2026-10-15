@@ -9,7 +9,7 @@ import { mediaUrl } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton } from "./layout.js";
-import { canHaveVariants, handleUpload, storeVariant, uploadInput, VARIANTS } from "./uploads.js";
+import { canHaveVariants, handleUpload, mediaType, storeVariant, uploadInput, VARIANTS } from "./uploads.js";
 
 /**
  * Bildbanken: alla uppladdade bilder på ett ställe. Visar var varje bild används, och bilder som inte
@@ -86,7 +86,7 @@ export async function mediaLibraryPage(c: RequestContext, session: Session, erro
 
 /** Behöver bilden nya versioner? Stående bilder fick tidigare en liten version som var 800 px *hög*, så den görs om. */
 function needsVariants(m: MediaRow): boolean {
-  return !m.has_medium && canHaveVariants(m.content_type);
+  return !m.has_medium && canHaveVariants(mediaType(m));
 }
 function needsSmall(m: MediaRow): boolean {
   return !m.has_small || !m.width || !m.height || m.height > m.width;
@@ -119,7 +119,7 @@ export async function mediaOptimizeSubmit(c: RequestContext, session: Session): 
   if (!checkCsrf(c, session, form)) return json({ ok: false, error: "Sessionen har gått ut. Ladda om sidan." }, 403);
   const key = String(form.get("nyckel") ?? "");
   const row = await c.env.DB.prepare("SELECT * FROM media WHERE key = ? AND kind = 'image'").bind(key).first<MediaRow>();
-  if (!row || !canHaveVariants(row.content_type)) return json({ ok: false, error: "Bilden finns inte." }, 404);
+  if (!row || !canHaveVariants(mediaType(row))) return json({ ok: false, error: "Bilden finns inte." }, 404);
   const filename = row.filename || key;
   const [sm, md] = VARIANTS;
   const newSmall = await storeVariant(c.env, key, sm, form.get("liten"), filename);
@@ -130,8 +130,8 @@ export async function mediaOptimizeSubmit(c: RequestContext, session: Session): 
   // Klar när versionerna finns – eller inte behövs för att originalet redan är smalt (webbläsaren skickar då ingen).
   const smallOk = newSmall || (!!row.has_small && !needsSmall({ ...row, width, height })) || (width !== null && width <= 880);
   const mediumOk = newMedium || (width !== null && width <= 1760);
-  await c.env.DB.prepare("UPDATE media SET has_small = ?, has_medium = ?, width = ?, height = ? WHERE key = ?")
-    .bind(newSmall || row.has_small ? 1 : 0, smallOk && mediumOk ? 1 : 0, width, height, key)
+  await c.env.DB.prepare("UPDATE media SET has_small = ?, has_medium = ?, width = ?, height = ?, content_type = ? WHERE key = ?")
+    .bind(newSmall || row.has_small ? 1 : 0, smallOk && mediumOk ? 1 : 0, width, height, mediaType(row), key)
     .run();
   return json({ ok: true, done: smallOk && mediumOk });
 }

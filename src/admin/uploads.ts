@@ -33,6 +33,13 @@ export function canHaveVariants(contentType: string): boolean {
   return contentType === "image/jpeg" || contentType === "image/png" || contentType === "image/webp";
 }
 
+/** Bildens typ – från bildbanken, eller från filändelsen för de äldsta bilderna som registrerades utan typ. */
+export function mediaType(m: { key: string; content_type: string | null }): string {
+  if (m.content_type) return m.content_type;
+  const ext = /\.([a-z0-9]+)$/i.exec(m.key)?.[1]?.toLowerCase();
+  return ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : ext === "gif" ? "image/gif" : ext === "svg" ? "image/svg+xml" : "";
+}
+
 function isFile(v: unknown): v is File {
   return typeof v === "object" && v !== null && "arrayBuffer" in v && "size" in v && "name" in v;
 }
