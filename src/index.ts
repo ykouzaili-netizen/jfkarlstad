@@ -5,7 +5,7 @@ import type { Env } from "./env.js";
 import { Router, type RequestContext } from "./router.js";
 import { randomToken, redirect, textResponse } from "./lib/http.js";
 import { findRedirect, looksLikeOldAddress } from "./lib/legacy.js";
-import { getFile } from "./lib/storage.js";
+import { getFile, MEDIA_VARIANT_VERSION } from "./lib/storage.js";
 import { homePage } from "./pages/home.js";
 import { aboutPage } from "./pages/about.js";
 import { membershipPage } from "./pages/membership.js";
@@ -100,7 +100,9 @@ async function mediaHandler(c: RequestContext): Promise<Response> {
   const key = c.params.key ?? "";
   if (!/^[a-z0-9][a-z0-9._-]{0,200}$/i.test(key)) return notFoundPage(c);
   const edge = typeof caches !== "undefined" && c.req.method === "GET" ? caches.default : null;
-  const cacheKey = new Request(new URL(`/media/${key}`, c.url).toString(), { method: "GET" });
+  // Bara versionsparametern för de mindre versionerna räknas (se MEDIA_VARIANT_VERSION) – andra parametrar kan inte fylla cachen.
+  const versioned = /\.(sm|md)$/.test(key) && c.url.searchParams.get("v") === MEDIA_VARIANT_VERSION;
+  const cacheKey = new Request(new URL(`/media/${key}${versioned ? `?v=${MEDIA_VARIANT_VERSION}` : ""}`, c.url).toString(), { method: "GET" });
   if (edge) {
     const hit = await edge.match(cacheKey);
     if (hit) return hit;

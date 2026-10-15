@@ -3,6 +3,7 @@ import { blockColorCss, ek, pageColorCss, pageIdForPath, HEADING_FONTS, headingF
 import { textStyleCss } from "../lib/pagelayout.js";
 import { imageFitCss } from "../lib/imagefit.js";
 import { telHref } from "../lib/format.js";
+import { MEDIA_VARIANT_VERSION } from "../lib/storage.js";
 import type { RequestContext } from "../router.js";
 import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
@@ -48,7 +49,7 @@ export function mediaUrl(key: string | null | undefined, size: "full" | "sm" | "
     // Genomskinlig platshållare som adminpanelens skript byter mot den valda bilden.
     return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10'%3E%3C!--fh:${encodeURIComponent(key.slice(PREVIEW_IMAGE_PREFIX.length))}--%3E%3C/svg%3E`;
   }
-  return `/media/${encodeURI(key)}${size === "full" ? "" : `.${size}`}`;
+  return `/media/${encodeURI(key)}${size === "full" ? "" : `.${size}?v=${MEDIA_VARIANT_VERSION}`}`;
 }
 
 /** srcset med bildens tre storlekar: 800 och 1600 px breda versioner och originalet (max 2560 px). */

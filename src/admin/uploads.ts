@@ -1,7 +1,7 @@
 import { isFitKey } from "../lib/imagefit.js";
 import type { Env } from "../env.js";
 import { html, type SafeHtml } from "../lib/html.js";
-import { IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_PDF_BYTES, isSafeSvg, putFile, randomKey, sniffType } from "../lib/storage.js";
+import { IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_PDF_BYTES, isSafeSvg, purgeCachedMedia, putFile, randomKey, sniffType } from "../lib/storage.js";
 import { registerMedia } from "../lib/media.js";
 import { mediaUrl } from "../views/layout.js";
 import { icon } from "../views/icons.js";
@@ -25,6 +25,12 @@ export async function storeVariant(env: Env, key: string, variant: (typeof VARIA
   const type = sniffType(new Uint8Array(data.slice(0, 64)));
   if (type !== "image/jpeg" && type !== "image/webp" && type !== "image/png") return false;
   await putFile(env, `${key}.${variant.suffix}`, data, { contentType: type, size: value.size, filename: `${variant.label}-${filename}` });
+  // En gammal reserv (originalet) kan ligga i Cloudflares cache under samma adress – töm den.
+  try {
+    await purgeCachedMedia(env, `${key}.${variant.suffix}`);
+  } catch {
+    /* cachen är en bonus */
+  }
   return true;
 }
 

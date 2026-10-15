@@ -97,11 +97,24 @@ export async function getFile(env: Env, key: string): Promise<StoredFile | null>
   return null;
 }
 
+/**
+ * Version av de mindre bildversionerna. Ingår i deras adress (".sm?v=2"), så att en gammal reserv (originalet, som
+ * förr cachades i ett år under ".sm") aldrig används när versionerna har gjorts om. Höj om versionerna görs om igen.
+ */
+export const MEDIA_VARIANT_VERSION = "2";
+
+/** Töm Cloudflares kopia av en fil i det här datacentret (övriga går ut inom ett dygn), även versionsadressen. */
+export async function purgeCachedMedia(env: Env, key: string): Promise<void> {
+  if (typeof caches === "undefined" || !env.SITE_URL) return;
+  const base = `${env.SITE_URL.replace(/\/$/, "")}/media/${key}`;
+  await Promise.all([base, `${base}?v=${MEDIA_VARIANT_VERSION}`].map((u) => caches.default.delete(new Request(u)).catch(() => false)));
+}
+
 export async function deleteFile(env: Env, key: string | null | undefined): Promise<void> {
   // Töm även kopian i Cloudflares cache (i det här datacentret; övriga går ut inom ett dygn).
   if (key && typeof caches !== "undefined" && env.SITE_URL) {
     try {
-      await caches.default.delete(new Request(`${env.SITE_URL.replace(/\/$/, "")}/media/${key}`));
+      await purgeCachedMedia(env, key);
     } catch {
       /* cachen är en bonus */
     }
