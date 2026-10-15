@@ -8,7 +8,7 @@ import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "76";
+export const ASSET_VERSION = "77";
 
 export interface PageMeta {
   title: string;
@@ -40,7 +40,7 @@ export function favicon(s: Settings): SafeHtml {
     : html`<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">`;
 }
 
-export function mediaUrl(key: string | null | undefined, size: "full" | "sm" = "full"): string | null {
+export function mediaUrl(key: string | null | undefined, size: "full" | "sm" | "md" = "full"): string | null {
   // Ett bildfält med bildspel innehåller flera nycklar ("a|b|c") – adressen gäller huvudbilden.
   if (key && key.includes("|")) key = key.split("|")[0];
   if (!key) return null;
@@ -48,13 +48,19 @@ export function mediaUrl(key: string | null | undefined, size: "full" | "sm" = "
     // Genomskinlig platshållare som adminpanelens skript byter mot den valda bilden.
     return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10'%3E%3C!--fh:${encodeURIComponent(key.slice(PREVIEW_IMAGE_PREFIX.length))}--%3E%3C/svg%3E`;
   }
-  return `/media/${encodeURI(key)}${size === "sm" ? ".sm" : ""}`;
+  return `/media/${encodeURI(key)}${size === "full" ? "" : `.${size}`}`;
+}
+
+/** srcset med bildens tre storlekar: 800 och 1600 px breda versioner och originalet (max 2560 px). */
+export function srcset(key: string): string {
+  return `${mediaUrl(key, "sm")} 800w, ${mediaUrl(key, "md")} 1600w, ${mediaUrl(key)} 2560w`;
 }
 
 /**
- * Bild med srcset: webbläsaren väljer den lilla versionen (800 px) på mobil och i kort,
- * och originalet bara när det behövs. `sizes` beskriver hur bred bilden visas.
+ * Bild med srcset: webbläsaren väljer den lilla versionen (800 px) på mobil och i kort, den mellanstora
+ * (1600 px) på datorer och originalet bara för helskärmsbilder. `sizes` beskriver hur bred bilden visas.
  */
+
 export function picture(
   key: string,
   opts: { alt: string; sizes: string; className?: string; width: number; height: number; eager?: boolean; attrs?: SafeHtml },
@@ -84,8 +90,7 @@ export function picture(
   if (isPlaceholder || isSvg) {
     return html`<img${cls} src="${full}" alt="${opts.alt}" width="${opts.width}" height="${opts.height}"${isPlaceholder ? "" : html` data-img="${key}"`}${loading}${opts.attrs ?? ""}>`;
   }
-  const sm = mediaUrl(key, "sm")!;
-  return html`<img${cls} src="${sm}" srcset="${sm} 800w, ${full} 2560w" sizes="${opts.sizes}" alt="${opts.alt}" width="${opts.width}" height="${opts.height}" data-img="${key}"${loading}${opts.attrs ?? ""}>`;
+  return html`<img${cls} src="${mediaUrl(key, "sm")}" srcset="${srcset(key)}" sizes="${opts.sizes}" alt="${opts.alt}" width="${opts.width}" height="${opts.height}" data-img="${key}"${loading}${opts.attrs ?? ""}>`;
 }
 
 /** "Bli medlem"-knappen. Länkar alltid till Hitract i ny flik. */
@@ -98,7 +103,7 @@ export function joinButton(s: Settings, opts: { className?: string; label?: stri
 export function logo(s: Settings, variant: "header" | "footer" = "header"): SafeHtml {
   const src = mediaUrl(s.logo_key);
   const mark = src
-    ? html`<img class="brand-logo" src="${src}" alt="" width="48" height="48" data-img="${s.logo_key}"${ek(s, "logo_key")}>`
+    ? html`<img class="brand-logo" src="${/\.svg$/i.test(s.logo_key) ? src : mediaUrl(s.logo_key, "sm")}" alt="" width="48" height="48" data-img="${s.logo_key}"${ek(s, "logo_key")}>`
     : html`<span class="brand-mark" aria-hidden="true"${ek(s, "logo_key")}>§</span>`;
   return html`<a class="brand brand-${variant}" href="/" aria-label="${s.site_name} – till startsidan">
     ${mark}

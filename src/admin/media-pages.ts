@@ -9,7 +9,7 @@ import { mediaUrl } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton } from "./layout.js";
-import { handleUpload, uploadInput } from "./uploads.js";
+import { canHaveVariants, handleUpload, storeVariant, uploadInput, VARIANTS } from "./uploads.js";
 
 /**
  * Bildbanken: alla uppladdade bilder på ett ställe. Visar var varje bild används, och bilder som inte
@@ -26,6 +26,7 @@ export async function mediaLibraryPage(c: RequestContext, session: Session, erro
   const unused = results.filter((m) => !usage.has(m.key));
   const shown = filter === "oanvanda" ? unused : results;
   const totalSize = results.reduce((n, m) => n + (m.size || 0), 0);
+  const pending = results.filter(needsVariants);
 
   const content = html`
     ${adminHead("Bildbank", {
@@ -40,6 +41,7 @@ export async function mediaLibraryPage(c: RequestContext, session: Session, erro
         <button class="btn btn-primary" type="submit">Ladda upp</button>
       </form>
     </section>
+    ${pending.length ? optimizeCard(session, pending) : ""}
     <div class="filter-bar">
       <nav class="tabs tabs-compact" aria-label="Filter">
         <ul>
@@ -75,6 +77,63 @@ export async function mediaLibraryPage(c: RequestContext, session: Session, erro
         </ul>`
       : html`<div class="admin-empty"><p>${filter === "oanvanda" ? "Alla bilder används någonstans. Snyggt!" : "Inga bilder ännu. Ladda upp en ovan, eller lägg till bilder när du skriver nyheter och event."}</p></div>`}`;
   return adminLayout(c, session, { title: "Bildbank", active: "/admin/bildbank", newCount: await newMessageCount(db), wide: true }, content, status);
+}
+
+// ───────────────────────── Optimera bilderna ─────────────────────────
+// Äldre bilder (och Instagram-bilder) saknar de mindre versionerna som webbplatsen visar på mobiler och datorer
+// (800 och 1600 px breda, se VARIANTS i uploads.ts). Workern kan inte skala om bilder, så det görs i webbläsaren:
+// admin.js hämtar originalet, gör versionerna och skickar dem hit en bild i taget.
+
+/** Behöver bilden nya versioner? Stående bilder fick tidigare en liten version som var 800 px *hög*, så den görs om. */
+function needsVariants(m: MediaRow): boolean {
+  return !m.has_medium && canHaveVariants(m.content_type);
+}
+function needsSmall(m: MediaRow): boolean {
+  return !m.has_small || !m.width || !m.height || m.height > m.width;
+}
+
+function optimizeCard(session: Session, pending: MediaRow[]) {
+  const items = pending.map((m) => ({ k: m.key, s: needsSmall(m) ? 1 : 0 }));
+  const n = pending.length;
+  return html`<section class="admin-card optimize-card" aria-labelledby="optimera" data-optimize="${JSON.stringify(items)}">
+    <h2 class="card-heading" id="optimera">Gör bilderna snabbare</h2>
+    <p>${n === 1 ? "1 bild saknar" : `${n} bilder saknar`} de mindre versionerna som webbplatsen visar på mobiler och datorer. Då laddas hela originalet i stället, vilket gör sidorna långsammare. Optimera ${n === 1 ? "den" : "dem"} en gång – det görs här i webbläsaren och tar ungefär ${Math.max(1, Math.round(n * 2 / 60))} min. Låt sidan vara öppen tills det är klart.</p>
+    <div class="optimize-actions">
+      ${csrfField(session)}
+      <button class="btn btn-primary" type="button" data-optimize-start hidden>${icon("image", "icon icon-sm")}Optimera ${n === 1 ? "bilden" : `${n} bilder`}</button>
+      <progress max="${n}" value="0" hidden data-optimize-progress></progress>
+      <p class="upload-status" aria-live="polite" data-optimize-status><noscript>Kräver JavaScript – öppna sidan i en vanlig webbläsare.</noscript></p>
+    </div>
+  </section>`;
+}
+
+/** Tar emot de mindre versionerna av en befintlig bild (fetch från admin.js). Svarar med JSON. */
+export async function mediaOptimizeSubmit(c: RequestContext, session: Session): Promise<Response> {
+  const json = (body: object, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+  let form: FormData;
+  try {
+    form = await c.req.formData();
+  } catch {
+    return json({ ok: false, error: "Kunde inte läsa bilden." }, 400);
+  }
+  if (!checkCsrf(c, session, form)) return json({ ok: false, error: "Sessionen har gått ut. Ladda om sidan." }, 403);
+  const key = String(form.get("nyckel") ?? "");
+  const row = await c.env.DB.prepare("SELECT * FROM media WHERE key = ? AND kind = 'image'").bind(key).first<MediaRow>();
+  if (!row || !canHaveVariants(row.content_type)) return json({ ok: false, error: "Bilden finns inte." }, 404);
+  const filename = row.filename || key;
+  const [sm, md] = VARIANTS;
+  const newSmall = await storeVariant(c.env, key, sm, form.get("liten"), filename);
+  const newMedium = await storeVariant(c.env, key, md, form.get("mellan"), filename);
+  const dims = /^(\d{1,5})x(\d{1,5})$/.exec(String(form.get("matt") ?? ""));
+  const width = row.width ?? (dims ? Number(dims[1]) : null);
+  const height = row.height ?? (dims ? Number(dims[2]) : null);
+  // Klar när versionerna finns – eller inte behövs för att originalet redan är smalt (webbläsaren skickar då ingen).
+  const smallOk = newSmall || (!!row.has_small && !needsSmall({ ...row, width, height })) || (width !== null && width <= 880);
+  const mediumOk = newMedium || (width !== null && width <= 1760);
+  await c.env.DB.prepare("UPDATE media SET has_small = ?, has_medium = ?, width = ?, height = ? WHERE key = ?")
+    .bind(newSmall || row.has_small ? 1 : 0, smallOk && mediumOk ? 1 : 0, width, height, key)
+    .run();
+  return json({ ok: true, done: smallOk && mediumOk });
 }
 
 export async function mediaUploadSubmit(c: RequestContext, session: Session): Promise<Response> {

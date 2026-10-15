@@ -119,37 +119,46 @@
     }
   }
 
-  /* Mindre version (max 800 px) till mobiler och kort. Läggs i det dolda fältet "<namn>__liten". */
-  var SMALL_SIDE = 800;
-  async function makeSmall(source, file) {
+  /* Mindre versioner till webbplatsen: 800 px bred ("liten", mobiler och kort) och 1600 px bred ("mellan", datorer).
+     Bredden – inte längsta sidan – avgör, så att webbläsarens val i srcset (800w/1600w) stämmer även för stående bilder.
+     Läggs i de dolda fälten "<namn>__liten" och "<namn>__mellan". WebP när webbläsaren kan, annars JPG (PNG vid genomskinlighet). */
+  var VARIANT_WIDTHS = { liten: 800, mellan: 1600 };
+  var VARIANT_MAX_BYTES = { liten: 1024 * 1024, mellan: 2.5 * 1024 * 1024 };
+  async function makeVariant(source, transparent, size) {
+    var target = VARIANT_WIDTHS[size];
     var w0 = source.width, h0 = source.height;
-    if (Math.max(w0, h0) <= SMALL_SIDE * 1.15) return null; // originalet är redan litet nog
-    var scale = SMALL_SIDE / Math.max(w0, h0);
+    if (w0 <= target * 1.1) return null; // originalet är redan smalt nog – webbplatsen använder det i stället
     var canvas = document.createElement("canvas");
-    canvas.width = Math.round(w0 * scale);
-    canvas.height = Math.round(h0 * scale);
+    canvas.width = target;
+    canvas.height = Math.max(1, Math.round(h0 * target / w0));
     var ctx = canvas.getContext("2d");
-    var transparent = /png|webp|gif/.test(file.type) && hasAlpha(source, w0, h0);
     var type = webpOk ? "image/webp" : transparent ? "image/png" : "image/jpeg";
     if (type === "image/jpeg") { ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-    var blob = await toBlob(canvas, type, type === "image/png" ? undefined : 0.8);
-    return blob && blob.size < 1024 * 1024 ? blob : null;
+    var blob = await toBlob(canvas, type, type === "image/png" ? undefined : (size === "liten" ? 0.8 : 0.82));
+    canvas.width = canvas.height = 0; // frigör minnet direkt (viktigt på mobiler när många bilder görs i rad)
+    return blob && blob.size <= VARIANT_MAX_BYTES[size] ? blob : null;
   }
+  function isTransparent(source, file) { return /png|webp|gif/.test(file.type || "") && hasAlpha(source, source.width, source.height); }
 
   function companion(name, attr) { return document.querySelector("[" + attr + '="' + name + '"]'); }
 
-  function setSmall(name, blob, originalName) {
-    var input = companion(name, "data-small-for");
+  function variantFile(blob, prefix, originalName) {
+    var ext = blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : "jpg";
+    return new File([blob], prefix + "-" + (originalName || "bild").replace(/\.[^.]+$/, "") + "." + ext, { type: blob.type });
+  }
+
+  function setVariant(name, attr, blob, prefix, originalName) {
+    var input = companion(name, attr);
     if (!input || !window.DataTransfer) return;
     var dt = new DataTransfer();
-    if (blob) {
-      var ext = blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : "jpg";
-      dt.items.add(new File([blob], "liten-" + originalName.replace(/\.[^.]+$/, "") + "." + ext, { type: blob.type }));
-    }
+    if (blob) dt.items.add(variantFile(blob, prefix, originalName));
     input.files = dt.files;
   }
+  function setSmall(name, blob, originalName) { setVariant(name, "data-small-for", blob, "liten", originalName); }
+  function setMedium(name, blob, originalName) { setVariant(name, "data-medium-for", blob, "mellan", originalName); }
 
   function setDims(name, w, h) {
     var input = companion(name, "data-dims-for");
@@ -173,6 +182,7 @@
       var file = input.files && input.files[0];
       setStatus(name, "");
       setSmall(name, null, "");
+      setMedium(name, null, "");
       setDims(name, 0, 0);
       var bank = companion(name, "data-bank-for");
       if (bank && file) bank.value = "";
@@ -206,7 +216,9 @@
         var finish = async function (f, w, h) {
           setDims(name, w, h);
           if (!isGif) {
-            try { setSmall(name, await makeSmall(source, f), f.name); } catch (e) { setSmall(name, null, ""); }
+            var transparent = isTransparent(source, f);
+            try { setSmall(name, await makeVariant(source, transparent, "liten"), f.name); } catch (e) { setSmall(name, null, ""); }
+            try { setMedium(name, await makeVariant(source, transparent, "mellan"), f.name); } catch (e) { setMedium(name, null, ""); }
           }
         };
         if (!tooBig && !isHeic && (!tooManyPixels || isGif)) {
@@ -241,6 +253,76 @@
       }
     });
   });
+
+  /* ---------- Bildbanken → Gör bilderna snabbare ----------
+     Gör de mindre versionerna (800 och 1600 px breda) av befintliga bilder: hämtar originalet, skalar om det här
+     och skickar versionerna till servern en bild i taget. Avbryts det (sidan stängs) fortsätter man där man slutade. */
+  (function () {
+    var card = document.querySelector("[data-optimize]");
+    if (!card || !window.fetch || !window.FormData) return;
+    var items;
+    try { items = JSON.parse(card.getAttribute("data-optimize")) || []; } catch (e) { return; }
+    var btn = card.querySelector("[data-optimize-start]");
+    var bar = card.querySelector("[data-optimize-progress]");
+    var status = card.querySelector("[data-optimize-status]");
+    var csrf = card.querySelector('input[name="_csrf"]');
+    if (!btn || !items.length) return;
+    btn.hidden = false;
+
+    function say(text, kind) { status.textContent = text; status.className = "upload-status" + (kind ? " is-" + kind : ""); }
+    function decodeBlob(blob) {
+      if (window.createImageBitmap) return createImageBitmap(blob).catch(function () { return decodeWithImg(blob); });
+      return decodeWithImg(blob);
+    }
+
+    async function one(item) {
+      var res = await fetch("/media/" + encodeURI(item.k), { cache: "no-store", credentials: "same-origin" });
+      if (!res.ok) throw new Error("hämta");
+      var blob = await res.blob();
+      var source = await decodeBlob(blob);
+      var transparent = /png|webp/.test(blob.type) && hasAlpha(source, source.width, source.height);
+      var fd = new FormData();
+      fd.append("_csrf", csrf ? csrf.value : "");
+      fd.append("nyckel", item.k);
+      fd.append("matt", source.width + "x" + source.height);
+      if (item.s) {
+        var small = await makeVariant(source, transparent, "liten");
+        if (small) fd.append("liten", variantFile(small, "liten", item.k));
+      }
+      var medium = await makeVariant(source, transparent, "mellan");
+      if (medium) fd.append("mellan", variantFile(medium, "mellan", item.k));
+      if (source.close) source.close();
+      var r = await fetch("/admin/bildbank/optimera", { method: "POST", body: fd, credentials: "same-origin" });
+      var data = await r.json().catch(function () { return {}; });
+      if (!r.ok || !data.ok) throw new Error(data.error || "spara");
+    }
+
+    btn.addEventListener("click", async function () {
+      btn.disabled = true;
+      bar.hidden = false;
+      var failed = 0, stop = null;
+      window.addEventListener("beforeunload", warn);
+      for (var i = 0; i < items.length; i++) {
+        say("Optimerar bild " + (i + 1) + " av " + items.length + " …", "busy");
+        try { await one(items[i]); }
+        catch (e) {
+          failed++;
+          if (/Sessionen/.test(e.message)) { stop = e.message; break; }
+        }
+        bar.value = i + 1;
+      }
+      window.removeEventListener("beforeunload", warn);
+      if (stop) { say(stop, "error"); btn.disabled = false; return; }
+      if (failed) {
+        say("Klart, men " + failed + (failed === 1 ? " bild" : " bilder") + " gick inte att optimera. Ladda om sidan och försök igen.", "error");
+        btn.disabled = false;
+      } else {
+        say("Klart! Alla bilder är optimerade. Webbplatsen visar nu de mindre versionerna.", "ok");
+        btn.hidden = true;
+      }
+    });
+    function warn(e) { e.preventDefault(); e.returnValue = ""; }
+  })();
 
   /* Visa/dölj lösenord */
   document.querySelectorAll("[data-toggle-password]").forEach(function (btn) {
@@ -757,6 +839,7 @@
       if (hidden) hidden.value = pick.getAttribute("data-bank-key");
       if (file) file.value = "";
       setSmall(field, null, "");
+      setMedium(field, null, "");
       setDims(field, 0, 0);
       var remove = document.querySelector('input[name="' + field + '__ta_bort"]');
       if (remove) remove.checked = false;

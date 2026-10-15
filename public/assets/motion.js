@@ -148,14 +148,18 @@
     var isYear = !grouped && target >= 1800 && target <= 2100;
     var from = isYear ? target - 15 : 0;
     var fmt = grouped && window.Intl ? new Intl.NumberFormat("sv-SE") : null;
-    var start = null;
+    var start = null, last = "";
     var dur = isYear ? 1200 : 1600;
+    // En enda textnod som skrivs om (i stället för att byta ut innehållet varje bildruta) – billigare för webbläsaren.
+    el.textContent = original;
+    var node = el.firstChild;
     function frame(t) {
       if (start === null) start = t;
       var p = clamp((t - start) / dur, 0, 1);
       var eased = 1 - Math.pow(1 - p, 4);
       var v = Math.round(from + (target - from) * eased);
-      el.textContent = p < 1 ? m[1] + (fmt ? fmt.format(v) : String(v)) + m[3] : original;
+      var text = p < 1 ? m[1] + (fmt ? fmt.format(v) : String(v)) + m[3] : original;
+      if (text !== last) { node.nodeValue = text; last = text; }
       if (p < 1) window.requestAnimationFrame(frame);
     }
     window.requestAnimationFrame(frame);
@@ -344,7 +348,11 @@
 
   var header = document.querySelector("[data-header]");
   var hero = FULL ? document.querySelector("main > .hero") : null;
-  var bands = FULL ? $$("[data-wordband]") : [];
+  // Skrolldrivna animationer (Chrome, Edge, Safari 26 …): ridån, läslinjen och de rullande orden räknas då ut av
+  // webbläsaren själv i kompositorn (se .sda i site.css). Skriptet sköter bara det som inte är rörelse per bildruta.
+  var SDA = !!(window.CSS && CSS.supports && CSS.supports("animation-timeline: scroll()") && CSS.supports("animation-range: 0px 10px") && CSS.supports("view-timeline: --a block"));
+  if (SDA) root.classList.add("sda");
+  var bands = FULL && !SDA ? $$("[data-wordband]") : [];
   var canHide = header && !document.querySelector(".section-nav");
   var lastY = window.scrollY;
   var heroH = 0;
@@ -361,57 +369,62 @@
       heroH = hero.offsetHeight;
       // Är toppen högre än skärmen stannar den först när dess nederkant syns, så att inget döljs.
       hero.style.setProperty("--hero-top", Math.min(0, vh - heroH) + "px");
+      if (SDA) hero.style.setProperty("--hero-h", heroH + "px");
     }
     if (spot) spotLine = spotWords[0].offsetHeight;
     var long = document.documentElement.scrollHeight > vh * 2.6;
     root.classList.toggle("has-progress", !!header && long && !hero);
   }
 
+  // En bildruta: först alla mätningar, sedan alla ändringar – annars tvingas webbläsaren räkna om layouten mitt i
+  // bildrutan (en av de vanligaste orsakerna till hack när man skrollar).
   function frame() {
     ticking = false;
     var y = window.scrollY;
+
+    // ---- Läs ----
+    var bandBoxes = [];
+    for (var i = 0; i < bands.length; i++) bandBoxes.push(bands[i].getBoundingClientRect());
+    var sr = spot ? spotSec.getBoundingClientRect() : null;
+    var docH = root.classList.contains("has-progress") && !SDA ? document.documentElement.scrollHeight : 0;
+    var menuOpen = header && (root.classList.contains("menu-open") || header.contains(document.activeElement) && document.activeElement !== document.body);
+
+    // ---- Skriv ----
     if (hero) {
       var hp = clamp(y / (heroH || 1), 0, 1);
-      hero.style.setProperty("--hp", hp.toFixed(4));
+      if (!SDA) hero.style.setProperty("--hp", hp.toFixed(4));
       // Helt täckt: göm toppen, så att den inte skymtar i glipor mellan avsnitten längre ned (och inte ritas i onödan).
-      hero.classList.toggle("is-covered", hp >= 1);
+      if ((hp >= 1) !== hero.classList.contains("is-covered")) hero.classList.toggle("is-covered", hp >= 1);
     }
 
     if (header) {
       var dy = y - lastY;
-      var menuOpen = root.classList.contains("menu-open") || header.contains(document.activeElement) && document.activeElement !== document.body;
       var threshold = hero ? heroH * 0.9 : 240;
-      if (!canHide || menuOpen || y < threshold || dy < -4) header.classList.remove("is-hidden");
-      else if (dy > 6) header.classList.add("is-hidden");
-      if (root.classList.contains("has-progress")) {
-        var max = document.documentElement.scrollHeight - vh;
-        header.style.setProperty("--read", clamp(y / (max || 1), 0, 1).toFixed(4));
-      }
+      if (!canHide || menuOpen || y < threshold || dy < -4) { if (header.classList.contains("is-hidden")) header.classList.remove("is-hidden"); }
+      else if (dy > 6 && !header.classList.contains("is-hidden")) header.classList.add("is-hidden");
+      if (docH) header.style.setProperty("--read", clamp(y / ((docH - vh) || 1), 0, 1).toFixed(4));
     }
 
-    bands.forEach(function (row) {
-      var box = row.getBoundingClientRect();
+    bands.forEach(function (row, i) {
+      var box = bandBoxes[i];
       if (box.bottom < -200 || box.top > vh + 200) return;
       // 0 när raden kommer in nedtill, 1 när den lämnar upptill.
       var p = (vh - box.top) / (vh + box.height);
       var dir = parseFloat(row.getAttribute("data-wordband")) || 1;
-      var track = row.firstElementChild;
       var x = dir < 0 ? -4 - p * 22 : -30 + p * 22;
-      track.style.transform = "translate3d(" + x.toFixed(3) + "%,0,0)";
+      row.firstElementChild.style.transform = "translate3d(" + x.toFixed(3) + "%,0,0)";
     });
 
-    if (spot) {
-      var sr = spotSec.getBoundingClientRect();
-      if (sr.bottom > -50 && sr.top < vh + 50) {
-        // 0 när scenen fastnar upptill, 1 när den släpper – då har alla ord passerat mitten.
-        var a = clamp(-sr.top / ((sr.height - vh) || 1), 0, 1) * (spotWords.length - 1);
-        spot.style.transform = "translate3d(0," + (((spotWords.length - 1) / 2 - a) * spotLine).toFixed(2) + "px,0)";
-        spotWords.forEach(function (w, k) {
-          var d = Math.abs(k - a);
-          w.style.setProperty("--d", d.toFixed(3));
-          w.classList.toggle("is-on", d < 0.5);
-        });
-      }
+    if (sr && sr.bottom > -50 && sr.top < vh + 50) {
+      // 0 när scenen fastnar upptill, 1 när den släpper – då har alla ord passerat mitten.
+      var a = clamp(-sr.top / ((sr.height - vh) || 1), 0, 1) * (spotWords.length - 1);
+      spot.style.transform = "translate3d(0," + (((spotWords.length - 1) / 2 - a) * spotLine).toFixed(2) + "px,0)";
+      spotWords.forEach(function (w, k) {
+        var d = Math.abs(k - a);
+        w.style.setProperty("--d", d.toFixed(3));
+        var on = d < 0.5;
+        if (on !== w.classList.contains("is-on")) w.classList.toggle("is-on", on);
+      });
     }
 
     lastY = y;

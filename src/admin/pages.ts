@@ -47,7 +47,8 @@ export async function dashboard(c: RequestContext, session: Session): Promise<Re
       `SELECT (SELECT COUNT(*) FROM news WHERE published = 0) AS news,
               (SELECT COUNT(*) FROM documents WHERE file_key IS NULL AND link_url IS NULL AND (body IS NULL OR body = '')) AS docs,
               (SELECT COUNT(*) FROM partners WHERE published = 1 AND (logo_key IS NULL OR logo_key = '')) AS logos,
-              (SELECT COUNT(*) FROM jobs WHERE published = 1 AND deadline IS NOT NULL AND deadline < date('now')) AS expired`,
+              (SELECT COUNT(*) FROM jobs WHERE published = 1 AND deadline IS NOT NULL AND deadline < date('now')) AS expired,
+              (SELECT COUNT(*) FROM media WHERE kind = 'image' AND has_medium = 0 AND content_type IN ('image/jpeg', 'image/png', 'image/webp')) AS slow`,
     ),
     db.prepare(
       `SELECT 'nyheter' AS path, id, title, published_at AS at FROM news WHERE published = 1 AND published_at > datetime('now')
@@ -60,7 +61,7 @@ export async function dashboard(c: RequestContext, session: Session): Promise<Re
   const newMsgs = msgs!.results as { id: number; form: string; subject: string; name: string | null; anonymous: number; created_at: string }[];
   const oldWaiting = ((waiting!.results[0] as { n?: number } | undefined)?.n ?? 0) as number;
   const upcoming = events!.results as { id: number; title: string; starts_at: string; ends_at: string | null; published: number; publish_at: string | null }[];
-  const todo = (counts!.results[0] ?? {}) as { news?: number; docs?: number; logos?: number; expired?: number };
+  const todo = (counts!.results[0] ?? {}) as { news?: number; docs?: number; logos?: number; expired?: number; slow?: number };
   const planned = scheduled!.results as { path: string; id: number; title: string; at: string }[];
   const recent = log!.results as { action: string; entity: string; summary: string | null; user_email: string | null; created_at: string }[];
   const newCount = await newMessageCount(db);
@@ -84,6 +85,7 @@ export async function dashboard(c: RequestContext, session: Session): Promise<Re
     todo.docs ? html`<li><a href="/admin/dokument">${todo.docs} dokument saknar länk, PDF eller text</a></li>` : "",
     todo.logos ? html`<li><a href="/admin/partners">${todo.logos} ${todo.logos === 1 ? "partner saknar" : "partners saknar"} logotyp</a></li>` : "",
     todo.expired ? html`<li><a href="/admin/jobb">${todo.expired} ${todo.expired === 1 ? "jobbannons har" : "jobbannonser har"} gått ut – ta bort eller förläng</a></li>` : "",
+    todo.slow ? html`<li><a href="/admin/bildbank#optimera">${todo.slow} ${todo.slow === 1 ? "bild kan" : "bilder kan"} göras snabbare att ladda – optimera i Bildbanken</a></li>` : "",
     !s.hero_image_key ? html`<li><a href="/admin/texter?sida=startsida&falt=hero_image_key">Ladda upp en bild överst på startsidan</a></li>` : "",
     isAdmin && !s.logo_key ? html`<li><a href="/admin/utseende#logotyp">Ladda upp föreningens logotyp</a></li>` : "",
     isAdmin && !s.org_number ? html`<li><a href="/admin/texter?sida=gemensamt&falt=org_number">Fyll i organisationsnumret</a></li>` : "",

@@ -108,22 +108,31 @@ async function mediaHandler(c: RequestContext): Promise<Response> {
   const res = await mediaFromStorage(c, key);
   if (edge && res.status === 200) {
     // Kopian i datacentret lever högst ett dygn, så att en raderad bild (t.ex. ett personfoto) försvinner
-    // överallt inom 24 timmar även om den raderas från ett annat datacenter (GDPR).
+    // överallt inom 24 timmar även om den raderas från ett annat datacenter (GDPR). En reserv (originalet i
+    // stället för en mindre version som inte är gjord än) lever bara en kort stund – se mediaFromStorage.
     const copy = new Response(res.clone().body, res);
-    copy.headers.set("Cache-Control", "public, max-age=86400");
+    copy.headers.set("Cache-Control", res.headers.has("X-Media-Fallback") ? "public, max-age=600" : "public, max-age=86400");
     c.exec.waitUntil(edge.put(cacheKey, copy));
   }
   return res;
 }
 
 async function mediaFromStorage(c: RequestContext, key: string): Promise<Response> {
-  // Den lilla versionen (".sm") finns inte för äldre bilder och SVG – svara då med originalet.
-  const file = (await getFile(c.env, key)) ?? (key.endsWith(".sm") ? await getFile(c.env, key.slice(0, -3)) : null);
+  // De mindre versionerna (".sm" 800 px, ".md" 1600 px) finns inte för äldre bilder, små bilder och SVG – svara
+  // då med originalet. Det svaret cachas bara kort, så att versionen används så fort den har gjorts
+  // (Bildbanken → Optimera bilderna) i stället för att originalet ligger kvar i webbläsarens cache i ett år.
+  let file = await getFile(c.env, key);
+  let fallback = false;
+  if (!file && /\.(sm|md)$/.test(key)) {
+    file = await getFile(c.env, key.slice(0, -3));
+    fallback = true;
+  }
   if (!file) return notFoundPage(c);
   return new Response(c.req.method === "HEAD" ? null : file.body, {
     headers: {
       "Content-Type": file.contentType,
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control": fallback ? "public, max-age=3600" : "public, max-age=31536000, immutable",
+      ...(fallback ? { "X-Media-Fallback": "1" } : {}),
       "X-Content-Type-Options": "nosniff",
       // Förhindra att uppladdade filer (t.ex. SVG) kan köra skript i vår origin.
       "Content-Security-Policy": "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox",

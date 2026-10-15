@@ -1807,8 +1807,9 @@ main:focus { outline: none; }
    Avsnitt långt ned på sidan ritas först när besökaren närmar sig dem (content-visibility), och rullande
    band/bildspel som inte syns står still (site.js sätter .is-offscreen). Det gör att sidan blir klar
    snabbare och att datorn/mobilen inte arbetar med animationer ingen ser. */
-/* Inte på sidor med genvägsmeny – där måste avsnittens riktiga höjd vara känd för att hoppen ska landa rätt. */
-html:not(:has(.section-nav)) main > section:nth-child(n + 3),
+/* Inte på sidor med genvägsmeny – där måste avsnittens riktiga höjd vara känd för att hoppen ska landa rätt.
+   (Syskonväljare i stället för html:has(…): :has på hela sidan räknas om vid varje ändring i sidan.) */
+main > section:nth-child(n + 3):not(.section-nav ~ *),
 .site-footer { content-visibility: auto; contain-intrinsic-size: auto 700px; }
 .is-offscreen .marquee-track,
 .is-offscreen .insta-track,
@@ -2724,7 +2725,8 @@ a.cal-num:hover { background: var(--c-hover); }
 .section-nav a.is-active, .section-nav a[aria-current="true"] { color: var(--c-on-primary); border-bottom-color: var(--c-accent); }
 .section-nav .sn-icon { display: none; line-height: 0; }
 .section-nav :focus-visible { outline-color: var(--c-accent); outline-offset: -3px; }
-html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
+/* Hopp till ett avsnitt landar under både sidhuvudet och genvägsmenyn (56 px utöver html:s scroll-padding). */
+.section-nav ~ * :is(h2, h3)[id] { scroll-margin-top: 56px; }
 
 /* ---------- Om oss ---------- */
 .page-top { padding-block: clamp(40px, 6vw, 80px) clamp(40px, 5vw, 72px); }
@@ -3115,6 +3117,39 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   pointer-events: none;
 }
 
+/* Skrolldriven ridå (.sda sätts av motion.js när webbläsaren kan "animation-timeline"): samma rörelse som ovan,
+   men webbläsaren räknar ut den själv i grafikkortet (kompositorn) i takt med skrollningen – inget JavaScript per
+   bildruta, ingen omräkning av stilar och ingen eftersläpning ens när huvudtråden är upptagen.
+   --hero-h är toppens höjd i pixlar (sätts av motion.js när fönstret ändrar storlek). */
+@keyframes cur-inner { 0% { opacity: 1; transform: translate3d(0, 0, 0); } 58.8% { opacity: 0; } 100% { opacity: 0; transform: translate3d(0, -14vh, 0); } }
+@keyframes cur-fade { 0% { opacity: 1; } 25%, 100% { opacity: 0; } }
+@keyframes cur-media { from { transform: scale(1); } to { transform: scale(1.1); } }
+@keyframes cur-shade { from { opacity: 0; } to { opacity: 0.6; } }
+.sda.has-curtain :is(.hero-inner, .hero-media), .sda.has-curtain .hero::after {
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  animation-timeline: scroll(root block);
+  animation-range: 0px var(--hero-h, 100vh);
+}
+.sda.has-curtain .hero-inner { animation-name: cur-inner; }
+.sda.has-curtain .hero-media { animation-name: cur-media; }
+.sda.has-curtain .hero::after { animation-name: cur-shade; }
+/* Pilen nedtill tonar bort i början av skrollningen. Den har också en intoning när sidan öppnas (sist i listan, så
+   att den vinner medan den pågår). Listan gäller från första bildrutan – läggs en animation till i efterhand
+   startar webbläsaren om intoningen. */
+@supports (animation-timeline: scroll()) and (animation-range: 0px 10px) {
+  @media (prefers-reduced-motion: no-preference) {
+    [data-motion="full"] .hero .hero-scroll {
+      animation: cur-fade linear both, m-fade 1s ease 1.5s backwards;
+      animation-timeline: scroll(root block), auto;
+      animation-range: 0px var(--hero-h, 100vh), normal;
+    }
+  }
+}
+@media (max-aspect-ratio: 1/1) and (max-width: 1023px) {
+  .sda.has-curtain .hero-fit-hela .hero-media { animation: none; }
+}
+
 /* ---------- Innehåll som kommer fram när man skrollar ----------
    .rv sätts av motion.js bara på sådant som ligger nedanför skärmen. .is-in = framme. När animationen
    är klar tar skriptet bort klasserna igen, så att kortens egna hover-effekter fungerar som vanligt. */
@@ -3202,6 +3237,16 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .wb-row-outline .wb-track { color: transparent; -webkit-text-stroke: max(1px, 0.012em) var(--c-text); }
 .wb-row:first-child .wb-track { transform: translate3d(-8%, 0, 0); }
 .wb-row-outline .wb-track { transform: translate3d(-28%, 0, 0); }
+/* Rullande ord på nivån Full: raderna glider åt var sitt håll i takt med skrollningen. Med .sda gör webbläsaren
+   det själv i kompositorn (raden är sin egen tidslinje från att den kommer in nedtill tills den lämnar upptill);
+   annars flyttar motion.js spåren. */
+@keyframes wb-to-left { from { transform: translate3d(-4%, 0, 0); } to { transform: translate3d(-26%, 0, 0); } }
+@keyframes wb-to-right { from { transform: translate3d(-30%, 0, 0); } to { transform: translate3d(-8%, 0, 0); } }
+@media (prefers-reduced-motion: no-preference) {
+  [data-motion="full"].sda [data-wordband] { view-timeline: --wb-row block; }
+  [data-motion="full"].sda [data-wordband] > .wb-track { animation: wb-to-right linear both; animation-timeline: --wb-row; animation-range: cover 0% cover 100%; }
+  [data-motion="full"].sda [data-wordband^="-"] > .wb-track { animation-name: wb-to-left; }
+}
 .wb-sep { color: var(--c-accent); font-size: 0.55em; -webkit-text-stroke: 0; }
 
 /* ---------- Rullande ord: fler utseenden ----------
@@ -3398,6 +3443,9 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
   transform-origin: 0 50%;
   pointer-events: none;
 }
+/* Där webbläsaren kan följer linjen skrollningen direkt i kompositorn, utan JavaScript (se .sda ovan). */
+@keyframes read-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.sda.has-progress .site-header::after { animation: read-progress linear both; animation-timeline: scroll(root block); }
 
 /* ---------- Knappar: texten rullar upp och en kopia kommer underifrån (motion.js) ---------- */
 
@@ -3990,9 +4038,10 @@ html:has(.section-nav) { scroll-padding-top: calc(var(--header-h) + 72px); }
 .hg-head { display: grid; gap: 16px 64px; align-items: end; }
 .hg-head .prose { color: var(--c-muted); max-width: 60ch; }
 @media (min-width: 900px) { .hg-head { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
-.hg { position: relative; margin-top: clamp(40px, 6vw, 72px); --hg-p: 100%; }
+.hg { position: relative; margin-top: clamp(40px, 6vw, 72px); }
 .hg-line { position: absolute; left: 50%; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--c-border); border-radius: 2px; }
-.hg-line i { position: absolute; left: 0; right: 0; top: 0; height: var(--hg-p); background: var(--c-text); border-radius: 2px; }
+/* Fyllningen skalas (transform) i stället för att ändra höjd – då behöver sidan aldrig räknas om när man skrollar. */
+.hg-line i { position: absolute; left: 0; right: 0; top: 0; height: 100%; background: var(--c-text); border-radius: 2px; transform-origin: 50% 0; transform: scaleY(var(--hg-s, 1)); }
 .hg-year { position: relative; display: flex; justify-content: center; padding: 8px 0; }
 .hg-year + .hg-list { margin-top: 8px; }
 .hg-list + .hg-year { margin-top: clamp(40px, 6vw, 72px); }

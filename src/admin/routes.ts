@@ -23,7 +23,7 @@ import { previewHandler, siteMapHandler } from "./preview.js";
 import { jobStatsCsv, jobStatsPage } from "./job-stats.js";
 import { RESOURCES, instagramSyncSubmit, deleteHandler, duplicateHandler, editHandler, listHandler, moveHandler, newHandler, saveHandler, toggleHandler } from "./resources.js";
 import { historyPage, historyRestore, menuSubmit, textsPage, textsSubmit, undoSubmit, resetLayoutSubmit } from "./texts.js";
-import { mediaAdjustPage, mediaAdjustSubmit, mediaDeleteSubmit, mediaLibraryPage, mediaPickerFragment, mediaUploadSubmit } from "./media-pages.js";
+import { mediaAdjustPage, mediaAdjustSubmit, mediaDeleteSubmit, mediaOptimizeSubmit, mediaLibraryPage, mediaPickerFragment, mediaUploadSubmit } from "./media-pages.js";
 import { partnerStatsCsv, partnerStatsPage } from "./stats-pages.js";
 import { adminSearchPage } from "./search.js";
 import { handoverPage, handoverSubmit } from "./handover.js";
@@ -57,6 +57,7 @@ export function registerAdminRoutes(router: Router): void {
     .get("/admin/bildbank", requireUser((c, s) => mediaLibraryPage(c, s)))
     .post("/admin/bildbank", requireUser(mediaUploadSubmit))
     .post("/admin/bildbank/radera", requireUser(mediaDeleteSubmit))
+    .post("/admin/bildbank/optimera", requireUser(mediaOptimizeSubmit))
     .get("/admin/bildbank/valj", requireUser(mediaPickerFragment))
     .get("/admin/bildbank/justera", requireUser(mediaAdjustPage))
     .post("/admin/bildbank/justera", requireUser(mediaAdjustSubmit))

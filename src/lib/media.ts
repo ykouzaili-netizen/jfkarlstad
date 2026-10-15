@@ -17,6 +17,8 @@ export interface MediaRow {
   width: number | null;
   height: number | null;
   has_small: number;
+  /** 1 när både den lilla (800 px bred) och den mellanstora (1600 px bred) versionen finns. */
+  has_medium?: number;
   uploaded_by: string | null;
   created_at: string;
 }
@@ -103,12 +105,12 @@ export async function isInUse(db: D1Database, key: string): Promise<boolean> {
 
 export async function registerMedia(
   db: D1Database,
-  m: { key: string; kind: "image" | "pdf"; filename: string; contentType: string; size: number; width?: number | null; height?: number | null; hasSmall: boolean; user?: string | null },
+  m: { key: string; kind: "image" | "pdf"; filename: string; contentType: string; size: number; width?: number | null; height?: number | null; hasSmall: boolean; hasMedium?: boolean; user?: string | null },
 ): Promise<void> {
   try {
     await db
-      .prepare("INSERT OR REPLACE INTO media (key, kind, filename, content_type, size, width, height, has_small, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .bind(m.key, m.kind, m.filename, m.contentType, m.size, m.width ?? null, m.height ?? null, m.hasSmall ? 1 : 0, m.user ?? null)
+      .prepare("INSERT OR REPLACE INTO media (key, kind, filename, content_type, size, width, height, has_small, has_medium, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .bind(m.key, m.kind, m.filename, m.contentType, m.size, m.width ?? null, m.height ?? null, m.hasSmall ? 1 : 0, m.hasMedium ? 1 : 0, m.user ?? null)
       .run();
   } catch (err) {
     // Bildbanken är en bekvämlighet – uppladdningen ska inte misslyckas för att registreringen gör det.
@@ -116,11 +118,12 @@ export async function registerMedia(
   }
 }
 
-/** Radera filen (och den lilla versionen) helt – från lagringen och bildbanken. */
+/** Radera filen (och de mindre versionerna) helt – från lagringen och bildbanken. */
 export async function purgeMedia(env: Env, key: string | null | undefined): Promise<void> {
   if (!key) return;
   await deleteFile(env, key);
   await deleteFile(env, `${key}.sm`);
+  await deleteFile(env, `${key}.md`);
   try {
     await env.DB.prepare("DELETE FROM media WHERE key = ?").bind(key).run();
   } catch {

@@ -742,17 +742,16 @@
 (function () {
   var g = document.querySelector("[data-hg]");
   if (!g || !("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  var rows = g.querySelectorAll(".hg-row"), on = false, queued = false;
+  var rows = g.querySelectorAll(".hg-row"), line = g.querySelector(".hg-line i"), on = false, queued = false;
   g.classList.add("is-live");
   function frame() {
     queued = false;
-    var r = g.getBoundingClientRect(), mid = innerHeight * 0.62;
+    // Först alla mätningar, sedan alla ändringar (ingen tvingad omräkning mitt i bildrutan).
+    var r = g.getBoundingClientRect(), mid = innerHeight * 0.62, seen = [];
+    for (var i = 0; i < rows.length; i++) { var b = rows[i].getBoundingClientRect(); seen.push(b.top + b.height / 2 < mid); }
     var p = Math.min(1, Math.max(0, (mid - r.top) / r.height));
-    g.style.setProperty("--hg-p", (p * 100).toFixed(2) + "%");
-    for (var i = 0; i < rows.length; i++) {
-      var b = rows[i].getBoundingClientRect();
-      rows[i].classList.toggle("is-seen", b.top + b.height / 2 < mid);
-    }
+    if (line) line.style.transform = "scaleY(" + p.toFixed(4) + ")";
+    for (var j = 0; j < rows.length; j++) if (rows[j].classList.contains("is-seen") !== seen[j]) rows[j].classList.toggle("is-seen", seen[j]);
   }
   function onScroll() { if (on && !queued) { queued = true; requestAnimationFrame(frame); } }
   new IntersectionObserver(function (e) { on = e[0].isIntersecting; if (on) onScroll(); }, { rootMargin: "200px 0px" }).observe(g);

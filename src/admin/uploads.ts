@@ -8,8 +8,30 @@ import { icon } from "../views/icons.js";
 
 export type UploadResult = { ok: true; key: string; size: number; reused: boolean } | { ok: false; error: string } | { ok: true; key: null; size: 0; reused: false };
 
-/** Den mindre versionen som webbläsaren skapar (max 800 px). */
-const MAX_SMALL_BYTES = 1024 * 1024;
+/**
+ * Mindre versioner som webbläsaren gör av varje bild (admin.js), så att ingen besökare laddar ned mer än skärmen behöver:
+ * ".sm" är 800 px bred (mobiler, kort) och ".md" 1600 px bred (datorer, halva skärmen på retina). Originalet (max 2560 px)
+ * används bara för helskärmsbilder på stora skärmar. Formulärfälten heter `${namn}__liten` och `${namn}__mellan`.
+ */
+export const VARIANTS = [
+  { suffix: "sm", field: "__liten", maxBytes: 1024 * 1024, label: "liten" },
+  { suffix: "md", field: "__mellan", maxBytes: 2.5 * 1024 * 1024, label: "mellan" },
+] as const;
+
+/** Spara en mindre version som webbläsaren har gjort. Tyst om den saknas eller är ogiltig. */
+export async function storeVariant(env: Env, key: string, variant: (typeof VARIANTS)[number], value: unknown, filename: string): Promise<boolean> {
+  if (!isFile(value) || value.size === 0 || value.size > variant.maxBytes) return false;
+  const data = await value.arrayBuffer();
+  const type = sniffType(new Uint8Array(data.slice(0, 64)));
+  if (type !== "image/jpeg" && type !== "image/webp" && type !== "image/png") return false;
+  await putFile(env, `${key}.${variant.suffix}`, data, { contentType: type, size: value.size, filename: `${variant.label}-${filename}` });
+  return true;
+}
+
+/** Bilder som får mindre versioner: rasterbilder utom GIF (animationen skulle försvinna). */
+export function canHaveVariants(contentType: string): boolean {
+  return contentType === "image/jpeg" || contentType === "image/png" || contentType === "image/webp";
+}
 
 function isFile(v: unknown): v is File {
   return typeof v === "object" && v !== null && "arrayBuffer" in v && "size" in v && "name" in v;
@@ -20,7 +42,7 @@ const KEY_RE = /^[a-z0-9][a-z0-9._-]{0,200}$/i;
 /**
  * Validera och spara en uppladdad fil från formulärfältet `name`. Kontrollerar storlek och filens
  * faktiska innehåll (inte bara filändelsen). Hanterar också
- * - `${name}__liten`: en mindre version (800 px) som webbläsaren har gjort – sparas som `${key}.sm`,
+ * - `${name}__liten` och `${name}__mellan`: mindre versioner (800 och 1600 px breda) som webbläsaren har gjort – sparas som `${key}.sm` och `${key}.md`,
  * - `${name}__bank`: en bild som valts från bildbanken i stället för en ny fil,
  * - `${name}__matt`: bildens mått ("1600x1000") för bildbanken.
  * Returnerar key: null om inget valdes.
@@ -62,16 +84,13 @@ export async function handleUpload(env: Env, form: FormData, name: string, kind:
   const filename = value.name.replace(/[^\p{L}\p{N}._ -]/gu, "").slice(0, 120) || `fil.${ext}`;
   await putFile(env, key, data, { contentType: type!, size: value.size, filename });
 
-  // Mindre version för mobiler och kort. Bara rasterbilder; tyst om den saknas eller är ogiltig.
+  // Mindre versioner för mobiler, kort och datorer (se VARIANTS). Saknas en används originalet i stället.
   let hasSmall = false;
-  const small = form.get(`${name}__liten`);
-  if (kind === "image" && type !== "image/svg+xml" && type !== "image/gif" && isFile(small) && small.size > 0 && small.size <= MAX_SMALL_BYTES) {
-    const sdata = await small.arrayBuffer();
-    const stype = sniffType(new Uint8Array(sdata.slice(0, 64)));
-    if (stype === "image/jpeg" || stype === "image/webp" || stype === "image/png") {
-      await putFile(env, `${key}.sm`, sdata, { contentType: stype, size: small.size, filename: `liten-${filename}` });
-      hasSmall = true;
-    }
+  let hasMedium = false;
+  if (kind === "image" && canHaveVariants(type!)) {
+    const [sm, md] = VARIANTS;
+    hasSmall = await storeVariant(env, key, sm, form.get(`${name}${sm.field}`), filename);
+    hasMedium = await storeVariant(env, key, md, form.get(`${name}${md.field}`), filename);
   }
   const dims = /^(\d{1,5})x(\d{1,5})$/.exec(String(form.get(`${name}__matt`) ?? ""));
   await registerMedia(env.DB, {
@@ -83,6 +102,8 @@ export async function handleUpload(env: Env, form: FormData, name: string, kind:
     width: dims ? Number(dims[1]) : null,
     height: dims ? Number(dims[2]) : null,
     hasSmall,
+    // Är originalet inte bredare än den mellanstora versionen behövs ingen – då räknas bilden som klar.
+    hasMedium: hasSmall && (hasMedium || (dims ? Number(dims[1]) <= 1760 : false)),
     user,
   });
   return { ok: true, key, size: value.size, reused: false };
@@ -94,7 +115,7 @@ const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/svg+xml,im
 /**
  * Filfält för uppladdning. admin.js läser data-attributen: bilder som är större än data-max
  * (eller onödigt stora i pixlar) skalas ned och komprimeras i webbläsaren innan formuläret skickas,
- * och en mindre version (800 px) skapas till det dolda fältet `__liten`.
+ * och mindre versioner (800 och 1600 px breda) skapas till de dolda fälten `__liten` och `__mellan`.
  */
 export function uploadInput(opts: { id: string; name: string; kind: "image" | "pdf"; labelledBy?: string; describedBy?: string; setting?: string; bank?: boolean }): SafeHtml {
   const max = opts.kind === "image" ? MAX_IMAGE_BYTES : MAX_PDF_BYTES;
@@ -112,6 +133,7 @@ export function uploadInput(opts: { id: string; name: string; kind: "image" | "p
     </div>
     ${image
       ? html`<input type="file" name="${opts.name}__liten" hidden tabindex="-1" aria-hidden="true" data-small-for="${opts.name}">
+          <input type="file" name="${opts.name}__mellan" hidden tabindex="-1" aria-hidden="true" data-medium-for="${opts.name}">
           <input type="hidden" name="${opts.name}__matt" value="" data-dims-for="${opts.name}">
           <input type="hidden" name="${opts.name}__bank" value="" data-bank-for="${opts.name}">`
       : ""}

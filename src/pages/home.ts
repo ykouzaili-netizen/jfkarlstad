@@ -6,7 +6,7 @@ import { eventDate, stockholmNow, stockholmToday, telHref } from "../lib/format.
 import { renderInline } from "../lib/markdown.js";
 import type { RequestContext } from "../router.js";
 import { icon, type IconName } from "../views/icons.js";
-import { joinButton, layout, mediaUrl, picture, PREVIEW_IMAGE_PREFIX } from "../views/layout.js";
+import { joinButton, layout, mediaUrl, picture, PREVIEW_IMAGE_PREFIX, srcset } from "../views/layout.js";
 import { arrowLink, emptyState, eventCard, newsCard, partnerCard, partnerLogo, sectionHead } from "../views/components.js";
 import { htmlResponse } from "../lib/http.js";
 import { ec } from "../lib/settings.js";
@@ -79,14 +79,14 @@ function hero(s: Settings, next: EventRow | undefined): SafeHtml {
   const focus = ["vanster", "mitten", "hoger"].includes(s.hero_mobile_focus) ? s.hero_mobile_focus : "mitten";
   return html`<section class="hero hero-pos-${pos} hero-tone-${tone} hero-align-${align} hero-valign-${vertical}${img ? ` has-image hero-fit-${fit} hero-mfocus-${focus}` : ""}" aria-labelledby="hero-titel">
     ${img && fit === "hela"
-      ? // Samma bildadresser som huvudbilden (ingen extra nedladdning) men utan data-img, så att Bildbankens
-        // beskärning av huvudbilden inte påverkar den suddiga bakgrunden.
-        html`<div class="hero-backdrop" aria-hidden="true"><img class="hero-backdrop-img" src="${mediaUrl(img, "sm")}" srcset="${mediaUrl(img, "sm")} 800w, ${mediaUrl(img)} 2560w" sizes="100vw" alt="" width="2560" height="1440" decoding="async"></div>`
+      ? // Den lilla versionen räcker – bakgrunden är kraftigt suddig. Utan data-img, så att Bildbankens
+        // beskärning av huvudbilden inte påverkar den.
+        html`<div class="hero-backdrop" aria-hidden="true"><img class="hero-backdrop-img" src="${mediaUrl(img, "sm")}" alt="" width="800" height="450" decoding="async"></div>`
       : ""}
     <div class="hero-media"${ek(s, "hero_image_key")}>
       ${img
         ? mobileImg
-          ? html`<picture class="hero-picture"><source media="(max-aspect-ratio: 1/1) and (max-width: 1023px)" srcset="${mediaUrl(mobileImg, "sm")} 800w, ${mediaUrl(mobileImg)} 2000w" sizes="100vw">${picture(img, { alt: s.hero_image_alt || s.hero_image_mobile_alt, className: "hero-bg", sizes: "100vw", width: 2560, height: 1440, eager: true })}</picture>`
+          ? html`<picture class="hero-picture"><source media="(max-aspect-ratio: 1/1) and (max-width: 1023px)" srcset="${srcset(mobileImg)}" sizes="100vw">${picture(img, { alt: s.hero_image_alt || s.hero_image_mobile_alt, className: "hero-bg", sizes: "100vw", width: 2560, height: 1440, eager: true })}</picture>`
           : picture(img, { alt: s.hero_image_alt, className: "hero-bg", sizes: "100vw", width: 2560, height: 1440, eager: true })
         : html`<div class="hero-fallback" aria-hidden="true"><span class="hero-fallback-glyph">§</span></div>`}
     </div>

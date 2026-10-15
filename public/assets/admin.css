@@ -800,3 +800,13 @@ a.admin-user:hover { background: var(--c-hover); }
 @media (max-width: 760px) {
   .admin-table td.col-move { float: right; width: auto; padding-top: 2px; }
 }
+
+/* Bildbanken → Gör bilderna snabbare */
+.optimize-card { border-color: color-mix(in srgb, var(--c-accent, #f2c94c) 55%, var(--c-border)); }
+.optimize-card p { max-width: 68ch; }
+.optimize-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-top: 16px; }
+.optimize-actions progress { flex: 1 1 220px; max-width: 420px; height: 8px; border: 0; border-radius: 999px; overflow: hidden; background: var(--c-border); accent-color: var(--c-primary, #141414); }
+.optimize-actions progress::-webkit-progress-bar { background: var(--c-border); border-radius: 999px; }
+.optimize-actions progress::-webkit-progress-value { background: var(--c-primary, #141414); border-radius: 999px; transition: width 0.3s ease; }
+.optimize-actions progress::-moz-progress-bar { background: var(--c-primary, #141414); border-radius: 999px; }
+.optimize-actions .upload-status { flex-basis: 100%; }
