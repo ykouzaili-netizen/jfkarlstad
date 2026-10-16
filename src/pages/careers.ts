@@ -11,6 +11,7 @@ import { layout, mediaUrl } from "../views/layout.js";
 import { arrowLink, emptyState } from "../views/components.js";
 import { icon } from "../views/icons.js";
 import { breadcrumb, pageHeader } from "../views/page.js";
+import { parsePartnerLinks } from "../lib/partner-links.js";
 import { notFoundPage } from "./errors.js";
 
 export const jobKindLabel = (s: Settings, kind: JobKind) => s[`jobs_kind_${kind}` as const] ?? kind;
@@ -153,7 +154,8 @@ export async function jobDetailPage(c: RequestContext): Promise<Response> {
 }
 
 /**
- * Utgående länkar till partners och ansökningar: /ut/webb/:id, /ut/karriar/:id, /ut/ansok/:id.
+ * Utgående länkar till partners och ansökningar: /ut/webb/:id, /ut/karriar/:id, /ut/lank/:id?nr=N (partnerns
+ * övriga länkar, N börjar på 1) och /ut/ansok/:id.
  * Adressen hämtas alltid från databasen (ingen öppen omdirigering) och klicket räknas till partnerstatistiken.
  */
 export async function outboundHandler(c: RequestContext): Promise<Response> {
@@ -168,6 +170,11 @@ export async function outboundHandler(c: RequestContext): Promise<Response> {
     const p = await db.prepare("SELECT id, website_url, career_url FROM partners WHERE published = 1 AND id = ?").bind(id).first<Pick<PartnerRow, "id" | "website_url" | "career_url">>();
     target = kind === "webb" ? p?.website_url : p?.career_url;
     stat = kind === "webb" ? "partner_website" : "partner_career";
+  } else if (kind === "lank") {
+    const p = await db.prepare("SELECT links FROM partners WHERE published = 1 AND id = ?").bind(id).first<{ links: string }>();
+    const nr = parseInt(c.url.searchParams.get("nr") ?? "", 10);
+    target = nr > 0 ? parsePartnerLinks(p?.links)[nr - 1]?.url : null;
+    stat = "partner_link";
   } else if (kind === "ansok") {
     const j = await jobQuery.byId(db, id).first<JobRow>();
     target = j?.apply_url;

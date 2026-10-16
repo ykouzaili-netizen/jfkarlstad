@@ -44,6 +44,8 @@ export interface PartnerRow {
   image_key?: string | null;
   image_style?: string;
   image_alt?: string;
+  /** Fler länkar som JSON (src/lib/partner-links.ts). Saknas före migrering 0014. */
+  links?: string;
   sort_order: number;
   published: number;
 }

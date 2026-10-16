@@ -2169,6 +2169,23 @@ main > section:nth-child(n + 3):not(.section-nav ~ *),
 .partner-hero-logo img.partner-logo[data-img] { object-fit: contain !important; object-position: 50% 50% !important; transform: none !important; }
 .partner-hero-logo .partner-wordmark { overflow-wrap: anywhere; }
 
+/* Partnerns övriga länkar i rutan bredvid presentationen */
+.partner-links { list-style: none; margin: 0; padding: 0; display: grid; }
+.partner-links.has-buttons { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--c-border); }
+.partner-links li + li { border-top: 1px solid var(--c-border); }
+.partner-links a {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-inline: -12px; padding: 12px;
+  border-radius: 12px;
+  font-weight: 600; text-decoration: none;
+  transition: background-color 0.15s var(--ease);
+}
+.partner-links a:hover { background: color-mix(in srgb, var(--c-accent) 20%, transparent); }
+.partner-link-text { display: grid; gap: 2px; min-width: 0; }
+.partner-link-host { font-size: 0.8125rem; font-weight: 400; color: var(--c-muted); overflow-wrap: anywhere; }
+.partner-links .icon { flex: none; color: var(--c-muted); transition: transform 0.15s var(--ease), color 0.15s var(--ease); }
+.partner-links a:hover .icon { color: var(--c-text); transform: translate(2px, -2px); }
+
 /* Partnerns bild – utseendet väljs per partner i adminpanelen (src/lib/partner-image.ts) */
 .partner-body { min-width: 0; }
 .partner-body > .prose { max-width: 62ch; }

@@ -6,12 +6,13 @@ import { stockholmToday } from "./format.js";
  * Vi räknar bara upp en totalsiffra per dag och sak (t.ex. "partner 3 visades"). Ingen IP-adress,
  * inga kakor, ingen webbläsarinfo sparas. Robotar och förhandsvisningar räknas inte.
  */
-export type StatKind = "partner_view" | "partner_website" | "partner_career" | "job_view" | "job_apply";
+export type StatKind = "partner_view" | "partner_website" | "partner_career" | "partner_link" | "job_view" | "job_apply";
 
 export const STAT_LABELS: Record<StatKind, string> = {
   partner_view: "Visningar av partnersidan",
   partner_career: "Klick till karriärsidan",
   partner_website: "Klick till webbplatsen",
+  partner_link: "Klick på övriga länkar",
   job_view: "Visningar av jobbannonser",
   job_apply: "Klick till ansökan",
 };

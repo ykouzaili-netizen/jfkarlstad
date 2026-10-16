@@ -46,6 +46,7 @@ interface PartnerStats {
   views: number;
   website: number;
   career: number;
+  links: number;
   jobViews: number;
   applies: number;
 }
@@ -68,6 +69,7 @@ async function collect(db: D1Database, term: Term) {
       views: n.get(`partner_view:${p.id}`) ?? 0,
       website: n.get(`partner_website:${p.id}`) ?? 0,
       career: n.get(`partner_career:${p.id}`) ?? 0,
+      links: n.get(`partner_link:${p.id}`) ?? 0,
       jobViews: own.reduce((s, j) => s + (n.get(`job_view:${j.id}`) ?? 0), 0),
       applies: own.reduce((s, j) => s + (n.get(`job_apply:${j.id}`) ?? 0), 0),
     };
@@ -85,7 +87,7 @@ export async function partnerStatsPage(c: RequestContext, session: Session): Pro
   const term = terms.find((t) => t.id === c.url.searchParams.get("termin")) ?? terms[0]!;
   const { rows, jobStats, since } = await collect(c.env.DB, term);
   const max = Math.max(1, ...rows.map((r) => r.views));
-  const total = rows.reduce((s, r) => s + r.views + r.website + r.career + r.jobViews + r.applies, 0);
+  const total = rows.reduce((s, r) => s + r.views + r.website + r.career + r.links + r.jobViews + r.applies, 0);
   const num = (v: number) => v.toLocaleString("sv-SE");
 
   const bar = (v: number): SafeHtml => html`<span class="stat-cell"><progress class="stat-bar" max="${max}" value="${v}" aria-hidden="true"></progress><span>${num(v)}</span></span>`;
@@ -107,7 +109,7 @@ export async function partnerStatsPage(c: RequestContext, session: Session): Pro
       ? html`<div class="admin-empty"><p>${since ? "Inga visningar eller klick under den här terminen." : "Statistiken har inte börjat räknas ännu. Siffrorna dyker upp här när besökare tittar på partnernas sidor."}</p></div>`
       : html`<div class="admin-card admin-card-flush">
           <table class="admin-table stats-table">
-            <thead><tr><th scope="col">Partner</th><th scope="col">Visningar av partnersidan</th><th scope="col">Klick till webbplatsen</th><th scope="col">Klick till karriärsidan</th><th scope="col">Visningar av jobbannonser</th><th scope="col">Klick till ansökan</th></tr></thead>
+            <thead><tr><th scope="col">Partner</th><th scope="col">Visningar av partnersidan</th><th scope="col">Klick till webbplatsen</th><th scope="col">Klick till karriärsidan</th><th scope="col">Klick på övriga länkar</th><th scope="col">Visningar av jobbannonser</th><th scope="col">Klick till ansökan</th></tr></thead>
             <tbody>
               ${rows.map(
                 (r) => html`<tr>
@@ -115,6 +117,7 @@ export async function partnerStatsPage(c: RequestContext, session: Session): Pro
                   <td data-label="Visningar">${bar(r.views)}</td>
                   <td data-label="Webbplatsen" class="num">${num(r.website)}</td>
                   <td data-label="Karriärsidan" class="num">${num(r.career)}</td>
+                  <td data-label="Övriga länkar" class="num">${num(r.links)}</td>
                   <td data-label="Jobbannonser" class="num">${num(r.jobViews)}</td>
                   <td data-label="Ansökan" class="num">${num(r.applies)}</td>
                 </tr>`,
@@ -145,8 +148,8 @@ export async function partnerStatsCsv(c: RequestContext): Promise<Response> {
     if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     return `"${s.replace(/"/g, '""')}"`;
   };
-  const header = ["Partner", "Visningar av partnersidan", "Klick till webbplatsen", "Klick till karriärsidan", "Visningar av jobbannonser", "Klick till ansökan"];
-  const lines = rows.map((r) => [r.name, r.views, r.website, r.career, r.jobViews, r.applies].map(cell).join(";"));
+  const header = ["Partner", "Visningar av partnersidan", "Klick till webbplatsen", "Klick till karriärsidan", "Klick på övriga länkar", "Visningar av jobbannonser", "Klick till ansökan"];
+  const lines = rows.map((r) => [r.name, r.views, r.website, r.career, r.links, r.jobViews, r.applies].map(cell).join(";"));
   const csv = "﻿" + [cell(term.label), header.map(cell).join(";"), ...lines].join("\r\n");
   return new Response(csv, {
     headers: {

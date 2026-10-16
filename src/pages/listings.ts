@@ -21,6 +21,16 @@ import { plainText, renderInline, renderMarkdown } from "../lib/markdown.js";
 import { eventDate, formatDate, isoDate, localToIso, stockholmNow, stockholmToday, truncate } from "../lib/format.js";
 import { fill } from "../lib/texts.js";
 import { partnerImageStyle, type PartnerImageStyle } from "../lib/partner-image.js";
+import { parsePartnerLinks } from "../lib/partner-links.js";
+
+/** "https://www.linkedin.com/company/vinge" → "linkedin.com" – visas under länktexten så att man ser vart man hamnar. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
 import { htmlResponse } from "../lib/http.js";
 import { getFile } from "../lib/storage.js";
 import { slugify } from "../lib/slug.js";
@@ -88,17 +98,25 @@ export async function partnerDetailPage(c: RequestContext): Promise<Response> {
   const figure = (variant: PartnerImageStyle, sizes: string, width: number, height: number, eager = false) =>
     html`<figure class="partner-photo partner-photo--${variant}">${picture(p.image_key!, { alt: p.image_alt ?? "", sizes, width, height, eager })}</figure>`;
 
-  const aside = p.career_url || p.website_url
+  const links = parsePartnerLinks(p.links);
+  const aside = p.career_url || p.website_url || links.length
     ? html`<aside class="aside-card">
         <h2 class="aside-title"${ek(s, "partner_aside_title")}>${fill(s.partner_aside_title, vars)}</h2>
-        <div class="stack-sm">
+        ${p.career_url || p.website_url ? html`<div class="stack-sm">
           ${p.career_url
             ? html`<a class="btn btn-primary btn-block" href="/ut/karriar/${p.id}" target="_blank" rel="noopener nofollow"${ek(s, "partner_career")}>${fill(s.partner_career, vars)}${icon("external", "icon icon-sm")}${newTab}</a>`
             : ""}
           ${p.website_url
             ? html`<a class="btn btn-outline btn-block" href="/ut/webb/${p.id}" target="_blank" rel="noopener nofollow"${ek(s, "partner_website")}>${s.partner_website}${icon("external", "icon icon-sm")}${newTab}</a>`
             : ""}
-        </div>
+        </div>` : ""}
+        ${links.length
+          ? html`<ul class="partner-links${p.career_url || p.website_url ? " has-buttons" : ""}">
+              ${links.map(
+                (l, i) => html`<li><a href="/ut/lank/${p.id}?nr=${i + 1}" target="_blank" rel="noopener nofollow"><span class="partner-link-text">${l.label}<span class="partner-link-host">${hostOf(l.url)}</span></span>${icon("external", "icon icon-sm")}${newTab}</a></li>`,
+              )}
+            </ul>`
+          : ""}
       </aside>`
     : "";
   const side = photo === "spalt"

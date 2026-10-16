@@ -3,6 +3,7 @@ import { isShortsUrl, youtubeId } from "../lib/youtube.js";
 import { instagramConfigured, parseStatus, STATUS_SETTING, syncInstagram } from "../lib/instagram.js";
 import { html, raw, type SafeHtml } from "../lib/html.js";
 import { PARTNER_IMAGE_STYLES, type PartnerImageStyle } from "../lib/partner-image.js";
+import { partnerLinksField, readPartnerLinks } from "../lib/partner-links.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec, type Values } from "../lib/forms.js";
 import { documentPath } from "../pages/listings.js";
 import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, HONOR_KINDS, JOB_KINDS, documentLinkKind, isGoogleLink } from "../lib/content.js";
@@ -56,6 +57,11 @@ export interface AdminField extends FieldSpec {
    * Ett dolt fält töms när posten sparas – en dold fil tas bort som om man hade klickat "Ta bort".
    */
   showIf?: { field: string; value: string | string[] };
+  /**
+   * Eget fält som inte passar FieldSpec (t.ex. partnerns länklista med flera rader). render ritar fältet,
+   * read läser det ur formuläret och ger värdet som sparas i kolumnen (eller ett fel).
+   */
+  custom?: { render: (value: string, error?: string) => SafeHtml; read: (form: FormData) => { value: string; error?: string } };
 }
 
 const shown = (f: AdminField, v: Values) => !f.showIf || ([] as string[]).concat(f.showIf.value).includes(v[f.showIf.field] ?? "");
@@ -402,6 +408,7 @@ export const RESOURCES: Resource[] = [
       },
       { name: "website_url", label: "Webbplats", type: "url", nullable: true, max: 300 },
       { name: "career_url", label: "Karriärsida", type: "url", nullable: true, max: 300 },
+      { name: "links", label: "Fler länkar", type: "text", custom: { render: partnerLinksField, read: readPartnerLinks } },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägre tal visas först." },
     ],
     listColumns: [
@@ -1029,7 +1036,9 @@ function editForm(r: Resource, fields: AdminField[], session: Session, action: s
       ${fields
         .filter((f) => !f.schedule)
         .map((f) => {
-          const field = f.upload
+          const field = f.custom
+            ? f.custom.render(values[f.name] ?? "", errors[f.name])
+            : f.upload
             ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload, multiple: isNew && f.multiple })
             : renderField(f, values[f.name] ?? "", errors[f.name]);
           return f.showIf
@@ -1217,7 +1226,12 @@ async function save(r: Resource, c: RequestContext, session: Session, id: number
 
     const fields = await resolveFields(r, db);
     const plain = fields.filter((f) => !f.upload);
-    const { values, errors } = validate(plain, form);
+    const { values, errors } = validate(plain.filter((f) => !f.custom), form);
+    for (const f of plain.filter((f) => f.custom)) {
+      const res = f.custom!.read(form);
+      values[f.name] = res.value;
+      if (res.error) errors[f.name] = res.error;
+    }
     // Dolda fält (showIf) töms – det man inte ser ska inte sparas eller ge felmeddelanden.
     for (const f of plain) {
       if (shown(f, values)) continue;

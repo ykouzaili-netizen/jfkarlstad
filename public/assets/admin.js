@@ -1606,3 +1606,76 @@
     }
   });
 })();
+
+/* ---------- Rader som går att lägga till och ta bort (partnerns "Fler länkar") ----------
+   Utan JavaScript visas alla sparade rader plus två tomma; tömda rader sparas inte. Här visas bara en tom rad,
+   "+ Lägg till länk" lägger till fler (högst data-repeater-max) och "Ta bort" tar bort raden. */
+(function () {
+  "use strict";
+  document.querySelectorAll("[data-repeater]").forEach(function (box) {
+    var list = box.querySelector("[data-repeater-list]");
+    var tpl = box.querySelector("[data-repeater-template]");
+    var add = box.querySelector("[data-repeater-add]");
+    if (!list || !tpl || !add) return;
+    var max = parseInt(box.getAttribute("data-repeater-max") || "10", 10);
+    var rows = function () { return Array.prototype.slice.call(list.querySelectorAll("[data-repeater-row]")); };
+    var empty = function (row) {
+      return Array.prototype.every.call(row.querySelectorAll("input"), function (i) { return !i.value.trim(); });
+    };
+    var renumber = function () {
+      rows().forEach(function (row, i) {
+        var n = String(i + 1);
+        var num = row.querySelector(".link-row-num");
+        if (num) num.textContent = n;
+        row.querySelectorAll(".sr-only").forEach(function (s) { if (/^\(länk/.test(s.textContent)) s.textContent = "(länk " + n + ")"; });
+      });
+      var count = rows().length;
+      add.hidden = count >= max;
+      rows().forEach(function (row) { row.querySelector("[data-repeater-remove]").hidden = false; });
+    };
+    var uid = 0;
+    var addRow = function (focus) {
+      uid++;
+      var frag = tpl.content.cloneNode(true);
+      frag.querySelectorAll("[id],[for]").forEach(function (el) {
+        ["id", "for"].forEach(function (a) {
+          var v = el.getAttribute(a);
+          if (v) el.setAttribute(a, v.replace("__N__", "ny" + uid));
+        });
+      });
+      var row = frag.querySelector("[data-repeater-row]");
+      row.classList.add("is-new");
+      list.appendChild(frag);
+      renumber();
+      if (focus) row.querySelector("input").focus();
+    };
+    // Bara en tom rad i taget – de extra tomma raderna från servern behövs inte när det finns en knapp
+    var blanks = rows().filter(empty);
+    blanks.slice(1).forEach(function (r) { r.remove(); });
+    if (!rows().length) addRow(false);
+    add.addEventListener("click", function () {
+      var last = rows()[rows().length - 1];
+      if (last && empty(last)) { last.querySelector("input").focus(); return; }
+      addRow(true);
+    });
+    list.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-repeater-remove]");
+      if (!btn) return;
+      var row = btn.closest("[data-repeater-row]");
+      var all = rows();
+      var i = all.indexOf(row);
+      if (all.length === 1) {
+        row.querySelectorAll("input").forEach(function (inp) { inp.value = ""; });
+        row.querySelector("input").focus();
+      } else {
+        row.remove();
+        var next = rows()[Math.min(i, rows().length - 1)];
+        (next ? next.querySelector("input") : add).focus();
+      }
+      renumber();
+      // Formuläret har ändrats (varningen "osparade ändringar" ska slå till)
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    renumber();
+  });
+})();
