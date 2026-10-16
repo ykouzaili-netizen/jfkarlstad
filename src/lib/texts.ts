@@ -471,8 +471,6 @@ export const PAGES = [
     sec("natverk", "Nätverkens egna sidor", [
       text("network_breadcrumb", "Brödsmulan mellan Om oss och namnet", "Samarbeten", small),
       text("network_about_title", "Rubrik för presentationen", "Om {namn}", { ...small, help: "{namn} byts ut mot nätverkets namn." }),
-      text("network_collab_kicker", "Etikett ovanför samarbetet", "JFK × {namn}", { ...small, help: "{namn} byts ut mot nätverkets namn." }),
-      text("network_collab_title", "Rubrik för samarbetet", "Så samarbetar vi", small),
       text("network_gallery_title", "Rubrik för bilderna", "Bilder", small),
       text("network_aside_title", "Rutan – rubrik", "Hitta {namn}", { ...small, help: "{namn} byts ut mot nätverkets namn." }),
       text("network_website", "Knapp till webbplatsen", "Webbplats", small),

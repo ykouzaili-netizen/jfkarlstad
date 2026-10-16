@@ -15,7 +15,7 @@ import { notFoundPage } from "./errors.js";
 
 /**
  * Studentnätverkens egna sidor (/om-oss/juro, /om-oss/elsa-karlstad …): presentation, hur JFK samarbetar med
- * nätverket, bilder och länkar. Innehållet ändras under Partners → Studentnätverk, rubrikerna under
+ * bilder och länkar. Innehållet ändras under Partners → Studentnätverk, rubrikerna under
  * Texter och sidor → Om oss → Nätverkens egna sidor.
  */
 
@@ -110,26 +110,6 @@ export async function networkPage(c: RequestContext): Promise<Response> {
                 : ""}
             </div>
             ${aside}
-          </div>
-        </section>`
-      : ""}
-    ${n.collaboration
-      ? html`<section class="section network-collab" aria-labelledby="samarbetet">
-          <div class="container">
-            <div class="network-collab-panel"${edit}>
-              <div class="network-lockup" aria-hidden="true">
-                ${s.logo_key
-                  ? html`<img class="network-lockup-jfk" src="${/\.svg$/i.test(s.logo_key) ? mediaUrl(s.logo_key) : mediaUrl(s.logo_key, "sm")}" alt="">`
-                  : html`<span class="network-lockup-jfk network-lockup-mark">§</span>`}
-                <span class="network-lockup-x">×</span>
-                <span class="network-lockup-them">${networkLogo(n)}</span>
-              </div>
-              <div class="network-collab-copy">
-                <p class="page-kicker"${ek(s, "network_collab_kicker")}>${fill(s.network_collab_kicker, vars)}</p>
-                <h2 class="section-title" id="samarbetet"${ek(s, "network_collab_title")}>${fill(s.network_collab_title, vars)}</h2>
-                <div class="prose prose-lg">${renderMarkdown(n.collaboration)}</div>
-              </div>
-            </div>
           </div>
         </section>`
       : ""}

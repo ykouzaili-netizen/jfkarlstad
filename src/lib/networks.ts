@@ -9,7 +9,6 @@ export interface NetworkRow {
   kicker: string;
   summary: string;
   description: string;
-  collaboration: string;
   logo_key: string | null;
   image_key: string | null;
   image_alt: string;
