@@ -4243,3 +4243,21 @@ button.pd-plaque:hover { transform: translateY(-2px); filter: brightness(1.06); 
 .ways-points { list-style: none; display: grid; gap: 10px; margin: 20px 0 0; padding: 0; max-width: 48ch; font-size: 0.9375rem; }
 .ways-points li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; align-items: start; line-height: 1.45; }
 .ways-points .icon { width: 30px; height: 30px; padding: 7px; margin-top: -4px; border-radius: 50%; background: color-mix(in srgb, var(--c-accent) 18%, transparent); color: var(--c-accent); }
+
+/* ───────── Bildgalleriet: album och år ───────── */
+.gal-albums { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 10px; margin: 0 -2px 8px; scrollbar-width: thin; }
+.gal-album { flex: none; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 10px 8px 18px; border-radius: 999px; border: 1.5px solid var(--c-border); color: var(--c-text); font-weight: 600; font-size: 0.9375rem; text-decoration: none; transition: background-color 0.2s, color 0.2s, border-color 0.2s; }
+.gal-album:hover { border-color: var(--c-text); }
+.gal-album[aria-current="true"] { background: var(--c-primary); border-color: var(--c-primary); color: var(--c-on-primary); }
+.gal-n { display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 999px; background: var(--c-hover); font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+.gal-album[aria-current="true"] .gal-n { background: var(--c-accent); color: var(--c-on-accent); }
+.gal-panel { margin-top: 18px; }
+.gal-title { font-size: calc(clamp(1.5rem, 1.2rem + 1vw, 2rem) * var(--display-scale)); }
+.gal-years { display: flex; flex-wrap: wrap; gap: 4px 22px; margin: 10px 0 22px; border-bottom: 1px solid var(--c-border); }
+.gal-year { position: relative; padding: 10px 0 12px; color: var(--c-muted); font-weight: 600; font-variant-numeric: lining-nums tabular-nums; text-decoration: none; }
+.gal-year:hover { color: var(--c-text); }
+.gal-year[aria-current="true"] { color: var(--c-text); }
+.gal-year[aria-current="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--c-accent); }
+.gal-single-year { margin: 6px 0 20px; color: var(--c-muted); font-weight: 600; font-variant-numeric: lining-nums; }
+.gal-year-panel.is-in { animation: gal-in 0.45s var(--ease-out) both; }
+@keyframes gal-in { from { opacity: 0; transform: translateY(8px); } }

@@ -1,7 +1,9 @@
 import { blockOrder, isBlockHidden } from "../lib/pagelayout.js";
 import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
 import { ec, ek, lines, loadSettings, type Settings, arrange, siteLayout, type SettingKey } from "../lib/settings.js";
-import { galleryQuery, repQuery, type CourseRepRow, type GalleryRow } from "../lib/content.js";
+import { GALLERY_ALBUMS, galleryQuery, repQuery, type CourseRepRow, type GalleryRow } from "../lib/content.js";
+import { slugify } from "../lib/slug.js";
+import { fill as fillText } from "../lib/texts.js";
 import { renderInline } from "../lib/markdown.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
@@ -36,7 +38,7 @@ export async function studentsPage(c: RequestContext): Promise<Response> {
       jobb: (prev) => jobs(s, prev === null || prev === "studera"),
       kursombud: () => repsSection(s, reps),
       idrott: () => sport(s),
-      galleri: () => gallerySection(s, gallery),
+      galleri: () => gallerySection(s, gallery, c.url),
     })}
   `;
   return htmlResponse(c, layout(c, s, { title: s.students_kicker, description: s.students_lead }, content));
@@ -222,12 +224,41 @@ function sport(s: Settings): SafeHtml {
   </section>`;
 }
 
-function gallerySection(s: Settings, images: GalleryRow[]): SafeHtml {
-  const albums = new Map<string, GalleryRow[]>();
+/**
+ * Bildgalleriet: ett album i taget och, inom albumet, ett år i taget (nyast först). Valen är vanliga länkar
+ * (?album=…&ar=…), så det fungerar utan JavaScript; site.js byter vy direkt utan att ladda om sidan.
+ */
+function gallerySection(s: Settings, images: GalleryRow[], url: URL): SafeHtml {
+  const albums = new Map<string, Map<string, GalleryRow[]>>();
   for (const img of images) {
-    if (!albums.has(img.album)) albums.set(img.album, []);
-    albums.get(img.album)!.push(img);
+    if (!albums.has(img.album)) albums.set(img.album, new Map());
+    const years = albums.get(img.album)!;
+    const y = img.year == null ? "" : String(img.year);
+    if (!years.has(y)) years.set(y, []);
+    years.get(y)!.push(img);
   }
+  // Albumen i den fasta ordningen, därefter eventuella andra. Åren nyast först, "Utan årtal" sist.
+  const order = [...GALLERY_ALBUMS, ...[...albums.keys()].filter((a) => !GALLERY_ALBUMS.includes(a))].filter((a) => albums.has(a));
+  const yearsOf = (a: string) => [...albums.get(a)!.keys()].sort((x, y) => (x === "" ? 1 : y === "" ? -1 : Number(y) - Number(x)));
+  const wantedAlbum = order.find((a) => slugify(a) === url.searchParams.get("album")) ?? order[0];
+  // Året i adressen: ett årtal eller "utan" (bilder utan år). Saknas det visas albumets senaste år.
+  const arParam = url.searchParams.get("ar");
+  const wantedYear = arParam === "utan" ? "" : arParam;
+  const href = (a: string, y: string | null) => `?album=${encodeURIComponent(slugify(a))}${y === null ? "" : `&ar=${encodeURIComponent(y || "utan")}`}#bildgalleri`;
+  const yearLabel = (y: string) => y || s.gallery_no_year;
+
+  const grid = (album: string, imgs: GalleryRow[]) => html`<ul class="gallery-grid">
+    ${imgs.map(
+      (img) => html`<li${ec(s, `/admin/galleri/${img.id}`, `Bildgalleri › ${img.alt || album}`)}>
+        <a class="gallery-item" href="${mediaUrl(img.image_key)}" target="_blank" rel="noopener">
+          ${picture(img.image_key, { alt: img.alt || img.caption || `Bild från albumet ${album}${img.year ? ` ${img.year}` : ""}`, sizes: "(min-width: 1000px) 280px, 50vw", width: 480, height: 360 })}
+          <span class="sr-only"> (${s.gallery_open})</span>
+        </a>
+        ${img.caption ? html`<p class="gallery-caption">${img.caption}</p>` : ""}
+      </li>`,
+    )}
+  </ul>`;
+
   return html`<section class="section section-surface" aria-labelledby="bildgalleri">
     <div class="container">
       <div class="section-head">
@@ -236,21 +267,37 @@ function gallerySection(s: Settings, images: GalleryRow[]): SafeHtml {
           <p class="section-lead"${ek(s, "gallery_text")}>${s.gallery_text}</p>
         </div>
       </div>
-      ${albums.size
-        ? [...albums.entries()].map(
-            ([album, imgs]) => html`<h3 class="subsection-title">${album}</h3>
-              <ul class="gallery-grid">
-                ${imgs.map(
-                  (img) => html`<li${ec(s, `/admin/galleri/${img.id}`, `Bildgalleri › ${img.alt || album}`)}>
-                    <a class="gallery-item" href="${mediaUrl(img.image_key)}" target="_blank" rel="noopener">
-                      ${picture(img.image_key, { alt: img.alt || img.caption || `Bild från albumet ${album}`, sizes: "(min-width: 1000px) 280px, 50vw", width: 480, height: 360 })}
-                      <span class="sr-only"> (${s.gallery_open})</span>
-                    </a>
-                    ${img.caption ? html`<p class="gallery-caption">${img.caption}</p>` : ""}
-                  </li>`,
+      ${order.length
+        ? html`<div class="gal" data-gal>
+            ${order.length > 1
+              ? html`<nav class="gal-albums" aria-label="${s.gallery_albums_label}">
+                  ${order.map((a) => {
+                    const n = [...albums.get(a)!.values()].reduce((t, l) => t + l.length, 0);
+                    return html`<a class="gal-album" href="${href(a, null)}" data-gal-album="${slugify(a)}"${a === wantedAlbum ? html` aria-current="true"` : ""}>${a}<span class="gal-n">${n}</span></a>`;
+                  })}
+                </nav>`
+              : ""}
+            ${order.map((a) => {
+              const ys = yearsOf(a);
+              const year = a === wantedAlbum && wantedYear !== null && ys.includes(wantedYear) ? wantedYear : ys[0]!;
+              return html`<div class="gal-panel" data-gal-panel="${slugify(a)}"${a === wantedAlbum ? "" : html` hidden`}>
+                <h3 class="gal-title">${a}</h3>
+                ${ys.length > 1
+                  ? html`<nav class="gal-years" aria-label="${fillText(s.gallery_years_label, { album: a })}">
+                      ${ys.map((y) => html`<a class="gal-year" href="${href(a, y)}" data-gal-year="${y || "utan"}"${y === year ? html` aria-current="true"` : ""}>${yearLabel(y)}</a>`)}
+                    </nav>`
+                  : ys[0]
+                    ? html`<p class="gal-single-year">${ys[0]}</p>`
+                    : ""}
+                ${ys.map(
+                  (y) => html`<div class="gal-year-panel" data-gal-year-panel="${y || "utan"}"${y === year ? "" : html` hidden`}>
+                    ${ys.length > 1 ? html`<h4 class="sr-only">${a} ${yearLabel(y)}</h4>` : ""}
+                    ${grid(a, albums.get(a)!.get(y)!)}
+                  </div>`,
                 )}
-              </ul>`,
-          )
+              </div>`;
+            })}
+          </div>`
         : emptyState(renderInline(s.gallery_empty), ek(s, "gallery_empty"))}
     </div>
   </section>`;

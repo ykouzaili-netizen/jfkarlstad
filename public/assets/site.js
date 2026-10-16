@@ -820,3 +820,36 @@ document.addEventListener("click", function (e) {
   var same = next.querySelector(".dp-step--" + (b.classList.contains("dp-step--prev") ? "prev" : "next") + ":not([disabled])");
   (same || next.querySelector(".dp-close")).focus();
 });
+
+/* Bildgalleriet: byt album och år utan att ladda om sidan. Länkarna fungerar som vanligt utan JS. */
+(function () {
+  var gal = document.querySelector("[data-gal]");
+  if (!gal) return;
+  function pick(list, attr, value) {
+    list.forEach(function (el) {
+      var on = el.getAttribute(attr) === value;
+      if (el.tagName === "A") { if (on) el.setAttribute("aria-current", "true"); else el.removeAttribute("aria-current"); }
+      else el.hidden = !on;
+    });
+  }
+  gal.addEventListener("click", function (e) {
+    var a = e.target.closest("a[data-gal-album], a[data-gal-year]");
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    var shown;
+    if (a.hasAttribute("data-gal-album")) {
+      var album = a.getAttribute("data-gal-album");
+      pick(gal.querySelectorAll("a[data-gal-album]"), "data-gal-album", album);
+      pick(gal.querySelectorAll("[data-gal-panel]"), "data-gal-panel", album);
+      var panel = gal.querySelector('[data-gal-panel="' + album + '"]');
+      shown = panel && panel.querySelector("[data-gal-year-panel]:not([hidden])");
+    } else {
+      var p = a.closest("[data-gal-panel]"), year = a.getAttribute("data-gal-year");
+      pick(p.querySelectorAll("a[data-gal-year]"), "data-gal-year", year);
+      pick(p.querySelectorAll("[data-gal-year-panel]"), "data-gal-year-panel", year);
+      shown = p.querySelector('[data-gal-year-panel="' + year + '"]');
+    }
+    if (shown) { shown.classList.remove("is-in"); void shown.offsetWidth; shown.classList.add("is-in"); }
+    if (history.replaceState) history.replaceState(null, "", a.getAttribute("href"));
+  });
+})();
