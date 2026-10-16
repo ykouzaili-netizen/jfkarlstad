@@ -1,3 +1,4 @@
+import { galleryYearsAction } from "./gallery-years.js";
 import { instagramConfigured, parseStatus, STATUS_SETTING, syncInstagram } from "../lib/instagram.js";
 import { html, type SafeHtml } from "../lib/html.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec, type Values } from "../lib/forms.js";
@@ -536,12 +537,14 @@ export const RESOURCES: Resource[] = [
     title: "Bildgalleri",
     singular: "bild",
     newLabel: "Ladda upp bilder",
+    listActions: galleryYearsAction,
     lead: "Bilderna visas under För studenter, grupperade per album. Publicera inga bilder som kan uppfattas som kränkande, och ta bort en bild direkt om någon som syns på den ber om det (GDPR).",
-    orderBy: "album, sort_order, id DESC",
+    orderBy: "album, year IS NULL, year DESC, sort_order, id DESC",
     emptyText: "Inga bilder ännu.",
     fields: [
       { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, multiple: true, purge: true, help: "JPG, PNG, WebP eller HEIC. Stora foton komprimeras automatiskt. Bilden raderas helt när den tas bort ur galleriet." },
       { name: "album", label: "Album", type: "select", required: true, options: GALLERY_ALBUMS.map((a) => ({ value: a, label: a })) },
+      { name: "year", label: "År", type: "number", min: 2000, max: 2100, nullable: true, help: "Året evenemanget hölls. På webbplatsen kan besökarna välja år inom varje album. Tomt = ”Utan årtal”." },
       { name: "alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200, help: "Valfri men bra: en kort beskrivning för den som använder skärmläsare, t.ex. ”Studenter skålar på vårbanketten 2026”. Tomt = ”Bild från albumet …”." },
       { name: "caption", label: "Bildtext", type: "text", max: 200, help: "Valfri text som visas under bilden." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999 },
@@ -550,6 +553,7 @@ export const RESOURCES: Resource[] = [
       { label: "", render: (r) => thumb(r.image_key, String(r.alt ?? "")), className: "col-thumb" },
       { label: "Beskrivning", render: (r) => html`<a class="row-title" href="/admin/galleri/${r.id}">${galleryTitle(r)}</a>` },
       { label: "Album", render: (r) => String(r.album) },
+      { label: "År", render: (r) => (r.year ? String(r.year) : "–") },
     ],
     titleOf: (r) => galleryTitle(r),
   },

@@ -82,6 +82,7 @@ export interface GalleryRow {
   alt: string;
   caption: string;
   sort_order: number;
+  year: number | null;
 }
 
 export interface InstagramPostRow {
@@ -286,7 +287,7 @@ export const repQuery = {
 };
 
 export const galleryQuery = {
-  all: (db: D1Database) => db.prepare("SELECT * FROM gallery_images ORDER BY album, sort_order, id DESC"),
+  all: (db: D1Database) => db.prepare("SELECT * FROM gallery_images ORDER BY album, year IS NULL, year DESC, sort_order, id DESC"),
 };
 
 /** Startsidans Instagram-avsnitt: de senaste publicerade inläggen (fastnålade först via sortering). */

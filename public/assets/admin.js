@@ -343,6 +343,29 @@
     });
   });
 
+  /* ---------- Bildgalleri → Sätt år på flera bilder: markera alla i en grupp och räkna de markerade ---------- */
+  (function () {
+    var form = document.querySelector("form.gy");
+    if (!form) return;
+    var count = form.querySelector("[data-gy-count]");
+    function update() {
+      var n = form.querySelectorAll('input[name="id"]:checked').length;
+      if (count) count.textContent = n ? (n === 1 ? "1 bild markerad." : n + " bilder markerade.") : "Inga bilder markerade ännu.";
+      form.querySelectorAll(".gy-group").forEach(function (g) {
+        var boxes = g.querySelectorAll('input[name="id"]'), on = g.querySelectorAll('input[name="id"]:checked').length, all = g.querySelector("[data-gy-all]");
+        if (all) { all.checked = on === boxes.length && on > 0; all.indeterminate = on > 0 && on < boxes.length; }
+      });
+    }
+    form.querySelectorAll(".gy-all").forEach(function (l) { l.hidden = false; });
+    form.addEventListener("change", function (e) {
+      if (e.target.matches("[data-gy-all]")) {
+        e.target.closest(".gy-group").querySelectorAll('input[name="id"]').forEach(function (b) { b.checked = e.target.checked; });
+      }
+      update();
+    });
+    update();
+  })();
+
   /* ---------- Bildbanken → Gör bilderna snabbare ----------
      Gör de mindre versionerna (800 och 1600 px breda) av befintliga bilder: hämtar originalet, skalar om det här
      och skickar versionerna till servern en bild i taget. Avbryts det (sidan stängs) fortsätter man där man slutade. */
