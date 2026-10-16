@@ -54,7 +54,7 @@ def run() -> None:
         page.wait_for_load_state()
         check(names()[:3] == order[:3], "Flytta ned återställer ordningen")
         page.goto(f"{BASE}/admin/medaljer/ny")
-        check(page.locator('input[name="design"]').count() == 13, "tolv medaljbilder och Egen bild går att välja")
+        check(page.locator('input[name="design"]').count() == 15, "fjorton medaljbilder och Egen bild går att välja")
         # Egen bild utan uppladdad fil ger ett tydligt fel
         page.fill('input[name="name"]', MEDAL)
         page.locator('input[name="design"][value="egen"]').check(force=True)

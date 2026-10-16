@@ -1,9 +1,10 @@
 /**
  * Belöningssystemets ordnar och medaljer.
  *
- * Medaljernas utseende är föreningens egna bilder (förlagan från styrelsen 2026-10-08, 11 och 12 tillkom 2026-10-09).
- * public/assets/medaljer/medalj-01.webp … -12.webp är uppskalade (Real-ESRGAN) och lika stora: alla medaljer är lika
- * höga och ligger på samma yta (417 × 880), så att de står i jämnhöjd bredvid varandra. Se tools/design/medaljer.py.
+ * Medaljernas utseende är föreningens egna bilder i public/assets/medaljer/medalj-NN.webp, alla på samma yta (417 × 880)
+ * och lika stora (runda medaljer lika breda, övriga med samma bandbredd) – se tools/design/medaljer.py.
+ * 2026-10-16 ersattes 01–04, 06–09, 11 och 12 med styrelsens foton, och 13–14 tillkom. 05 och 10 är fortfarande
+ * de ritade förlagorna från 2026-10-08 (foton saknas).
  * I adminpanelen väljer man vilken bild en medalj har. Ett uppladdat foto (fältet image_key) visas i stället om det finns.
  */
 
@@ -31,15 +32,17 @@ export const MEDAL_DESIGNS = {
   "01": { label: "Våg i brons – rött och gult band", width: 417, height: 880 },
   "02": { label: "Våg i brons – rött, vitt och blått band", width: 417, height: 880 },
   "03": { label: "Sol med JFK i guld – gult band", width: 417, height: 880 },
-  "04": { label: "Sol med JFK i guld – gult band (ljusare)", width: 417, height: 880 },
+  "04": { label: "Sol med JFK i silver – gult band", width: 417, height: 880 },
   "05": { label: "Stjärna i brons – rött band", width: 417, height: 880 },
   "06": { label: "Våg i brons – grönt band", width: 417, height: 880 },
-  "07": { label: "Silver med emaljmärke – vitt och blått band", width: 417, height: 880 },
+  "07": { label: "JF-monogram i silver – blått och vitt band", width: 417, height: 880 },
   "08": { label: "Våg i brons – rött band", width: 417, height: 880 },
   "09": { label: "Våg i brons – blått band", width: 417, height: 880 },
   "10": { label: "Stjärna i brons – blått band", width: 417, height: 880 },
   "11": { label: "Stjärna i silver med JK – blått och rött band", width: 417, height: 880 },
   "12": { label: "Våg i guld – gult band", width: 417, height: 880 },
+  "13": { label: "Snöflinga i silver med JFK – vitt band", width: 417, height: 880 },
+  "14": { label: "Våg i brons – lila band", width: 417, height: 880 },
 } as const;
 export type MedalDesign = keyof typeof MEDAL_DESIGNS;
 
@@ -48,7 +51,7 @@ export function medalDesign(v: unknown): MedalDesign {
 }
 
 /** Höj när bilderna byts ut – filerna i /assets cachas ett år. */
-const MEDAL_IMAGES_VERSION = "5";
+const MEDAL_IMAGES_VERSION = "6";
 export const medalImageUrl = (design: unknown) => `/assets/medaljer/medalj-${medalDesign(design)}.webp?v=${MEDAL_IMAGES_VERSION}`;
 
 export const medalQuery = {
