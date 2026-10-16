@@ -7,6 +7,16 @@ import { icon, type IconName } from "../views/icons.js";
 import { ROLE_LABELS, type Session } from "./auth.js";
 
 /** Kvitton efter en åtgärd. Bara fördefinierade koder – ingen text från URL:en visas. */
+/** Meddelandet efter att flera bilder laddats upp på en gång (antalet står i adressen). */
+function multiUploadFlash(c: RequestContext, code: string): { kind: "ok" | "error"; text: string } | undefined {
+  if (code !== "flera" && code !== "flera-delvis") return undefined;
+  const n = (k: string) => Math.max(0, Math.min(9999, parseInt(c.url.searchParams.get(k) ?? "0", 10) || 0));
+  const ok = n("antal"), failed = n("misslyckade");
+  const done = ok === 1 ? "1 bild har laddats upp." : `${ok} bilder har laddats upp.`;
+  if (!failed) return { kind: "ok", text: `Klart! ${done}` };
+  return { kind: "error", text: `${done} ${failed === 1 ? "1 bild" : `${failed} bilder`} kunde inte laddas upp – kontrollera att de är JPG, PNG, WebP eller HEIC och försök igen med just dem.` };
+}
+
 const FLASH: Record<string, { kind: "ok" | "error"; text: string }> = {
   sparat: { kind: "ok", text: "Ändringarna är sparade och syns direkt på webbplatsen." },
   skapat: { kind: "ok", text: "Klart! Det nya innehållet är skapat." },
@@ -64,7 +74,7 @@ export async function adminLayout(
   const s = await loadSettings(c.env.DB);
   if (content.value.includes(BRAND_SLOT)) content = raw(content.value.replace(BRAND_SLOT, brandMark(s).value));
   const flashCode = c.url.searchParams.get("klart") ?? c.url.searchParams.get("fel") ?? "";
-  const flash = FLASH[flashCode];
+  const flash = FLASH[flashCode] ?? multiUploadFlash(c, flashCode);
 
   const groups: { title: string; items: NavEntry[] }[] = [
     {

@@ -505,7 +505,7 @@ with sync_playwright() as p:
     check(cards >= 1, f"bilden finns i bildbanken ({cards})")
     src = page.locator(".media-card img").first.get_attribute("src") or ""
     s_status, _, s_headers = get(src)
-    check(src.endswith(".sm") and s_status == 200 and "image/" in s_headers.get("content-type", ""), "den lilla versionen serveras")
+    check(src.split("?")[0].endswith(".sm") and s_status == 200 and "image/" in s_headers.get("content-type", ""), "den lilla versionen serveras")
     check("Nyhet: Testnyhet med bild" in page.content(), "bildbanken visar var bilden används")
     page.screenshot(path=str(OUT / "bildbank.png"))
     # Välj bilden från bildbanken i en annan nyhet

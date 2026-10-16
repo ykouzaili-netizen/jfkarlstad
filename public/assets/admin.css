@@ -810,3 +810,11 @@ a.admin-user:hover { background: var(--c-hover); }
 .optimize-actions progress::-webkit-progress-value { background: var(--c-primary, #141414); border-radius: 999px; transition: width 0.3s ease; }
 .optimize-actions progress::-moz-progress-bar { background: var(--c-primary, #141414); border-radius: 999px; }
 .optimize-actions .upload-status { flex-basis: 100%; }
+
+/* Flera bilder på en gång: förloppet under formuläret */
+.bulk-progress { display: grid; gap: 10px; margin: 20px 0; padding: 18px 20px; border-radius: 14px; background: var(--c-bg); border: 1px solid color-mix(in srgb, var(--c-text) 12%, transparent); }
+.bulk-progress-text { font-weight: 600; }
+.bulk-progress progress { width: 100%; height: 10px; accent-color: var(--c-primary); }
+.bulk-progress-errors { margin: 0; padding-left: 18px; color: #b42318; font-size: 0.875rem; }
+.bulk-progress-errors:empty { display: none; }
+.bulk-progress .btn { justify-self: start; }
