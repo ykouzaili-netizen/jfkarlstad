@@ -47,6 +47,21 @@ with sync_playwright() as p:
     page.locator("tr:has-text('Studenter på sittning') form[action$='/radera'] button").click()
     page.wait_for_url(re.compile(r"klart=raderat"))
     check(key not in media_keys() and not (FILES / key).exists() and not (FILES / f"{key}.sm").exists(), "galleribilden raderas helt (även den lilla versionen)")
+    # Bildbeskrivningen är valfri
+    page.goto(f"{BASE}/admin/galleri/ny")
+    page.set_input_files("#falt-image_key", str(test_image(OUT / "galleri2.jpg", (1200, 900), (140, 90, 80))))
+    page.select_option("[name=album]", index=1)
+    album = page.locator("[name=album]").input_value()
+    page.wait_for_timeout(800)
+    page.click("form.admin-form button[type=submit]")
+    page.wait_for_url(re.compile(r"/admin/galleri\?klart="))
+    check("Bild utan beskrivning" in page.content(), "en bild utan bildbeskrivning går att spara och syns i listan")
+    page.goto(f"{BASE}/for-studenter")
+    check(page.locator(f'.gallery-grid img[alt="Bild från albumet {album}"]').count() == 1, "utan beskrivning får bilden en alt-text med albumet")
+    page.goto(f"{BASE}/admin/galleri")
+    page.once("dialog", lambda d: d.accept())
+    page.locator("tr:has-text('Bild utan beskrivning') form[action$='/radera'] button").click()
+    page.wait_for_url(re.compile(r"klart=raderat"))
 
     print("Dokument")
     pdf = OUT / "test.pdf"
