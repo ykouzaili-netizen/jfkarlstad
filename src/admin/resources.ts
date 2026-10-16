@@ -168,6 +168,9 @@ const thumb = (key: unknown, alt = "") => {
   return src ? html`<img class="thumb" src="${src}" alt="${alt}" width="56" height="56" loading="lazy">` : html`<span class="thumb thumb-empty" aria-hidden="true"></span>`;
 };
 
+/** Namnet på en galleribild i listan: beskrivningen, annars bildtexten, annars albumet. */
+const galleryTitle = (r: Record<string, unknown>) => String(r.alt || r.caption || `Bild utan beskrivning (${String(r.album ?? "")})`);
+
 const MARKDOWN_HELP =
   "Tom rad = nytt stycke. **fet text**, *kursiv*, [länktext](https://adress.se), rader som börjar med ”- ” blir en punktlista och ”## ” blir en underrubrik.";
 
@@ -537,16 +540,16 @@ export const RESOURCES: Resource[] = [
     fields: [
       { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, purge: true, help: "JPG, PNG, WebP eller HEIC. Stora foton komprimeras automatiskt. Bilden raderas helt när den tas bort ur galleriet." },
       { name: "album", label: "Album", type: "select", required: true, options: GALLERY_ALBUMS.map((a) => ({ value: a, label: a })) },
-      { name: "alt", label: "Bildbeskrivning (alt-text)", type: "text", required: true, max: 200, help: "Krävs för tillgänglighet, t.ex. ”Studenter skålar på vårbanketten 2026”." },
+      { name: "alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200, help: "Valfri men bra: en kort beskrivning för den som använder skärmläsare, t.ex. ”Studenter skålar på vårbanketten 2026”. Tomt = ”Bild från albumet …”." },
       { name: "caption", label: "Bildtext", type: "text", max: 200, help: "Valfri text som visas under bilden." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999 },
     ],
     listColumns: [
       { label: "", render: (r) => thumb(r.image_key, String(r.alt ?? "")), className: "col-thumb" },
-      { label: "Beskrivning", render: (r) => html`<a class="row-title" href="/admin/galleri/${r.id}">${String(r.alt || "Bild")}</a>` },
+      { label: "Beskrivning", render: (r) => html`<a class="row-title" href="/admin/galleri/${r.id}">${galleryTitle(r)}</a>` },
       { label: "Album", render: (r) => String(r.album) },
     ],
-    titleOf: (r) => String(r.alt || "Bild"),
+    titleOf: (r) => galleryTitle(r),
   },
   {
     path: "instagram",

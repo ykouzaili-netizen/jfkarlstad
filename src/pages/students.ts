@@ -243,7 +243,7 @@ function gallerySection(s: Settings, images: GalleryRow[]): SafeHtml {
                 ${imgs.map(
                   (img) => html`<li${ec(s, `/admin/galleri/${img.id}`, `Bildgalleri › ${img.alt || album}`)}>
                     <a class="gallery-item" href="${mediaUrl(img.image_key)}" target="_blank" rel="noopener">
-                      ${picture(img.image_key, { alt: img.alt, sizes: "(min-width: 1000px) 280px, 50vw", width: 480, height: 360 })}
+                      ${picture(img.image_key, { alt: img.alt || img.caption || `Bild från albumet ${album}`, sizes: "(min-width: 1000px) 280px, 50vw", width: 480, height: 360 })}
                       <span class="sr-only"> (${s.gallery_open})</span>
                     </a>
                     ${img.caption ? html`<p class="gallery-caption">${img.caption}</p>` : ""}
