@@ -35,6 +35,8 @@ export interface AdminField extends FieldSpec {
   nullable?: boolean;
   /** Krävs bara när posten skapas (t.ex. bild i galleriet). */
   requiredOnCreate?: boolean;
+  /** Flera filer kan väljas när posten skapas – då blir det en post per fil med samma övriga val (galleriet). */
+  multiple?: boolean;
   /**
    * Filen raderas helt när den byts ut eller tas bort (personfoton, galleribilder och PDF:er – GDPR).
    * Annars ligger bilden kvar i bildbanken så att den kan återanvändas.
@@ -533,12 +535,12 @@ export const RESOURCES: Resource[] = [
     table: "gallery_images",
     title: "Bildgalleri",
     singular: "bild",
-    newLabel: "Ladda upp bild",
+    newLabel: "Ladda upp bilder",
     lead: "Bilderna visas under För studenter, grupperade per album. Publicera inga bilder som kan uppfattas som kränkande, och ta bort en bild direkt om någon som syns på den ber om det (GDPR).",
     orderBy: "album, sort_order, id DESC",
     emptyText: "Inga bilder ännu.",
     fields: [
-      { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, purge: true, help: "JPG, PNG, WebP eller HEIC. Stora foton komprimeras automatiskt. Bilden raderas helt när den tas bort ur galleriet." },
+      { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, multiple: true, purge: true, help: "JPG, PNG, WebP eller HEIC. Stora foton komprimeras automatiskt. Bilden raderas helt när den tas bort ur galleriet." },
       { name: "album", label: "Album", type: "select", required: true, options: GALLERY_ALBUMS.map((a) => ({ value: a, label: a })) },
       { name: "alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200, help: "Valfri men bra: en kort beskrivning för den som använder skärmläsare, t.ex. ”Studenter skålar på vårbanketten 2026”. Tomt = ”Bild från albumet …”." },
       { name: "caption", label: "Bildtext", type: "text", max: 200, help: "Valfri text som visas under bilden." },
@@ -920,7 +922,7 @@ function editForm(r: Resource, fields: AdminField[], session: Session, action: s
         .filter((f) => !f.schedule)
         .map((f) => {
           const field = f.upload
-            ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload })
+            ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload, multiple: isNew && f.multiple })
             : renderField(f, values[f.name] ?? "", errors[f.name]);
           return f.showIf
             ? html`<div class="show-if" data-show-if="${f.showIf.field}" data-show-value="${([] as string[]).concat(f.showIf.value).join("|")}"${shown(f, values) ? "" : html` hidden`}>${field}</div>`
@@ -1061,11 +1063,16 @@ async function renderEdit(c: RequestContext, session: Session, r: Resource, fiel
 
 export function saveHandler(r: Resource) {
   return async (c: RequestContext, session: Session): Promise<Response> => {
-    const id = c.params.id ? Number(c.params.id) : null;
-    const db = c.env.DB;
-    const existing = id ? await db.prepare(`SELECT * FROM ${r.table} WHERE id = ?`).bind(id).first<Row>() : null;
-    if (id && !existing) return redirect(`/admin/${r.path}`, 303);
+    const res = await saveRequest(r, c, session);
+    // Flera bilder med JS (admin.js) skickas en i taget och vill bara veta om det gick – inte följa omdirigeringen.
+    if (c.req.headers.get("X-Bulk-Upload") !== "1") return res;
+    const ok = res.status === 303 && /[?&]klart=/.test(res.headers.get("Location") ?? "");
+    return new Response(JSON.stringify({ ok }), { status: ok ? 200 : 422, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+  };
+}
 
+async function saveRequest(r: Resource, c: RequestContext, session: Session): Promise<Response> {
+    const id = c.params.id ? Number(c.params.id) : null;
     let form: FormData;
     try {
       form = await c.req.formData();
@@ -1073,6 +1080,31 @@ export function saveHandler(r: Resource) {
       return redirect(`/admin/${r.path}?fel=uppladdning`, 303);
     }
     if (!checkCsrf(c, session, form)) return redirect(`/admin/${r.path}?fel=csrf`, 303);
+    // Flera filer valda i ett fält med `multiple` (utan JavaScript – med JS skickas de en i taget):
+    // en post per fil, med samma övriga val.
+    const multi = !id ? r.fields.find((f) => f.multiple && f.upload) : undefined;
+    const files = multi ? form.getAll(multi.name).filter((v): v is File => typeof v === "object" && v !== null && "arrayBuffer" in v && (v as File).size > 0) : [];
+    if (multi && files.length > 1) {
+      let ok = 0;
+      const failed: string[] = [];
+      for (const file of files) {
+        const one = new FormData();
+        for (const [k, v] of form.entries()) if (k !== multi.name && !k.startsWith(`${multi.name}__`)) one.append(k, v);
+        one.append(multi.name, file);
+        const res = await save(r, c, session, null, one);
+        if (res.status === 303 && (res.headers.get("Location") ?? "").includes("klart=")) ok++;
+        else failed.push(file.name);
+      }
+      return redirect(`/admin/${r.path}?klart=${failed.length ? "flera-delvis" : "flera"}&antal=${ok}&misslyckade=${failed.length}`, 303);
+    }
+    return save(r, c, session, id, form);
+}
+
+/** Sparar en post (ny eller befintlig) från ett formulär som redan har lästs in och kontrollerats (CSRF). */
+async function save(r: Resource, c: RequestContext, session: Session, id: number | null, form: FormData): Promise<Response> {
+    const db = c.env.DB;
+    const existing = id ? await db.prepare(`SELECT * FROM ${r.table} WHERE id = ?`).bind(id).first<Row>() : null;
+    if (id && !existing) return redirect(`/admin/${r.path}`, 303);
 
     const fields = await resolveFields(r, db);
     const plain = fields.filter((f) => !f.upload);
@@ -1163,7 +1195,6 @@ export function saveHandler(r: Resource) {
     const scheduled = fields.some((f) => f.schedule && data[col(f)] && String(data[col(f)]) > nowUtc()) && values.published;
     if (r.stayAfterSave && (await r.stayAfterSave(data))) return redirect(`/admin/${r.path}/${newId}?klart=sparat`, 303);
     return redirect(`/admin/${r.path}?klart=${scheduled ? "schemalagt" : existing ? "sparat" : "skapat"}`, 303);
-  };
 }
 
 export function deleteHandler(r: Resource) {

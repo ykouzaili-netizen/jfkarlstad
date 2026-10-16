@@ -63,6 +63,40 @@ with sync_playwright() as p:
     page.locator("tr:has-text('Bild utan beskrivning') form[action$='/radera'] button").click()
     page.wait_for_url(re.compile(r"klart=raderat"))
 
+    # Flera bilder på en gång (med JS: en i taget, med mindre versioner)
+    page.goto(f"{BASE}/admin/galleri/ny")
+    check(page.locator("#falt-image_key").get_attribute("multiple") is not None, "bildfältet i galleriet tar emot flera filer")
+    many = [str(test_image(OUT / f"flera{i}.jpg", (1800, 1200), (60 + i * 40, 90, 120))) for i in range(3)]
+    before = media_keys()
+    page.set_input_files("#falt-image_key", many)
+    check("3 bilder valda" in page.locator("[data-upload-status=image_key]").inner_text(), "antalet valda bilder visas")
+    page.select_option("[name=album]", index=1)
+    page.fill("[name=caption]", "Flera på en gång")
+    page.click("form.admin-form button[type=submit]")
+    page.wait_for_url(re.compile(r"/admin/galleri\?klart=flera&antal=3"), timeout=30000)
+    check("3 bilder har laddats upp" in page.content(), "meddelandet säger hur många bilder som laddades upp")
+    new = media_keys() - before
+    check(len(new) == 3, f"tre bilder registreras i bildbanken ({len(new)})")
+    check(all((FILES / f"{k}.sm").exists() for k in new), "varje bild får sin mindre version")
+    # Utan JavaScript: alla filer skickas på en gång och servern gör en bild per fil
+    nojs = browser.new_context(java_script_enabled=False)
+    p2 = nojs.new_page()
+    for ck in page.context.cookies():
+        nojs.add_cookies([ck])
+    p2.goto(f"{BASE}/admin/galleri/ny")
+    p2.set_input_files("#falt-image_key", many[:2])
+    p2.select_option("[name=album]", index=1)
+    p2.fill("[name=caption]", "Flera utan JS")
+    p2.click("form.admin-form button[type=submit]")
+    p2.wait_for_url(re.compile(r"klart=flera"))
+    check("2 bilder har laddats upp" in p2.content(), "flera bilder fungerar även utan JavaScript")
+    nojs.close()
+    for label in ["Flera på en gång"] * 3 + ["Flera utan JS"] * 2:
+        page.goto(f"{BASE}/admin/galleri")
+        page.once("dialog", lambda d: d.accept())
+        page.locator(f"tr:has-text('{label}') form[action$='/radera'] button").first.click()
+        page.wait_for_url(re.compile(r"klart=raderat"))
+
     print("Dokument")
     pdf = OUT / "test.pdf"
     pdf.write_bytes(b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n")

@@ -187,6 +187,13 @@
       var bank = companion(name, "data-bank-for");
       if (bank && file) bank.value = "";
       if (!file) return;
+      if (input.multiple && input.files.length > 1) {
+        // Flera bilder: de förbereds och laddas upp en i taget när formuläret skickas (se nedan).
+        var pv = document.querySelector('[data-preview="' + name + '"]');
+        if (pv) pv.hidden = true;
+        setStatus(name, input.files.length + " bilder valda. De laddas upp en i taget när du klickar på Skapa – bildbeskrivning, bildtext och album gäller alla.", "ok");
+        return;
+      }
 
       if (kind === "pdf") {
         if (file.size > max) {
@@ -251,6 +258,88 @@
       } finally {
         setBusy(form, -1);
       }
+    });
+  });
+
+  /* ---------- Flera bilder på en gång (t.ex. galleriet) ----------
+     Varje bild förbereds här (komprimeras vid behov, mindre versioner görs) och skickas för sig till samma
+     adress som formuläret – precis som om man hade laddat upp dem en och en. Utan JS tar servern emot alla på en gång. */
+  async function prepareImage(file, max) {
+    var source = await decode(file);
+    var w = source.width, h = source.height, out = file;
+    var isHeic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+    var isGif = file.type === "image/gif";
+    var tooManyPixels = Math.max(w, h) > RESIZE_ABOVE && file.size > RESIZE_MIN_BYTES;
+    if (file.size > max || isHeic || (tooManyPixels && !isGif)) {
+      var res = await compress(source, file, max);
+      if (res.blob.size > max) throw new Error("toolarge");
+      if (file.size > max || isHeic || res.blob.size < file.size) {
+        var ext = res.blob.type === "image/webp" ? "webp" : res.blob.type === "image/png" ? "png" : "jpg";
+        out = new File([res.blob], file.name.replace(/\.[^.]+$/, "") + "." + ext, { type: res.blob.type });
+        w = res.w; h = res.h;
+      }
+    }
+    var small = null, medium = null;
+    if (!isGif) {
+      var transparent = isTransparent(source, out);
+      try { small = await makeVariant(source, transparent, "liten"); } catch (e) { small = null; }
+      try { medium = await makeVariant(source, transparent, "mellan"); } catch (e) { medium = null; }
+    }
+    if (source.close) source.close();
+    return { file: out, small: small, medium: medium, w: w, h: h };
+  }
+
+  document.querySelectorAll("form").forEach(function (form) {
+    var input = form.querySelector("input[data-upload][multiple]");
+    if (!input || !window.fetch || !window.FormData) return;
+    form.addEventListener("submit", async function (e) {
+      if (!input.files || input.files.length < 2) return;
+      e.preventDefault();
+      var name = input.getAttribute("data-upload");
+      var max = parseInt(input.getAttribute("data-max") || "0", 10) || 5 * 1024 * 1024;
+      var files = Array.prototype.slice.call(input.files);
+      var buttons = form.querySelectorAll('button[type="submit"]');
+      buttons.forEach(function (b) { b.disabled = true; });
+      var box = document.createElement("div");
+      box.className = "bulk-progress";
+      box.setAttribute("role", "status");
+      box.innerHTML = '<p class="bulk-progress-text"></p><progress max="' + files.length + '" value="0"></progress><ul class="bulk-progress-errors"></ul>';
+      var actions = form.querySelector(".admin-form-actions");
+      form.insertBefore(box, actions);
+      box.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      var text = box.querySelector(".bulk-progress-text"), bar = box.querySelector("progress"), errs = box.querySelector(".bulk-progress-errors");
+      var ok = 0, failed = 0;
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i];
+        text.textContent = "Laddar upp bild " + (i + 1) + " av " + files.length + " – " + f.name + " …";
+        try {
+          var prep = await prepareImage(f, max);
+          var fd = new FormData(form);
+          fd.delete(name); fd.delete(name + "__liten"); fd.delete(name + "__mellan"); fd.delete(name + "__matt"); fd.delete(name + "__bank");
+          fd.append(name, prep.file, prep.file.name);
+          if (prep.small) fd.append(name + "__liten", variantFile(prep.small, "liten", prep.file.name));
+          if (prep.medium) fd.append(name + "__mellan", variantFile(prep.medium, "mellan", prep.file.name));
+          fd.append(name + "__matt", prep.w + "x" + prep.h);
+          var res = await fetch(form.action, { method: "POST", body: fd, credentials: "same-origin", headers: { "X-Bulk-Upload": "1" } });
+          var out = await res.json().catch(function () { return {}; });
+          if (!res.ok || !out.ok) throw new Error("server");
+          ok++;
+        } catch (err) {
+          failed++;
+          var li = document.createElement("li");
+          li.textContent = f.name + ": " + (err && err.message === "toolarge" ? "gick inte att komprimera tillräckligt." : /heic|heif/i.test(f.name) ? "den här webbläsaren kan inte läsa HEIC – spara bilden som JPG." : "kunde inte laddas upp.");
+          errs.appendChild(li);
+        }
+        bar.value = i + 1;
+      }
+      var list = form.action.replace(/\/ny(\?.*)?$/, "");
+      var url = list + "?klart=" + (failed ? "flera-delvis" : "flera") + "&antal=" + ok + "&misslyckade=" + failed;
+      if (!failed) { location.href = url; return; }
+      text.textContent = ok + " av " + files.length + " bilder laddades upp. De här gick inte:";
+      var go = document.createElement("a");
+      go.className = "btn btn-primary"; go.href = url; go.textContent = "Till listan";
+      box.appendChild(go);
+      buttons.forEach(function (b) { b.disabled = false; });
     });
   });
 

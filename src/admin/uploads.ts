@@ -130,7 +130,7 @@ const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/svg+xml,im
  * (eller onödigt stora i pixlar) skalas ned och komprimeras i webbläsaren innan formuläret skickas,
  * och mindre versioner (800 och 1600 px breda) skapas till de dolda fälten `__liten` och `__mellan`.
  */
-export function uploadInput(opts: { id: string; name: string; kind: "image" | "pdf"; labelledBy?: string; describedBy?: string; setting?: string; bank?: boolean }): SafeHtml {
+export function uploadInput(opts: { id: string; name: string; kind: "image" | "pdf"; labelledBy?: string; describedBy?: string; setting?: string; bank?: boolean; multiple?: boolean }): SafeHtml {
   const max = opts.kind === "image" ? MAX_IMAGE_BYTES : MAX_PDF_BYTES;
   const statusId = `${opts.id}-status`;
   const describedBy = [opts.describedBy, statusId].filter(Boolean).join(" ");
@@ -139,7 +139,7 @@ export function uploadInput(opts: { id: string; name: string; kind: "image" | "p
       <input class="upload-input" type="file" id="${opts.id}" name="${opts.name}"
         accept="${image ? IMAGE_ACCEPT : "application/pdf,.pdf"}"
         ${opts.labelledBy ? html`aria-labelledby="${opts.labelledBy}"` : ""} aria-describedby="${describedBy}"
-        data-upload="${opts.name}" data-kind="${opts.kind}" data-max="${max}"${opts.setting ? html` data-setting="${opts.setting}"` : ""}>
+        data-upload="${opts.name}" data-kind="${opts.kind}" data-max="${max}"${opts.setting ? html` data-setting="${opts.setting}"` : ""}${opts.multiple ? html` multiple` : ""}>
       ${image && opts.bank !== false
         ? html`<button class="btn btn-outline btn-sm bank-open" type="button" hidden data-bank-open="${opts.name}">${icon("image", "icon icon-sm")}Välj från bildbanken</button>`
         : ""}
@@ -170,6 +170,8 @@ export function imageUploadField(opts: {
   setting?: string;
   removable?: boolean;
   kind?: "image" | "pdf";
+  /** Flera filer kan väljas på en gång (en post per fil). */
+  multiple?: boolean;
 }): SafeHtml {
   const kind = opts.kind ?? "image";
   const id = `falt-${opts.name}`;
@@ -185,8 +187,8 @@ export function imageUploadField(opts: {
           ? html`<p class="upload-current">${icon("lock", "icon icon-sm")} En PDF är uppladdad.</p>`
           : html`<img class="upload-preview" alt="" data-preview="${opts.name}" hidden>`}
       <div class="upload-controls">
-        ${uploadInput({ id, name: opts.name, kind, labelledBy: `${id}-etikett`, describedBy, setting: opts.setting })}
-        <p class="field-help">${opts.current ? "Välj en ny fil för att ersätta den nuvarande. " : ""}${kind === "image" ? uploadHint("image") : uploadHint("pdf")}</p>
+        ${uploadInput({ id, name: opts.name, kind, labelledBy: `${id}-etikett`, describedBy, setting: opts.setting, multiple: opts.multiple })}
+        <p class="field-help">${opts.multiple ? html`<strong>Du kan välja flera bilder på en gång</strong> – de laddas upp en i taget med samma val nedan. ` : ""}${opts.current ? "Välj en ny fil för att ersätta den nuvarande. " : ""}${kind === "image" ? uploadHint("image") : uploadHint("pdf")}</p>
         ${kind === "image" && opts.current && isFitKey(opts.current)
           ? html`<p class="fit-link"><a href="/admin/bildbank/justera?nyckel=${encodeURIComponent(opts.current)}&amp;flik=ny" target="_blank" rel="noopener">${icon("crop", "icon icon-sm")}Justera utsnitt och storlek<span class="sr-only"> (öppnas i ny flik)</span></a></p>`
           : ""}
