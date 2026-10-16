@@ -1,3 +1,4 @@
+import { loadNetworks } from "../lib/networks.js";
 import { isLinkVisible } from "../lib/pagelayout.js";
 import { html } from "../lib/html.js";
 import { ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
@@ -111,6 +112,7 @@ export async function sitemapXml(c: RequestContext): Promise<Response> {
     db.prepare("SELECT slug, updated_at AS mod FROM partners WHERE published = 1"),
     jobQuery.open(db, stockholmToday()),
   ]);
+  const networks = await loadNetworks(db);
   const staticPaths = [
     "/", "/om-oss", "/engagera-dig", "/bli-medlem", "/for-studenter", "/karriar", "/for-foretag", "/partners",
     "/aktuellt", "/kalender", "/dokument", "/jf-paverka", "/faq", "/kontakt", "/integritetspolicy", "/cookies",
@@ -125,6 +127,7 @@ export async function sitemapXml(c: RequestContext): Promise<Response> {
     ...(visible("/aktuellt") ? dyn(news, "/aktuellt") : []),
     ...(visible("/kalender") ? dyn(events, "/kalender") : []),
     ...(visible("/partners") ? dyn(partners, "/partners") : []),
+    ...(visible("/om-oss") ? networks.map((n) => entry(`/om-oss/${encodeURIComponent(n.slug)}`)) : []),
     ...(visible("/karriar") ? ((jobs?.results ?? []) as { slug: string; updated_at?: string }[]).map((j) => entry(`/karriar/${encodeURIComponent(j.slug)}`, j.updated_at)) : []),
   ].join("\n")}\n</urlset>`;
   return textResponse(xml, "application/xml; charset=utf-8");

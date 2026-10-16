@@ -3,7 +3,7 @@ import { formatDay, stockholmToday } from "../lib/format.js";
 import type { RequestContext } from "../router.js";
 import type { Session } from "./auth.js";
 import { adminHead, adminLayout, newMessageCount } from "./layout.js";
-import { resourceTabs } from "./resources.js";
+import { PARTNER_TABS, resourceTabs } from "./resources.js";
 
 /**
  * Statistik till samarbetspartners, per termin (VT = januari–juni, HT = juli–december).
@@ -98,7 +98,7 @@ export async function partnerStatsPage(c: RequestContext, session: Session): Pro
       actions: html`<a class="btn btn-outline" href="/admin/partners/statistik.csv?termin=${term.id}" download>Ladda ner (CSV)</a>
         <button class="btn btn-outline" type="button" data-print hidden>Skriv ut</button>`,
     })}
-    ${resourceTabs([{ href: "/admin/partners", label: "Partners" }, { href: "/admin/partners/statistik", label: "Statistik" }], "/admin/partners/statistik")}
+    ${resourceTabs(PARTNER_TABS, "/admin/partners/statistik")}
     <div class="filter-bar">
       <nav class="tabs tabs-compact" aria-label="Termin">
         <ul>${terms.map((t) => html`<li><a href="/admin/partners/statistik?termin=${t.id}"${t.id === term.id ? html` aria-current="page"` : ""}>${t.label}</a></li>`)}</ul>

@@ -1,3 +1,4 @@
+import { loadNetworks } from "../lib/networks.js";
 import { isLinkVisible } from "../lib/pagelayout.js";
 import { escapeHtml, html, raw, type SafeHtml } from "../lib/html.js";
 import { ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
@@ -89,6 +90,7 @@ export async function searchPage(c: RequestContext): Promise<Response> {
       faqQuery.all(db),
       partnerQuery.all(db),
     ]);
+    const networks = await loadNetworks(db);
     const res = <T,>(r: D1Result | undefined) => (r?.results ?? []) as T[];
     const title = (t: string) => (matches(ts, t) ? 2 : 1);
 
@@ -143,7 +145,12 @@ export async function searchPage(c: RequestContext): Promise<Response> {
         key: "search_group_partners",
         hits: res<PartnerRow>(partnerRes)
           .filter((p) => matches(ts, p.name, p.tagline, p.description))
-          .map((p) => ({ title: p.name, href: `/partners/${p.slug}`, meta: p.tagline, text: snippet(ts, p.description), score: title(p.name) })),
+          .map((p) => ({ title: p.name, href: `/partners/${p.slug}`, meta: p.tagline, text: snippet(ts, p.description), score: title(p.name) }))
+          .concat(
+            networks
+              .filter((n) => matches(ts, n.name, n.summary, n.description, n.collaboration))
+              .map((n) => ({ title: n.name, href: `/om-oss/${n.slug}`, meta: n.kicker, text: snippet(ts, n.summary || n.description), score: title(n.name) })),
+          ),
       },
     ]
       .map((g) => ({ ...g, hits: g.hits.filter((h) => isLinkVisible(siteLayout(s), h.href)) }))

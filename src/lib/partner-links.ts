@@ -63,7 +63,7 @@ export function readPartnerLinks(form: FormData): { value: string; error?: strin
 }
 
 /** Raderna i adminformuläret. Utan JavaScript: alla sparade länkar plus två tomma rader. admin.js lägger till och tar bort rader. */
-export function partnerLinksField(value: string, error?: string): SafeHtml {
+export function partnerLinksField(value: string, error?: string, help = "Visas i rutan bredvid presentationen, under knapparna till karriärsidan och webbplatsen. T.ex. LinkedIn, Instagram, traineeprogram eller en podd."): SafeHtml {
   let saved: PartnerLink[] = [];
   try {
     const list = JSON.parse(value || "[]") as unknown;
@@ -89,7 +89,7 @@ export function partnerLinksField(value: string, error?: string): SafeHtml {
   };
   return html`<fieldset class="field field-links${error ? " has-error" : ""}" data-repeater data-repeater-max="${MAX_PARTNER_LINKS}" aria-describedby="links-hjalp${error ? " links-fel" : ""}">
     <legend class="field-label">Fler länkar <span class="optional">(valfritt)</span></legend>
-    <p class="field-help" id="links-hjalp">Visas i rutan bredvid presentationen, under knapparna till karriärsidan och webbplatsen. T.ex. LinkedIn, Instagram, traineeprogram eller en podd. Högst ${MAX_PARTNER_LINKS} länkar – töm en rad för att ta bort länken.</p>
+    <p class="field-help" id="links-hjalp">${help} Högst ${MAX_PARTNER_LINKS} länkar – töm en rad för att ta bort länken.</p>
     <div class="link-rows" data-repeater-list>${rows.map((l, i) => row(l, i))}</div>
     <template data-repeater-template>${row({ label: "", url: "" }, 0, true)}</template>
     <button class="btn btn-outline btn-sm link-add" type="button" data-repeater-add hidden>+ Lägg till länk</button>

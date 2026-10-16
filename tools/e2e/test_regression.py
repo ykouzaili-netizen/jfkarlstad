@@ -79,7 +79,7 @@ with sync_playwright() as p:
     check(len(new) == 3, f"tre bilder registreras i bildbanken ({len(new)})")
     check(all((FILES / f"{k}.sm").exists() for k in new), "varje bild får sin mindre version")
     # Utan JavaScript: alla filer skickas på en gång och servern gör en bild per fil
-    nojs = browser.new_context(java_script_enabled=False)
+    nojs = browser.new_context(java_script_enabled=False, reduced_motion="reduce")
     p2 = nojs.new_page()
     for ck in page.context.cookies():
         nojs.add_cookies([ck])

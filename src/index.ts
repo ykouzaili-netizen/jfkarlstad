@@ -28,6 +28,7 @@ import {
   partnersPage,
 } from "./pages/listings.js";
 import { cookiesPage, privacyPage, sitemapXml } from "./pages/legal.js";
+import { networkPage } from "./pages/networks.js";
 import { errorPage, notFoundPage } from "./pages/errors.js";
 import { registerAdminRoutes } from "./admin/routes.js";
 import { runMaintenance } from "./lib/maintenance.js";
@@ -47,6 +48,7 @@ async function isHiddenPage(env: Env, path: string): Promise<boolean> {
 const router = new Router()
   .get("/", homePage)
   .get("/om-oss", aboutPage)
+  .get("/om-oss/:slug", networkPage)
   .get("/engagera-dig", (c) => engagePage(c))
   .post("/engagera-dig", submitHandler("engagemang"))
   .get("/engagera-dig/tack", thanksPage("engagemang"))

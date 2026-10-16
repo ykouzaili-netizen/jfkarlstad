@@ -5,6 +5,8 @@ import { ec, ek, loadSettings, type SettingKey, type Settings, siteLayout, withB
 import { boardQuery, honorQuery, partnerQuery, type BoardRow, type HonorRow, type PartnerRow } from "../lib/content.js";
 import { htmlResponse } from "../lib/http.js";
 import { loadMedals } from "../lib/medals.js";
+import { loadNetworks, type NetworkRow } from "../lib/networks.js";
+import { networkCard } from "./networks.js";
 import { honorsData, honorsSection } from "./honors.js";
 import { pedagogSection } from "./pedagog.js";
 import type { RequestContext } from "../router.js";
@@ -15,11 +17,12 @@ import { HERO_FALLBACKS, heroStyle, heroTile, personCard, photoTop, sectionNav, 
 
 export async function aboutPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, [boardRes, honorRes, partnerRes], committeeRows, medals] = await Promise.all([
+  const [s, [boardRes, honorRes, partnerRes], committeeRows, medals, networks] = await Promise.all([
     loadSettings(db, c.preview),
     db.batch([boardQuery.all(db), honorQuery.all(db), partnerQuery.all(db)]),
     loadCommittees(db),
     loadMedals(db),
+    loadNetworks(db),
   ]);
   const board = boardRes!.results as unknown as BoardRow[];
   const honors = honorRes!.results as unknown as HonorRow[];
@@ -33,7 +36,7 @@ export async function aboutPage(c: RequestContext): Promise<Response> {
     { id: "utskott", anchor: "#utskotten", labelKey: "committees_title", icon: "users", render: () => (committees.length ? committeesSection(s, committees) : "") },
     { id: "utmarkelser", anchor: "#utmarkelser", labelKey: "honors_title", icon: "check", render: () => honorsSection(s, honorsData(honors, medals)) },
     { id: "pedagog", anchor: "#arets-pedagog", labelKey: "pedagog_title", icon: "megaphone", render: () => pedagogSection(s, honors) },
-    { id: "samarbeten", anchor: "#samarbeten", labelKey: "collab_title", icon: "briefcase", render: () => collabSection(s, partners) },
+    { id: "samarbeten", anchor: "#samarbeten", labelKey: "collab_title", icon: "briefcase", render: () => collabSection(s, partners, networks) },
   ];
   // Genvägarna följer avsnittens ordning och hoppar över dolda avsnitt.
   const order = siteLayout(s);
@@ -168,23 +171,7 @@ function boardSection(s: Settings, board: BoardRow[]): SafeHtml {
 }
 
 
-function collabCard(s: Settings, k: "juro" | "elsa"): SafeHtml {
-  const img = s[`${k}_image` as const];
-  return html`<article class="collab-card">
-    <div class="collab-media${img ? " has-image" : ""}"${ek(s, `${k}_image` as const)}>
-      ${img
-        ? picture(img, { alt: s[`${k}_title` as const], sizes: "(min-width: 760px) 45vw, 100vw", width: 900, height: 500 })
-        : html`<span class="collab-wordmark" aria-hidden="true">${s[`${k}_title` as const]}</span>`}
-    </div>
-    <div class="collab-body">
-      <p class="partner-kicker"${ek(s, `${k}_kicker` as const)}>${s[`${k}_kicker` as const]}</p>
-      <h3 class="info-title"${ek(s, `${k}_title` as const)}>${s[`${k}_title` as const]}</h3>
-      <p${ek(s, `${k}_text` as const)}>${s[`${k}_text` as const]}</p>
-    </div>
-  </article>`;
-}
-
-function collabSection(s: Settings, partners: PartnerRow[]): SafeHtml {
+function collabSection(s: Settings, partners: PartnerRow[], networks: NetworkRow[]): SafeHtml {
   return html`<section class="section section-surface" aria-labelledby="samarbeten">
     <div class="container">
       <div class="section-head">
@@ -194,7 +181,7 @@ function collabSection(s: Settings, partners: PartnerRow[]): SafeHtml {
         </div>
         ${arrowLink("/partners", s.collab_link, "arrow-link section-link", ek(s, "collab_link"))}
       </div>
-      <div class="two-col">${collabCard(s, "juro")}${collabCard(s, "elsa")}</div>
+      ${networks.length ? html`<div class="two-col collab-grid">${networks.map((n) => networkCard(s, n))}</div>` : ""}
       ${partners.length
         ? html`<ul class="logo-row">${partners.map((p) => html`<li${ec(s, `/admin/partners/${p.id}`, `Partner › ${p.name}`)}><a href="/partners/${p.slug}">${partnerLogo(p, "sm")}</a></li>`)}</ul>`
         : ""}

@@ -2193,7 +2193,7 @@ main > section:nth-child(n + 3):not(.section-nav ~ *),
 .partner-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
 /* Brett bildband */
-.partner-photo--banner { aspect-ratio: 16 / 10; }
+.partner-photo--banner { aspect-ratio: 16 / 10; margin-bottom: clamp(36px, 5vw, 64px); }
 @media (min-width: 760px) { .partner-photo--banner { aspect-ratio: 21 / 9; } }
 
 /* Bakgrund i toppen: mörk toning nedifrån så att texten alltid går att läsa, oavsett bild */
@@ -3065,8 +3065,88 @@ a.cal-num:hover { background: var(--c-hover); }
 .collab-media img { width: 100%; height: 100%; object-fit: cover; }
 .collab-wordmark { font-family: var(--font-display); font-size: calc(2.75rem * var(--display-scale)); font-weight: 600; color: var(--c-accent); letter-spacing: -0.01em; }
 .collab-card:nth-child(2) .collab-wordmark { color: var(--c-on-accent); }
-.collab-body { padding: clamp(22px, 3vw, 30px); }
+.collab-body { display: flex; flex-direction: column; flex: 1; padding: clamp(22px, 3vw, 30px); }
 .collab-body .info-title { margin-bottom: 8px; }
+
+/* Korten leder till nätverkets egen sida – hela kortet är klickbart (länken sträcks ut över kortet) */
+.collab-card { position: relative; display: flex; flex-direction: column; transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease); }
+.collab-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgb(0 0 0 / 0.1); }
+.collab-card:has(.collab-link:focus-visible) { outline: 3px solid var(--c-accent); outline-offset: 4px; }
+.collab-link { align-self: flex-start; margin-top: auto; padding-top: 14px; }
+.collab-link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.collab-link:focus-visible { outline: none; }
+.collab-media { position: relative; overflow: hidden; }
+.collab-logo { display: grid; place-items: center; width: min(62%, 280px); aspect-ratio: 3 / 2; padding: clamp(14px, 2vw, 22px); border-radius: 18px; background: var(--c-surface); box-shadow: 0 10px 30px rgb(0 0 0 / 0.12); }
+.collab-logo-chip { position: absolute; left: 16px; bottom: 16px; display: grid; place-items: center; width: 132px; height: 80px; padding: 10px 14px; border-radius: 14px; background: var(--c-surface); box-shadow: 0 10px 24px rgb(0 0 0 / 0.22); }
+.collab-media.has-image img:not(.network-logo) { transition: transform 0.6s var(--ease); }
+.collab-card:hover .collab-media.has-image img:not(.network-logo) { transform: scale(1.03); }
+.network-logo { display: block; width: 100%; height: 100%; max-width: 100%; object-fit: contain; }
+/* Logotyper beskärs aldrig (bildbankens utsnitt gäller bara foton) */
+img.network-logo[data-img] { object-fit: contain !important; object-position: 50% 50% !important; transform: none !important; }
+.collab-logo .partner-wordmark, .collab-logo-chip .partner-wordmark { color: var(--c-text); font-size: 1.25rem; }
+
+/* ---------- Studentnätverkens egna sidor (/om-oss/:slug, src/pages/networks.ts) ---------- */
+.network-hero { display: grid; gap: 28px; align-items: center; }
+@media (min-width: 760px) { .network-hero { grid-template-columns: minmax(0, 1fr) 300px; gap: 56px; } }
+.network-hero-copy .page-lead { max-width: 60ch; }
+.network-hero-logo {
+  display: grid; place-items: center; grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  width: 100%; max-width: 300px; aspect-ratio: 3 / 2;
+  padding: clamp(20px, 3vw, 32px);
+  border-radius: var(--radius-lg); background: var(--c-surface); border: 1px solid var(--c-border);
+  text-align: center; overflow: hidden;
+}
+@media (max-width: 759px) { .network-hero-logo { order: -1; max-width: 220px; } }
+.network-hero-logo .partner-wordmark { overflow-wrap: anywhere; }
+.network-hero-logo img.network-logo[data-img] { object-fit: contain !important; object-position: 50% 50% !important; transform: none !important; }
+.partner-body .section-title { margin-bottom: 18px; }
+.network-section-title { margin-bottom: clamp(20px, 3vw, 32px); }
+
+.network-email { display: grid; gap: 2px; margin: 0; }
+.network-email-label { font-size: 0.8125rem; color: var(--c-muted); }
+.network-email a { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; overflow-wrap: anywhere; }
+
+/* Så samarbetar vi: en mörk platta med JFK × nätverkets logotyp */
+.network-collab { padding-top: 0; }
+.network-collab-panel {
+  display: grid; gap: clamp(28px, 4vw, 56px); align-items: center;
+  padding: clamp(28px, 5vw, 64px);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at 1.5px 1.5px, color-mix(in srgb, var(--c-on-primary) 8%, transparent) 1.5px, transparent 0) 0 0 / 26px 26px,
+    radial-gradient(ellipse 60% 80% at 0% 100%, color-mix(in srgb, var(--c-accent) 28%, transparent), transparent 70%),
+    var(--c-primary);
+  color: var(--c-on-primary);
+}
+@media (min-width: 900px) { .network-collab-panel { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); } }
+.network-collab-panel .section-title { color: var(--c-on-primary); margin-bottom: 16px; }
+.network-collab-panel .prose { color: color-mix(in srgb, var(--c-on-primary) 88%, transparent); }
+.network-collab-panel .prose a { color: inherit; }
+.network-collab-panel :focus-visible { outline-color: var(--c-accent); }
+.network-lockup { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 2vw, 22px); }
+.network-lockup-jfk { flex: none; width: clamp(72px, 9vw, 104px); height: clamp(72px, 9vw, 104px); border-radius: 50%; object-fit: contain; }
+.network-lockup-mark { display: grid; place-items: center; background: var(--c-accent); color: var(--c-on-accent); font-family: var(--font-display); font-size: clamp(2.25rem, 4vw, 3.25rem); line-height: 1; }
+.network-lockup-x { font-family: var(--font-display); font-size: clamp(2rem, 4vw, 3rem); line-height: 1; color: var(--c-accent); }
+.network-lockup-them {
+  display: grid; place-items: center; flex: none;
+  width: clamp(120px, 15vw, 176px); aspect-ratio: 3 / 2; padding: 14px;
+  border-radius: 18px; background: var(--c-surface); color: var(--c-text); text-align: center;
+  transform: rotate(-2deg); box-shadow: 0 16px 36px rgb(0 0 0 / 0.3);
+}
+.network-lockup-them .partner-wordmark { font-size: clamp(1rem, 1.6vw, 1.375rem); overflow-wrap: anywhere; }
+
+/* Bilder: en, två eller tre i ett mönster */
+.network-gallery { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(12px, 2vw, 20px); }
+.network-gallery figure { margin: 0; height: 100%; display: flex; flex-direction: column; }
+.network-gallery img { display: block; width: 100%; flex: 1; min-height: 0; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-lg); background: var(--c-surface); }
+.network-gallery figcaption { margin-top: 10px; font-size: 0.875rem; color: var(--c-muted); }
+.network-gallery--1 img { aspect-ratio: 16 / 9; }
+@media (min-width: 760px) {
+  .network-gallery--2 { grid-template-columns: 1fr 1fr; }
+  .network-gallery--3 { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); grid-template-rows: auto auto; }
+  .network-gallery--3 li:first-child { grid-row: 1 / span 2; }
+  .network-gallery--3 li:first-child img { aspect-ratio: auto; }
+}
 
 /* ---------- Förhandsvisning i adminpanelen ---------- */
 /* Länkar och knappar går inte att klicka på i förhandsvisningen – den ska bara visa hur det ser ut. */

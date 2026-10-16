@@ -150,8 +150,9 @@ const LAYOUT_ART: Record<PartnerImageStyle, string> = {
 const layoutArt = (style: PartnerImageStyle) =>
   raw(`<svg class="layout-art" viewBox="0 0 64 44" width="64" height="44" focusable="false"><rect class="la-frame" x="0.5" y="0.5" width="63" height="43" rx="3"/>${LAYOUT_ART[style]}</svg>`);
 
-const PARTNER_TABS = [
+export const PARTNER_TABS = [
   { href: "/admin/partners", label: "Partners" },
+  { href: "/admin/natverk", label: "Studentnätverk" },
   { href: "/admin/partners/statistik", label: "Statistik" },
 ];
 
@@ -419,6 +420,55 @@ export const RESOURCES: Resource[] = [
     ],
     titleOf: (r) => String(r.name),
     publicUrl: (r) => (r.published ? `/partners/${r.slug}` : null),
+    extraColumns: () => ({ updated_at: nowUtc() }),
+  },
+  {
+    path: "natverk",
+    movable: true,
+    table: "networks",
+    title: "Studentnätverk",
+    singular: "nätverk",
+    newLabel: "Lägg till nätverk",
+    lead: "Nätverken JFK samarbetar med, t.ex. JURO och ELSA Karlstad. De visas som kort under Samarbeten på Om oss, och varje nätverk har en egen sida med presentation, samarbetet, bilder och länkar.",
+    orderBy: "sort_order, name",
+    slugFrom: "name",
+    publishable: true,
+    publishLabels: ["Visas", "Dold"],
+    tabs: PARTNER_TABS,
+    navActive: "/admin/partners",
+    emptyText: "Inga nätverk ännu.",
+    fields: [
+      { name: "name", label: "Namn", type: "text", required: true, max: 100, placeholder: "T.ex. ELSA Karlstad" },
+      { name: "kicker", label: "Etikett", type: "text", max: 40, placeholder: "T.ex. Nationellt", help: "Ett eller två ord ovanför namnet." },
+      { name: "summary", label: "Kort beskrivning", type: "textarea", rows: 3, max: 400, help: "Visas på kortet på Om oss och överst på nätverkets sida. Två–tre meningar." },
+      { name: "logo_key", label: "Logotyp", type: "text", upload: "image", nullable: true, help: "Helst SVG eller PNG med genomskinlig bakgrund. Utan logotyp visas namnet i snygg text." },
+      { name: "image_key", label: "Huvudbild", type: "text", upload: "image", nullable: true, help: "Valfri. Visas brett överst på sidan och på kortet på Om oss. Liggande bild, minst 1600 px bred." },
+      { name: "image_alt", label: "Beskriv huvudbilden", type: "text", max: 200, help: "Läses upp för den som inte ser bilden. Lämna tomt om bilden bara är stämning." },
+      { name: "description", label: "Om nätverket", type: "textarea", rows: 8, max: 6000, help: "Presentationen på sidan. Tom rad = nytt stycke. Rader som börjar med - blir en punktlista, **så här** blir fetstil." },
+      { name: "collaboration", label: "Så samarbetar vi", type: "textarea", rows: 6, max: 4000, help: "Hur JFK och nätverket samarbetar – vad medlemmarna får ut av det, gemensamma evenemang, hur man engagerar sig. Visas i en egen ruta. Samma format som ovan." },
+      { name: "image_2_key", label: "Bild 2", type: "text", upload: "image", nullable: true, help: "Bild 2–4 visas tillsammans under rubriken Bilder längre ned på sidan – t.ex. från ett gemensamt evenemang. Liggande eller kvadratiska bilder blir snyggast." },
+      { name: "image_2_caption", label: "Bildtext till bild 2", type: "text", max: 160, placeholder: "T.ex. JURO-helgen i Uppsala 2026", help: "Visas under bilden och läses upp för den som inte ser den." },
+      { name: "image_3_key", label: "Bild 3", type: "text", upload: "image", nullable: true },
+      { name: "image_3_caption", label: "Bildtext till bild 3", type: "text", max: 160, placeholder: "T.ex. JURO-helgen i Uppsala 2026", help: "Visas under bilden och läses upp för den som inte ser den." },
+      { name: "image_4_key", label: "Bild 4", type: "text", upload: "image", nullable: true },
+      { name: "image_4_caption", label: "Bildtext till bild 4", type: "text", max: 160, placeholder: "T.ex. JURO-helgen i Uppsala 2026", help: "Visas under bilden och läses upp för den som inte ser den." },
+      { name: "website_url", label: "Webbplats", type: "url", nullable: true, max: 300 },
+      { name: "email", label: "E-post", type: "email", nullable: true, max: 200, help: "Valfri. En adress till nätverket eller den som är kontaktperson hos JFK." },
+      {
+        name: "links",
+        label: "Fler länkar",
+        type: "text",
+        custom: { render: (v, e) => partnerLinksField(v, e, "Visas i rutan bredvid presentationen, under webbplatsen. T.ex. Instagram, LinkedIn eller en anmälan."), read: readPartnerLinks },
+      },
+    ],
+    listColumns: [
+      { label: "", render: (r) => thumb((r.logo_key ?? r.image_key) as string | null), className: "col-thumb" },
+      { label: "Namn", render: (r) => html`<a class="row-title" href="/admin/natverk/${r.id}">${String(r.name)}</a>` },
+      { label: "Etikett", render: (r) => String(r.kicker ?? "") },
+      { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
+    ],
+    titleOf: (r) => String(r.name),
+    publicUrl: (r) => (r.published ? `/om-oss/${r.slug}` : null),
     extraColumns: () => ({ updated_at: nowUtc() }),
   },
   {

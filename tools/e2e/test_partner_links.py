@@ -60,7 +60,7 @@ with sync_playwright() as p:
     check(len(texts) == 2 and "Podden" in texts[1], "Ta bort tar bort rätt länk")
 
     # Utan JavaScript
-    nojs = b.new_context(java_script_enabled=False)
+    nojs = b.new_context(java_script_enabled=False, reduced_motion="reduce")
     pg = nojs.new_page()
     for c in page.context.cookies():
         nojs.add_cookies([c])

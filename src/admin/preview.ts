@@ -7,6 +7,7 @@ import { aboutPage } from "../pages/about.js";
 import { membershipPage } from "../pages/membership.js";
 import { studentsPage } from "../pages/students.js";
 import { companiesPage, contactPage, engagePage, paverkaPage, thanksPage } from "../pages/forms.js";
+import { networkPage } from "../pages/networks.js";
 import { documentTextPage, documentsPage, eventDetailPage, faqPage, newsArticlePage, newsListPage, partnerDetailPage, partnersPage } from "../pages/listings.js";
 import { jobDetailPage, jobsPage } from "../pages/careers.js";
 import { calendarPage } from "../pages/calendar.js";
@@ -54,6 +55,7 @@ export const PREVIEW_PAGES: { path: string; label: string; render: Render }[] = 
 /** Sidor med adress som beror på innehållet (förhandsvisas med det första som finns). */
 const DYNAMIC: [RegExp, Render][] = [
   [/^\/partners\/([^/]+)$/, partnerDetailPage],
+  [/^\/om-oss\/([^/]+)$/, networkPage],
   [/^\/aktuellt\/([^/]+)$/, newsArticlePage],
   [/^\/dokument\/(\d+(?:-[a-z0-9-]*)?)$/, documentTextPage],
   [/^\/kalender\/([^/.]+)$/, eventDetailPage],
@@ -122,12 +124,13 @@ export async function siteMapHandler(c: RequestContext): Promise<Response> {
 }
 
 /** Adress till en riktig sida för de avsnitt som visas på en undersida (t.ex. ett evenemang). */
-export async function samplePath(db: D1Database, kind: "event" | "news" | "partner" | "job"): Promise<string | null> {
+export async function samplePath(db: D1Database, kind: "event" | "news" | "partner" | "job" | "network"): Promise<string | null> {
   const q = {
     event: ["/kalender/", "SELECT slug FROM events WHERE published = 1 ORDER BY starts_at DESC LIMIT 1"],
     news: ["/aktuellt/", "SELECT slug FROM news WHERE published = 1 ORDER BY published_at DESC LIMIT 1"],
     partner: ["/partners/", "SELECT slug FROM partners WHERE published = 1 ORDER BY CASE tier WHEN 'huvud' THEN 0 ELSE 1 END, sort_order LIMIT 1"],
     job: ["/karriar/", "SELECT slug FROM jobs WHERE published = 1 ORDER BY id DESC LIMIT 1"],
+    network: ["/om-oss/", "SELECT slug FROM networks WHERE published = 1 ORDER BY sort_order, name LIMIT 1"],
   }[kind] as [string, string];
   try {
     const row = await db.prepare(q[1]).first<{ slug: string }>();
