@@ -853,3 +853,47 @@ document.addEventListener("click", function (e) {
     if (history.replaceState) history.replaceState(null, "", a.getAttribute("href"));
   });
 })();
+
+/* Biografen: spelaren från YouTube laddas först när besökaren trycker på play (innan dess kontaktas inte YouTube),
+   och programmet byter film utan att ladda om sidan. Utan JS: knappen öppnar filmen på YouTube, programmet är länkar. */
+(function () {
+  var hall = document.querySelector("[data-cine]");
+  if (!hall) return;
+  function stop(screen) {
+    var frame = screen.querySelector("[data-cine-frame]");
+    if (frame && frame.hasAttribute("data-orig")) { frame.innerHTML = frame.getAttribute("data-orig"); frame.removeAttribute("data-orig"); }
+    screen.classList.remove("is-playing");
+  }
+  hall.addEventListener("click", function (e) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    var play = e.target.closest(".cine-play");
+    if (play) {
+      e.preventDefault();
+      var frame = play.closest("[data-cine-frame]"), screen = play.closest("[data-cine-screen]");
+      var f = document.createElement("iframe");
+      f.src = play.getAttribute("data-embed");
+      f.title = play.getAttribute("data-title") || "Film";
+      f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+      f.allowFullscreen = true;
+      f.referrerPolicy = "strict-origin-when-cross-origin";
+      frame.setAttribute("data-orig", frame.innerHTML);
+      frame.innerHTML = "";
+      frame.appendChild(f);
+      screen.classList.add("is-playing");
+      f.focus();
+      return;
+    }
+    var pick = e.target.closest("[data-cine-pick]");
+    if (!pick) return;
+    e.preventDefault();
+    var id = pick.getAttribute("data-cine-pick");
+    hall.querySelectorAll("[data-cine-screen]").forEach(function (s) {
+      var on = s.getAttribute("data-cine-screen") === id;
+      if (!on) stop(s);
+      s.hidden = !on;
+      if (on) { s.classList.remove("is-in"); void s.offsetWidth; s.classList.add("is-in"); if (s.getBoundingClientRect().top < 0) s.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    });
+    hall.querySelectorAll("[data-cine-pick]").forEach(function (a) { if (a === pick) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current"); });
+    if (history.replaceState) history.replaceState(null, "", pick.getAttribute("href"));
+  });
+})();

@@ -6,6 +6,7 @@ import { Router, type RequestContext } from "./router.js";
 import { randomToken, redirect, textResponse } from "./lib/http.js";
 import { findRedirect, looksLikeOldAddress } from "./lib/legacy.js";
 import { getFile, MEDIA_VARIANT_VERSION } from "./lib/storage.js";
+import { thumbnail } from "./lib/youtube.js";
 import { homePage } from "./pages/home.js";
 import { aboutPage } from "./pages/about.js";
 import { membershipPage } from "./pages/membership.js";
@@ -86,7 +87,9 @@ const router = new Router()
     const row = await c.env.DB.prepare("SELECT value FROM settings WHERE key = 'logo_key'").first<{ value: string }>().catch(() => null);
     return redirect(row?.value ? `/media/${encodeURI(row.value)}` : "/assets/favicon.svg");
   })
-  .get("/media/:key", mediaHandler);
+  .get("/media/:key", mediaHandler)
+  // YouTubes stillbild för galleriets filmer – hämtas och lagras av sajten (se lib/youtube.ts).
+  .get("/film/bild/:file", async (c) => (await thumbnail(c.env, (c.params.file ?? "").replace(/\.jpg$/, ""))) ?? notFoundPage(c));
 
 registerAdminRoutes(router);
 

@@ -65,6 +65,7 @@ export const PAGE_LAYOUTS: Record<string, PageLayoutDef> = {
       { id: "jobb", anchor: "jobb-och-praktik" },
       { id: "kursombud", anchor: "kursombud" },
       { id: "idrott", anchor: "jfk-idrott" },
+      { id: "filmer", anchor: "biografen" },
       { id: "galleri", anchor: "bildgalleri" },
     ],
   },

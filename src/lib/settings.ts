@@ -340,9 +340,23 @@ export function pageColorCss(s: Settings, pageId: string | null): string {
   return `#innehall{${vars}}`;
 }
 
+/** Egna färger för Biografen (filmerna). Standard i site.css: primär färg som bakgrund, accentfärgen på detaljerna. */
+export function filmsCss(s: Settings): string {
+  const pick = (v: string) => (isHex(v) ? v.toLowerCase() : "");
+  const bg = pick(s.films_c_bg);
+  const text = pick(s.films_c_text);
+  const accent = pick(s.films_c_accent);
+  if (!bg && !text && !accent) return "";
+  let vars = "";
+  if (bg) vars += `--fm-bg:${bg};`;
+  if (text || bg) vars += `--fm-text:${text || readableOn(bg)};`;
+  if (accent) vars += `--fm-accent:${accent};--fm-on-accent:${readableOn(accent)};`;
+  return `.cine{${vars}}`;
+}
+
 /** CSS för alla avsnitt med egna färger (skrivs i sidans <style> i layout.ts). Värdena är kontrollerade hexkoder. */
 export function blockColorCss(s: Settings): string {
-  let css = honorsBandCss(s) + honorsGalleryCss(s) + pedagogCss(s);
+  let css = honorsBandCss(s) + honorsGalleryCss(s) + pedagogCss(s) + filmsCss(s);
   for (const [pageId, blocks] of Object.entries(BLOCK_COLORS)) {
     for (const blockId of Object.keys(blocks)) css += blockColors(s, pageId, blockId)?.css ?? "";
   }
