@@ -1,4 +1,5 @@
 import { galleryYearsAction } from "./gallery-years.js";
+import { isShortsUrl, youtubeId } from "../lib/youtube.js";
 import { instagramConfigured, parseStatus, STATUS_SETTING, syncInstagram } from "../lib/instagram.js";
 import { html, type SafeHtml } from "../lib/html.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec, type Values } from "../lib/forms.js";
@@ -106,6 +107,10 @@ export interface Resource {
   stayAfterSave?: (data: Record<string, unknown>) => Promise<boolean>;
 }
 
+const GALLERY_TABS = [
+  { href: "/admin/galleri", label: "Bilder" },
+  { href: "/admin/filmer", label: "Filmer" },
+];
 const BOARD_TABS = [
   { href: "/admin/styrelsen", label: "Styrelsen" },
   { href: "/admin/utskott", label: "Utskott" },
@@ -548,6 +553,7 @@ export const RESOURCES: Resource[] = [
     singular: "bild",
     newLabel: "Ladda upp bilder",
     listActions: galleryYearsAction,
+    tabs: GALLERY_TABS,
     lead: "Bilderna visas under För studenter, grupperade per album. Publicera inga bilder som kan uppfattas som kränkande, och ta bort en bild direkt om någon som syns på den ber om det (GDPR).",
     orderBy: "album, year IS NULL, year DESC, sort_order, id DESC",
     emptyText: "Inga bilder ännu.",
@@ -566,6 +572,49 @@ export const RESOURCES: Resource[] = [
       { label: "År", render: (r) => (r.year ? String(r.year) : "–") },
     ],
     titleOf: (r) => galleryTitle(r),
+  },
+  {
+    path: "filmer",
+    table: "gallery_videos",
+    title: "Filmer",
+    singular: "film",
+    newLabel: "Lägg till film",
+    navActive: "/admin/galleri",
+    tabs: GALLERY_TABS,
+    lead: "Filmerna visas i Biografen under För studenter. Ladda upp filmen på YouTube (gärna som ”Olistad”) och klistra in länken här – sajten visar den i sin egen spelare och hämtar inget från YouTube förrän besökaren trycker på play.",
+    orderBy: "year IS NULL, year DESC, sort_order, id DESC",
+    emptyText: "Inga filmer ännu. Lägg till en film genom att klistra in YouTube-länken.",
+    publishable: true,
+    publishLabels: ["Visas", "Dold"],
+    fields: [
+      { name: "youtube_url", label: "YouTube-länk", type: "text", required: true, max: 300, placeholder: "https://www.youtube.com/watch?v=… eller https://youtube.com/shorts/…", help: "Kopiera länken från YouTube (Dela → Kopiera länk). Filmen måste tillåta inbäddning, och den får gärna vara olistad." },
+      { name: "title", label: "Titel", type: "text", required: true, max: 100, placeholder: "T.ex. Vårbanketten 2026" },
+      {
+        name: "vertical",
+        label: "Format",
+        type: "radio",
+        help: "Inget val = liggande. En länk till YouTube Shorts blir alltid stående.",
+        options: [
+          { value: "0", label: "Liggande (16:9)", hint: "Filmad med mobilen på bredden eller med kamera" },
+          { value: "1", label: "Stående (9:16)", hint: "Filmad med mobilen på höjden – t.ex. YouTube Shorts. Visas som en hög duk i stället för bredbild" },
+        ],
+      },
+      { name: "album", label: "Album", type: "select", options: [{ value: "", label: "Inget album" }, ...GALLERY_ALBUMS.map((a) => ({ value: a, label: a }))] },
+      { name: "year", label: "År", type: "number", min: 2000, max: 2100, nullable: true },
+      { name: "description", label: "Kort text", type: "text", max: 160, help: "Valfri rad under titeln, t.ex. ”Aftermovie” eller ”Filmat av Kommunikationsutskottet”." },
+      { name: "poster_key", label: "Egen stillbild", type: "text", upload: "image", nullable: true, help: "Valfri. Annars används filmens stillbild från YouTube. För stående filmer blir en egen stående bild snyggast." },
+      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Bland filmer från samma år. Lägst nummer först." },
+    ],
+    check: (v): Errors => (youtubeId(v.youtube_url ?? "") ? {} : { youtube_url: "Det där ser inte ut som en YouTube-länk. Kopiera länken från YouTube (Dela → Kopiera länk) och klistra in den här." }),
+    extraColumns: (v) => ({ youtube_id: youtubeId(v.youtube_url ?? "") ?? "", vertical: v.vertical === "1" || isShortsUrl(v.youtube_url ?? "") ? 1 : 0 }),
+    listColumns: [
+      { label: "", render: (r) => thumb(r.poster_key ?? null) , className: "col-thumb" },
+      { label: "Titel", render: (r) => html`<a class="row-title" href="/admin/filmer/${r.id}">${String(r.title)}</a>` },
+      { label: "Format", render: (r) => (r.vertical ? "Stående" : "Liggande") },
+      { label: "År", render: (r) => (r.year ? String(r.year) : "–") },
+      { label: "Status", render: (r) => publishPill(r, "published", ["Visas", "Dold"]) },
+    ],
+    titleOf: (r) => String(r.title),
   },
   {
     path: "instagram",

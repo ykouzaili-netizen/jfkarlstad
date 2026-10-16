@@ -1,7 +1,8 @@
 import { blockOrder, isBlockHidden } from "../lib/pagelayout.js";
 import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
 import { ec, ek, lines, loadSettings, type Settings, arrange, siteLayout, type SettingKey } from "../lib/settings.js";
-import { GALLERY_ALBUMS, galleryQuery, repQuery, type CourseRepRow, type GalleryRow } from "../lib/content.js";
+import { GALLERY_ALBUMS, galleryQuery, repQuery, videoQuery, type CourseRepRow, type GalleryRow, type VideoRow } from "../lib/content.js";
+import { filmsSection } from "./films.js";
 import { slugify } from "../lib/slug.js";
 import { fill as fillText } from "../lib/texts.js";
 import { renderInline } from "../lib/markdown.js";
@@ -14,20 +15,22 @@ import { contentPhoto, pageHeader } from "../views/page.js";
 
 export async function studentsPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, [repRes, galRes]] = await Promise.all([loadSettings(db, c.preview), db.batch([repQuery.all(db), galleryQuery.all(db)])]);
+  const [s, [repRes, galRes, vidRes]] = await Promise.all([loadSettings(db, c.preview), db.batch([repQuery.all(db), galleryQuery.all(db), videoQuery.all(db)])]);
   const reps = repRes!.results as unknown as CourseRepRow[];
   const gallery = galRes!.results as unknown as GalleryRow[];
+  const films = (vidRes?.results ?? []) as unknown as VideoRow[];
 
   const navItems: { id: string; href: string; labelKey: SettingKey }[] = [
     { id: "studera", href: "#studera-pa-kau", labelKey: "study_title" },
     { id: "jobb", href: "#jobb-och-praktik", labelKey: "students_jobs_title" },
     { id: "kursombud", href: "#kursombud", labelKey: "reps_title" },
     { id: "idrott", href: "#jfk-idrott", labelKey: "sport_title" },
+    { id: "filmer", href: "#biografen", labelKey: "films_title" },
     { id: "galleri", href: "#bildgalleri", labelKey: "gallery_title" },
   ];
   const order = siteLayout(s);
   const nav = blockOrder(order, "for-studenter")
-    .filter((id) => !isBlockHidden(order, "for-studenter", id))
+    .filter((id) => !isBlockHidden(order, "for-studenter", id) && (id !== "filmer" || films.length > 0))
     .map((id) => navItems.find((n) => n.id === id)!)
     .map(({ href, labelKey }) => ({ href, labelKey }));
 
@@ -38,6 +41,7 @@ export async function studentsPage(c: RequestContext): Promise<Response> {
       jobb: (prev) => jobs(s, prev === null || prev === "studera"),
       kursombud: () => repsSection(s, reps),
       idrott: () => sport(s),
+      filmer: () => filmsSection(s, films, c.url),
       galleri: () => gallerySection(s, gallery, c.url),
     })}
   `;

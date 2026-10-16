@@ -286,6 +286,23 @@ export const repQuery = {
   all: (db: D1Database) => db.prepare("SELECT * FROM course_reps ORDER BY sort_order, term"),
 };
 
+export interface VideoRow {
+  id: number;
+  title: string;
+  youtube_url: string;
+  youtube_id: string;
+  vertical: number;
+  album: string;
+  year: number | null;
+  description: string;
+  poster_key: string | null;
+}
+
+/** Galleriets filmer (YouTube), nyast först. */
+export const videoQuery = {
+  all: (db: D1Database) => db.prepare("SELECT * FROM gallery_videos WHERE published = 1 ORDER BY year IS NULL, year DESC, sort_order, id DESC"),
+};
+
 export const galleryQuery = {
   all: (db: D1Database) => db.prepare("SELECT * FROM gallery_images ORDER BY album, year IS NULL, year DESC, sort_order, id DESC"),
 };

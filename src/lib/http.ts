@@ -9,7 +9,8 @@ export function securityHeaders(nonce: string): Record<string, string> {
     "img-src 'self' data: blob:",
     "font-src 'self'",
     "connect-src 'self' https://challenges.cloudflare.com",
-    "frame-src 'self' https://challenges.cloudflare.com",
+    // youtube-nocookie.com: galleriets filmer – spelaren laddas först när besökaren trycker på play (se lib/youtube.ts).
+    "frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com",
     "form-action 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
