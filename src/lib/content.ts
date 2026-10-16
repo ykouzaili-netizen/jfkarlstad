@@ -40,6 +40,10 @@ export interface PartnerRow {
   logo_key: string | null;
   website_url: string | null;
   career_url: string | null;
+  /** Bild på partnerns egen sida och hur den visas (src/lib/partner-image.ts). Saknas före migrering 0013. */
+  image_key?: string | null;
+  image_style?: string;
+  image_alt?: string;
   sort_order: number;
   published: number;
 }

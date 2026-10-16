@@ -839,3 +839,19 @@ a.admin-user:hover { background: var(--c-hover); }
 .gy-year { display: grid; gap: 6px; font-weight: 600; font-size: 0.9375rem; }
 .gy-year .input { width: 140px; }
 .gy-bar .field-help { flex-basis: 100%; margin: 0; }
+
+/* ---------- Skisser för "Hur ska bilden visas?" (partnersidan, src/admin/resources.ts) ---------- */
+.field-layouts .choice-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.field-layouts .choice { flex-direction: column; gap: 10px; position: relative; }
+.field-layouts .choice input { position: absolute; top: 12px; right: 12px; margin: 0; }
+.field-layouts .choice-art { width: 100%; min-height: 0; margin: 0; place-items: start; }
+.layout-art { display: block; width: 100%; max-width: 128px; height: auto; }
+.la-frame { fill: var(--c-surface); stroke: var(--c-border); }
+.la-photo { fill: var(--c-accent); }
+.la-shade { fill: rgb(0 0 0 / 0.35); }
+.la-accent { fill: color-mix(in srgb, var(--c-primary) 30%, transparent); }
+.la-box { fill: var(--c-surface); stroke: color-mix(in srgb, var(--c-text) 35%, transparent); stroke-width: 0.75; }
+.la-line { fill: color-mix(in srgb, var(--c-text) 70%, transparent); }
+.la-soft { fill: color-mix(in srgb, var(--c-text) 25%, transparent); }
+.la-light { fill: #fff; }
+.choice:has(input:checked) .la-frame { stroke: var(--c-text); stroke-width: 1.25; }

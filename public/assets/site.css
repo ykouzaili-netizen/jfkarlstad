@@ -2169,6 +2169,63 @@ main > section:nth-child(n + 3):not(.section-nav ~ *),
 .partner-hero-logo img.partner-logo[data-img] { object-fit: contain !important; object-position: 50% 50% !important; transform: none !important; }
 .partner-hero-logo .partner-wordmark { overflow-wrap: anywhere; }
 
+/* Partnerns bild – utseendet väljs per partner i adminpanelen (src/lib/partner-image.ts) */
+.partner-body { min-width: 0; }
+.partner-body > .prose { max-width: 62ch; }
+.partner-photo { margin: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--c-surface); }
+.partner-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* Brett bildband */
+.partner-photo--banner { aspect-ratio: 16 / 10; }
+@media (min-width: 760px) { .partner-photo--banner { aspect-ratio: 21 / 9; } }
+
+/* Bakgrund i toppen: mörk toning nedifrån så att texten alltid går att läsa, oavsett bild */
+.partner-top--bakgrund {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; align-items: flex-end;
+  min-height: min(68vh, 600px);
+  padding-block: clamp(96px, 12vw, 160px) clamp(40px, 5vw, 64px);
+  color: #fff;
+}
+.partner-top--bakgrund > .container { width: 100%; }
+.partner-photo--bakgrund { position: absolute; inset: 0; z-index: -1; border-radius: 0; }
+.partner-photo--bakgrund::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgb(0 0 0 / 0.84), rgb(0 0 0 / 0.3) 60%, rgb(0 0 0 / 0.45)); }
+.partner-top--bakgrund .page-title { color: #fff; }
+.partner-top--bakgrund .page-lead { color: rgb(255 255 255 / 0.9); }
+.partner-top--bakgrund .breadcrumb ol { color: rgb(255 255 255 / 0.8); }
+.partner-top--bakgrund .breadcrumb a, .partner-top--bakgrund .breadcrumb [aria-current] { color: #fff; }
+.partner-top--bakgrund :focus-visible { outline-color: #fff; }
+.partner-top--bakgrund .partner-hero-logo { border-color: transparent; color: var(--c-text); box-shadow: 0 18px 40px rgb(0 0 0 / 0.3); }
+.partner-top--bakgrund + .section-tight-top { padding-top: clamp(40px, 5vw, 64px); }
+@media (max-width: 759px) { .partner-top--bakgrund .partner-hero-logo { max-width: 180px; } }
+@media (min-width: 760px) { .partner-top--bakgrund .partner-hero { grid-template-columns: 240px 1fr; align-items: end; } }
+
+/* Bredvid namnet: logotyp och namn i en spalt, bilden stort bredvid */
+.partner-top--delad .partner-hero { grid-template-columns: minmax(0, 1fr); align-items: start; }
+.partner-top--delad .partner-hero-logo { max-width: 220px; }
+.partner-photo--delad { aspect-ratio: 4 / 3; }
+@media (min-width: 900px) {
+  .partner-top--delad .partner-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-rows: auto 1fr; column-gap: clamp(40px, 5vw, 72px); row-gap: 28px; }
+  .partner-top--delad .partner-hero-logo { grid-column: 1; grid-row: 1; }
+  .partner-top--delad .partner-hero-copy { grid-column: 1; grid-row: 2; }
+  .partner-photo--delad { grid-column: 2; grid-row: 1 / span 2; align-self: stretch; aspect-ratio: auto; min-height: 380px; }
+}
+
+/* I sidospalten: knapparna först (syns direkt), en stående bild under. Inte "sticky" – spalten är för hög. */
+.partner-side { display: grid; gap: 20px; align-content: start; }
+.partner-side .aside-card { position: static; }
+.partner-photo--spalt { aspect-ratio: 4 / 3; }
+@media (min-width: 900px) { .partner-photo--spalt { aspect-ratio: 4 / 5; } }
+
+/* Med färgplatta: en platta i accentfärgen förskjuten bakom bilden */
+.partner-photo--platta {
+  position: relative; isolation: isolate; overflow: visible; background: none;
+  --plate: clamp(14px, 2vw, 24px);
+  margin: 0 var(--plate) calc(var(--plate) + clamp(28px, 3vw, 40px)) 0;
+}
+.partner-photo--platta::before { content: ""; position: absolute; inset: var(--plate) calc(var(--plate) * -1) calc(var(--plate) * -1) var(--plate); z-index: -1; border-radius: var(--radius-lg); background: var(--c-accent); }
+.partner-photo--platta img { aspect-ratio: 3 / 2; border-radius: var(--radius-lg); }
+
 /* Nyhet */
 .article-hero .news-date { display: block; margin-bottom: 12px; }
 .article-image-wrap { max-width: calc(1000px + var(--gutter) * 2); }

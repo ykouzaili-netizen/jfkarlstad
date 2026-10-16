@@ -20,6 +20,7 @@ import {
 import { plainText, renderInline, renderMarkdown } from "../lib/markdown.js";
 import { eventDate, formatDate, isoDate, localToIso, stockholmNow, stockholmToday, truncate } from "../lib/format.js";
 import { fill } from "../lib/texts.js";
+import { partnerImageStyle, type PartnerImageStyle } from "../lib/partner-image.js";
 import { htmlResponse } from "../lib/http.js";
 import { getFile } from "../lib/storage.js";
 import { slugify } from "../lib/slug.js";
@@ -80,36 +81,54 @@ export async function partnerDetailPage(c: RequestContext): Promise<Response> {
   const kickerKey = p.tier === "huvud" ? "partner_main_kicker" : "partner_kicker";
   const vars = { namn: p.name };
 
+  const edit = ec(s, `/admin/partners/${p.id}`, `Partner › ${p.name}`);
+  const style = partnerImageStyle(p.image_style);
+  const photo = p.image_key ? style : null;
+  // Bilden i det valda utseendet. sizes/mått följer hur stor den blir på sidan.
+  const figure = (variant: PartnerImageStyle, sizes: string, width: number, height: number, eager = false) =>
+    html`<figure class="partner-photo partner-photo--${variant}">${picture(p.image_key!, { alt: p.image_alt ?? "", sizes, width, height, eager })}</figure>`;
+
+  const aside = p.career_url || p.website_url
+    ? html`<aside class="aside-card">
+        <h2 class="aside-title"${ek(s, "partner_aside_title")}>${fill(s.partner_aside_title, vars)}</h2>
+        <div class="stack-sm">
+          ${p.career_url
+            ? html`<a class="btn btn-primary btn-block" href="/ut/karriar/${p.id}" target="_blank" rel="noopener nofollow"${ek(s, "partner_career")}>${fill(s.partner_career, vars)}${icon("external", "icon icon-sm")}${newTab}</a>`
+            : ""}
+          ${p.website_url
+            ? html`<a class="btn btn-outline btn-block" href="/ut/webb/${p.id}" target="_blank" rel="noopener nofollow"${ek(s, "partner_website")}>${s.partner_website}${icon("external", "icon icon-sm")}${newTab}</a>`
+            : ""}
+        </div>
+      </aside>`
+    : "";
+  const side = photo === "spalt"
+    ? html`<div class="partner-side">${aside}${figure("spalt", "(min-width: 900px) 420px, 100vw", 800, 1000)}</div>`
+    : aside;
+
   const content = html`
-    <section class="page-hero">
+    <section class="page-hero partner-top${photo ? html` partner-top--${photo}` : ""}">
+      ${photo === "bakgrund" ? figure("bakgrund", "100vw", 1600, 900, true) : ""}
       <div class="container">
         ${breadcrumb([{ href: "/partners", label: s.partners_kicker }, { label: p.name }])}
-        <div class="partner-hero"${ec(s, `/admin/partners/${p.id}`, `Partner › ${p.name}`)}>
+        <div class="partner-hero"${edit}>
           <div class="partner-hero-logo">${partnerLogo(p, "lg")}</div>
-          <div>
+          <div class="partner-hero-copy">
             <p class="page-kicker"${ek(s, kickerKey)}>${s[kickerKey]}</p>
             <h1 class="page-title">${p.name}</h1>
             ${p.tagline ? html`<p class="page-lead">${p.tagline}</p>` : ""}
           </div>
+          ${photo === "delad" ? figure("delad", "(min-width: 900px) 46vw, 100vw", 1200, 900, true) : ""}
         </div>
       </div>
     </section>
+    ${photo === "banner" ? html`<div class="container">${figure("banner", "(min-width: 1280px) 1200px, 100vw", 1600, 686, true)}</div>` : ""}
     <section class="section section-tight-top">
       <div class="container split split-top">
-        <div class="prose prose-lg"${ec(s, `/admin/partners/${p.id}`, `Partner › ${p.name}`)}>${paragraphs(p.description)}</div>
-        ${p.career_url || p.website_url
-          ? html`<aside class="aside-card">
-              <h2 class="aside-title"${ek(s, "partner_aside_title")}>${fill(s.partner_aside_title, vars)}</h2>
-              <div class="stack-sm">
-                ${p.career_url
-                  ? html`<a class="btn btn-primary btn-block" href="/ut/karriar/${p.id}" target="_blank" rel="noopener nofollow"${ek(s, "partner_career")}>${fill(s.partner_career, vars)}${icon("external", "icon icon-sm")}${newTab}</a>`
-                  : ""}
-                ${p.website_url
-                  ? html`<a class="btn btn-outline btn-block" href="/ut/webb/${p.id}" target="_blank" rel="noopener nofollow"${ek(s, "partner_website")}>${s.partner_website}${icon("external", "icon icon-sm")}${newTab}</a>`
-                  : ""}
-              </div>
-            </aside>`
-          : ""}
+        <div class="partner-body">
+          ${photo === "platta" ? figure("platta", "(min-width: 900px) 640px, 100vw", 1200, 800) : ""}
+          <div class="prose prose-lg"${edit}>${paragraphs(p.description)}</div>
+        </div>
+        ${side}
       </div>
     </section>
     ${jobs.length

@@ -1,7 +1,8 @@
 import { galleryYearsAction } from "./gallery-years.js";
 import { isShortsUrl, youtubeId } from "../lib/youtube.js";
 import { instagramConfigured, parseStatus, STATUS_SETTING, syncInstagram } from "../lib/instagram.js";
-import { html, type SafeHtml } from "../lib/html.js";
+import { html, raw, type SafeHtml } from "../lib/html.js";
+import { PARTNER_IMAGE_STYLES, type PartnerImageStyle } from "../lib/partner-image.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec, type Values } from "../lib/forms.js";
 import { documentPath } from "../pages/listings.js";
 import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, HONOR_KINDS, JOB_KINDS, documentLinkKind, isGoogleLink } from "../lib/content.js";
@@ -124,6 +125,25 @@ const JOB_TABS = [
   { href: "/admin/arbetsgivare", label: "Arbetsgivare" },
   { href: "/admin/jobb/statistik", label: "Statistik" },
 ];
+/**
+ * Små skisser av partnersidan för valet "Hur ska bilden visas?" – den gula ytan är bilden.
+ * Kodgenererad SVG (raw), samma ruta 64 × 44 för alla.
+ */
+const LAYOUT_PARTS = {
+  head: '<rect class="la-box" x="6" y="6" width="11" height="8" rx="1"/><rect class="la-line" x="20" y="7" width="24" height="3" rx="1"/><rect class="la-line la-soft" x="20" y="12" width="16" height="2" rx="1"/>',
+  text: (y: number, w = 30) => `<rect class="la-line la-soft" x="6" y="${y}" width="${w}" height="2" rx="1"/><rect class="la-line la-soft" x="6" y="${y + 4}" width="${w - 6}" height="2" rx="1"/>`,
+  aside: (y: number) => `<rect class="la-box" x="42" y="${y}" width="16" height="9" rx="1"/>`,
+};
+const LAYOUT_ART: Record<PartnerImageStyle, string> = {
+  banner: `${LAYOUT_PARTS.head}<rect class="la-photo" x="0" y="18" width="64" height="12"/>${LAYOUT_PARTS.text(34)}${LAYOUT_PARTS.aside(33)}`,
+  bakgrund: `<rect class="la-photo" x="0" y="0" width="64" height="24"/><rect class="la-shade" x="0" y="0" width="64" height="24"/><rect class="la-box" x="6" y="8" width="11" height="8" rx="1"/><rect class="la-line la-light" x="20" y="9" width="24" height="3" rx="1"/><rect class="la-line la-light" x="20" y="14" width="16" height="2" rx="1"/>${LAYOUT_PARTS.text(30)}${LAYOUT_PARTS.aside(29)}`,
+  delad: `<rect class="la-box" x="6" y="6" width="10" height="7" rx="1"/><rect class="la-line" x="6" y="16" width="22" height="3" rx="1"/><rect class="la-line la-soft" x="6" y="21" width="16" height="2" rx="1"/><rect class="la-photo" x="34" y="5" width="24" height="21" rx="2"/>${LAYOUT_PARTS.text(32)}${LAYOUT_PARTS.aside(31)}`,
+  spalt: `${LAYOUT_PARTS.head}${LAYOUT_PARTS.text(21)}${LAYOUT_PARTS.text(29)}<rect class="la-box" x="42" y="19" width="16" height="6" rx="1"/><rect class="la-photo" x="42" y="27" width="16" height="14" rx="1.5"/>`,
+  platta: `${LAYOUT_PARTS.head}<rect class="la-accent" x="9" y="21" width="27" height="12" rx="1.5"/><rect class="la-photo" x="6" y="18" width="27" height="12" rx="1.5"/>${LAYOUT_PARTS.text(36)}${LAYOUT_PARTS.aside(19)}`,
+};
+const layoutArt = (style: PartnerImageStyle) =>
+  raw(`<svg class="layout-art" viewBox="0 0 64 44" width="64" height="44" focusable="false"><rect class="la-frame" x="0.5" y="0.5" width="63" height="43" rx="3"/>${LAYOUT_ART[style]}</svg>`);
+
 const PARTNER_TABS = [
   { href: "/admin/partners", label: "Partners" },
   { href: "/admin/partners/statistik", label: "Statistik" },
@@ -355,6 +375,31 @@ export const RESOURCES: Resource[] = [
       { name: "logo_key", label: "Logotyp", type: "text", upload: "image", nullable: true, help: "Helst SVG eller PNG med genomskinlig bakgrund. Utan logotyp visas namnet i snygg text." },
       { name: "tagline", label: "Kort beskrivning", type: "text", max: 160, help: "En mening som visas på kortet." },
       { name: "description", label: "Presentation", type: "textarea", rows: 8, max: 5000, help: "Visas på partnerns egen sida. Tom rad = nytt stycke." },
+      {
+        name: "image_key",
+        label: "Bild på partnersidan",
+        type: "text",
+        upload: "image",
+        nullable: true,
+        help: "Valfri. Ett foto från kontoret, ett evenemang eller medarbetare – inte logotypen igen. Liggande bild i god upplösning (minst 1600 px bred) fungerar i alla utseenden. Stora foton komprimeras automatiskt.",
+      },
+      {
+        name: "image_style",
+        label: "Hur ska bilden visas?",
+        type: "radio",
+        required: true,
+        wrapClass: "field-layouts",
+        help: "Gäller bara om en bild är uppladdad. Den gula ytan i skissen är bilden. Spara och välj Visa på webbplatsen för att se resultatet – du kan byta när som helst.",
+        options: PARTNER_IMAGE_STYLES.map((o) => ({ value: o.value, label: o.label, hint: o.hint, art: layoutArt(o.value) })),
+      },
+      {
+        name: "image_alt",
+        label: "Beskriv bilden",
+        type: "text",
+        max: 200,
+        placeholder: "T.ex. Medarbetare på kontoret i Karlstad",
+        help: "Läses upp för den som inte ser bilden. Lämna tomt om bilden bara är stämning och inte visar något viktigt.",
+      },
       { name: "website_url", label: "Webbplats", type: "url", nullable: true, max: 300 },
       { name: "career_url", label: "Karriärsida", type: "url", nullable: true, max: 300 },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägre tal visas först." },
@@ -1080,6 +1125,7 @@ export function newHandler(r: Resource) {
       values.source = "lank";
     }
     if (r.path === "jobb") values.kind = "praktik";
+    if (r.path === "partners") values.image_style = "banner";
     if (r.path === "medaljer") Object.assign(values, { kind: "medalj", design: "01" });
     if (r.path === "utmarkelser") {
       // "Lägg till mottagare" från en medalj förväljer den
