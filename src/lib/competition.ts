@@ -146,3 +146,63 @@ export function unitForms(value: string): [string, string] {
   const [one, many] = value.split("|").map((x) => x.trim());
   return [one || many || "", many || one || ""];
 }
+
+// ───────────── Bidrag och material (Innehåll → Tävlingen) ─────────────
+
+export interface EntryRow {
+  id: number;
+  code: string;
+  category: "marke" | "merch";
+  image_key: string | null;
+  alt: string;
+  designer: string;
+  winner: number;
+}
+
+export interface ResourceRow {
+  id: number;
+  kind: "program" | "fil";
+  title: string;
+  label: string;
+  description: string;
+  url: string | null;
+  file_key: string | null;
+}
+
+/** Publicerade bidrag. Upphovspersonen hämtas bara när den får visas (efter röstningen). */
+export async function loadEntries(db: D1Database, withDesigner: boolean): Promise<EntryRow[]> {
+  try {
+    const { results } = await db
+      .prepare(
+        `SELECT id, code, category, image_key, alt, ${withDesigner ? "designer" : "'' AS designer"}, ${withDesigner ? "winner" : "0 AS winner"}
+         FROM competition_entries WHERE published = 1 AND image_key IS NOT NULL AND image_key != '' ORDER BY category, sort_order, code COLLATE NOCASE, id`,
+      )
+      .all<EntryRow>();
+    return results ?? [];
+  } catch {
+    return []; // tabellen finns inte än
+  }
+}
+
+export async function loadResources(db: D1Database): Promise<ResourceRow[]> {
+  try {
+    const { results } = await db
+      .prepare("SELECT id, kind, title, label, description, url, file_key FROM competition_resources WHERE published = 1 ORDER BY kind, sort_order, title COLLATE NOCASE")
+      .all<ResourceRow>();
+    return (results ?? []).filter((r) => (r.kind === "program" ? !!r.url : !!r.file_key));
+  } catch {
+    return [];
+  }
+}
+
+/** Tid kvar i den största hela enheten, t.ex. "12 dagar" eller "5 timmar" (bannern på startsidan). */
+export function timeLeft(ms: number, units: { days: string; hours: string; minutes: string }): string {
+  const { d, h, m } = splitDuration(ms);
+  const pick = (n: number, forms: string) => {
+    const [one, many] = unitForms(forms);
+    return `${n} ${n === 1 ? one : many}`;
+  };
+  if (d >= 1) return pick(d, units.days);
+  if (h >= 1) return pick(h, units.hours);
+  return pick(Math.max(1, m), units.minutes);
+}

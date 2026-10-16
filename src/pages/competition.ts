@@ -22,6 +22,8 @@ import {
   type Phase,
 } from "../lib/competition.js";
 import type { RequestContext } from "../router.js";
+import { entriesSection, kitSection, swatchCss } from "./competition-kit.js";
+import { loadEntries, loadResources } from "../lib/competition.js";
 import { layout, picture } from "../views/layout.js";
 import { icon, type IconName } from "../views/icons.js";
 
@@ -86,6 +88,8 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
   const target = countdownTarget(t, phase);
   const left = splitDuration(target === null ? 0 : target - now);
   const progress = progressAt(t, now);
+  // Upphovspersonerna hämtas bara när röstningen är klar – innan dess finns namnen aldrig i sidan.
+  const [entries, resources] = await Promise.all([loadEntries(c.env.DB, phase === "done"), loadResources(c.env.DB)]);
 
   const email = s.comp_email;
   const vars = {
@@ -425,12 +429,14 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
       <h2 class="t-h2"${ek(s, "comp_take_title")}>${s.comp_take_title}</h2>
     </header>
     <div class="t-cards">${submitCard}${voteCard}</div>
+    ${entriesSection(s, entries, phase)}
+    ${kitSection(s, resources, phase)}
   </section>`;
 
   const content = html`<div class="jfk-tavling" data-tavling
       data-open="${iso(t.open)}" data-deadline-end="${iso(t.deadlineEnd)}" data-vote-start="${iso(t.voteStart)}" data-vote-end-end="${iso(t.voteEndEnd)}"
       data-now="${iso(now)}" data-copied="${s.comp_copied}"${states(PHASE_STATES, phase)}>
-    <style nonce="${c.nonce}">${raw(`.jfk-tavling{--t-progress:${progress.toFixed(4)}}`)}</style>
+    <style nonce="${c.nonce}">${raw(`.jfk-tavling{--t-progress:${progress.toFixed(4)}}${swatchCss(s)}`)}</style>
     ${hero}
     ${tabBar}
     <div class="container t-panels">

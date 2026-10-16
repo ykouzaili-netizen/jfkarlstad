@@ -22,6 +22,9 @@ import { handleUpload, imageUploadField } from "./uploads.js";
 import { jobTotals } from "./job-stats.js";
 import { CUSTOM_DESIGN, DESIGN_OPTIONS, medalFormPreview, medalOptions } from "./medals.js";
 import { MEDAL_GROUPS, MEDAL_KINDS, medalImageUrl } from "../lib/medals.js";
+import { competitionDates, currentPhase, dayMonth, dayMonthClock, period, type Phase } from "../lib/competition.js";
+import { loadSettings } from "../lib/settings.js";
+import { LAYOUT_PREFIX } from "../lib/pagelayout.js";
 
 /**
  * Generisk redigering (skapa, lista, ändra, publicera, ta bort) för innehållstyperna.
@@ -277,6 +280,41 @@ async function saveEmployer(db: D1Database, values: Values, data: Record<string,
   return {};
 }
 
+
+// ───────────── Tävlingen (Innehåll → Tävlingen) ─────────────
+
+const COMP_TABS = [
+  { href: "/admin/tavling", label: "Bidrag" },
+  { href: "/admin/tavling-material", label: "Material" },
+  { href: "/admin/texter?sida=tavling", label: "Texter och datum" },
+];
+const COMP_CATEGORIES = [
+  { value: "marke", label: "Märke" },
+  { value: "merch", label: "Merch" },
+];
+const PHASE_LABELS: Record<Phase, string> = {
+  before: "Tävlingen har inte öppnat än",
+  open: "Inlämningen pågår",
+  between: "Inlämningen är stängd – röstningen har inte börjat",
+  voting: "Röstningen pågår",
+  done: "Röstningen är klar",
+};
+
+/** Rutan överst under Tävlingen: om sidan visas, vilket läge tävlingen är i och vad som syns av bidragen just nu. */
+async function competitionIntro(c: RequestContext): Promise<SafeHtml> {
+  const s = await loadSettings(c.env.DB);
+  const d = competitionDates(s);
+  const phase = currentPhase(s);
+  const hidden = await c.env.DB.prepare("SELECT value FROM settings WHERE key = ?").bind(LAYOUT_PREFIX.page + "tavling").first<{ value: string }>().catch(() => null);
+  const isHidden = hidden?.value === "dold";
+  const entries = phase === "voting" ? "Bidragen visas utan namn under fliken Delta och rösta." : phase === "done" ? "Bidragen visas med upphovspersonernas namn." : `Bidragen visas på sidan från ${dayMonth(d.voteStart)}, utan namn. Namnen visas när röstningen har stängt.`;
+  return html`<div class="admin-card comp-status${isHidden ? "" : " is-on"}">
+    <p><strong>${isHidden ? "Tävlingssidan är dold" : "Tävlingssidan visas på webbplatsen"}</strong> · ${PHASE_LABELS[phase]}</p>
+    <p class="muted">Inlämning ${period(d.open, d.deadline)} (senast ${dayMonthClock(d.deadline)}) · röstning ${period(d.voteStart, d.voteEnd)}. ${entries}</p>
+    <p class="comp-status-links"><a href="/admin/texter?sida=tavling">${isHidden ? "Visa sidan eller ändra datumen" : "Dölj sidan eller ändra datumen"}</a> · <a href="/tavling" target="_blank" rel="noopener">${isHidden ? "Förhandsgranska sidan" : "Öppna sidan"}<span class="sr-only"> (öppnas i ny flik)</span></a></p>
+  </div>`;
+}
+
 export const RESOURCES: Resource[] = [
   {
     path: "nyheter",
@@ -468,6 +506,82 @@ export const RESOURCES: Resource[] = [
     ],
     titleOf: (r) => String(r.name),
     publicUrl: (r) => (r.published ? `/om-oss/${r.slug}` : null),
+    extraColumns: () => ({ updated_at: nowUtc() }),
+  },
+  {
+    path: "tavling",
+    table: "competition_entries",
+    title: "Tävlingen",
+    singular: "bidrag",
+    newLabel: "Lägg till bidrag",
+    lead: "Bidragen i merch- och märkestävlingen. Lägg in dem när inlämningen har stängt, med den kod de har i röstningen (A, B, C …). Skriv aldrig namnet i bilden – upphovspersonen visas på sidan först när röstningen har stängt.",
+    orderBy: "category, sort_order, code COLLATE NOCASE, id",
+    publishable: true,
+    publishLabels: ["Visas", "Dold"],
+    tabs: COMP_TABS,
+    listIntro: competitionIntro,
+    emptyText: "Inga bidrag ännu. Lägg till dem när inlämningen har stängt.",
+    fields: [
+      { name: "code", label: "Kod", type: "text", required: true, max: 8, placeholder: "T.ex. A", help: "Samma kod som i röstningen. Visas som ”Design A”." },
+      { name: "category", label: "Kategori", type: "radio", required: true, options: COMP_CATEGORIES },
+      { name: "image_key", label: "Bild på bidraget", type: "text", upload: "image", requiredOnCreate: true, purge: true, help: "Bilden eller ett foto av skissen. Kontrollera att inget namn syns. Bilden raderas helt när bidraget tas bort." },
+      { name: "alt", label: "Beskriv bidraget", type: "text", max: 200, help: "Läses upp för den som inte ser bilden, t.ex. ”Rund märke med en gul våg och texten JFK”." },
+      { name: "designer", label: "Upphovsperson", type: "text", max: 100, help: "Visas först när röstningen har stängt – innan dess skickas namnet aldrig till besökarna." },
+      { name: "winner", label: "Vinnare i sin kategori", type: "checkbox", help: "Får etiketten Vinnare när röstningen har stängt." },
+      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lämna tomt för att sortera på koden." },
+    ],
+    listColumns: [
+      { label: "", render: (r) => thumb(r.image_key, String(r.alt ?? "")), className: "col-thumb" },
+      { label: "Bidrag", render: (r) => html`<a class="row-title" href="/admin/tavling/${r.id}">Design ${String(r.code)}</a>` },
+      { label: "Kategori", render: (r) => (r.category === "merch" ? "Merch" : "Märke") },
+      { label: "Upphovsperson", render: (r) => (r.designer ? html`${String(r.designer)}${r.winner ? html` <span class="pill pill-on">Vinnare</span>` : ""}` : html`<span class="muted">–</span>`) },
+      { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
+    ],
+    titleOf: (r) => `Design ${String(r.code)}`,
+    check: (v): Errors => (v.code && !/^[\p{L}\p{N}]{1,8}$/u.test(v.code) ? { code: "Koden får bara innehålla bokstäver och siffror, t.ex. A eller B2." } : {}),
+    extraColumns: (v) => ({ code: (v.code ?? "").toLocaleUpperCase("sv"), updated_at: nowUtc() }),
+  },
+  {
+    path: "tavling-material",
+    movable: true,
+    table: "competition_resources",
+    title: "Tävlingen",
+    singular: "material",
+    newLabel: "Lägg till material",
+    lead: "Visas under Verktyg och material på tävlingssidan: tips på program (en länk) och filer att ladda ned, t.ex. bilder av campus eller tidigare merch. JFK:s logotyper och mallarna finns alltid med – de kan stängas av under Texter och datum.",
+    orderBy: "kind, sort_order, title COLLATE NOCASE",
+    moveGroup: ["kind"],
+    publishable: true,
+    publishLabels: ["Visas", "Dold"],
+    tabs: COMP_TABS,
+    navActive: "/admin/tavling",
+    emptyText: "Inget material ännu.",
+    fields: [
+      {
+        name: "kind",
+        label: "Vad är det?",
+        type: "radio",
+        required: true,
+        options: [
+          { value: "program", label: "Ett program", hint: "Tips på ett program med en länk till dess webbplats" },
+          { value: "fil", label: "En fil att ladda ned", hint: "En bild eller logotyp (PNG, JPG, SVG) som deltagarna kan använda i sin design" },
+        ],
+      },
+      { name: "title", label: "Namn", type: "text", required: true, max: 80, placeholder: "T.ex. Inkscape eller Karlstads universitet från luften" },
+      { name: "label", label: "Kort etikett", type: "text", max: 60, placeholder: "T.ex. Gratis · Windows, Mac", help: "Visas som en liten etikett. För program: pris och var det fungerar." },
+      { name: "description", label: "Beskrivning", type: "textarea", rows: 3, max: 300, help: "En eller två meningar om vad det passar till." },
+      { name: "url", label: "Länk", type: "url", nullable: true, max: 300, showIf: { field: "kind", value: "program" }, placeholder: "https://…" },
+      { name: "file_key", label: "Fil", type: "text", upload: "image", nullable: true, showIf: { field: "kind", value: "fil" }, help: "Laddas ned i originalstorlek. Använd bara bilder som JFK har rätt att dela." },
+    ],
+    listColumns: [
+      { label: "", render: (r) => (r.kind === "fil" ? thumb(r.file_key) : html`<span class="thumb thumb-empty" aria-hidden="true"></span>`), className: "col-thumb" },
+      { label: "Namn", render: (r) => html`<a class="row-title" href="/admin/tavling-material/${r.id}">${String(r.title)}</a>` },
+      { label: "Typ", render: (r) => (r.kind === "fil" ? "Fil" : "Program") },
+      { label: "Etikett", render: (r) => String(r.label ?? "") },
+      { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
+    ],
+    titleOf: (r) => String(r.title),
+    check: (v): Errors => (v.kind === "program" && !v.url ? { url: "Skriv in länken till programmets webbplats." } : {}),
     extraColumns: () => ({ updated_at: nowUtc() }),
   },
   {

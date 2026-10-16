@@ -1,5 +1,7 @@
-"""Merch- och märkestävlingen (/tavling): flikar, nedräkning, lägen (före/öppen/röstning/klar), ämnesraden,
-kopieringsknapparna, kalenderfilen och att datumen ändras i adminpanelen.
+"""Merch- och märkestävlingen (/tavling): sidan är dold från början och visas med ett klick i adminpanelen;
+flikar, nedräkning, lägen (före/öppen/röstning/klar), ämnesraden, kopieringsknapparna, kalenderfilen,
+bidragen (namnen först efter röstningen), Verktyg och material, Testa din design, bilden till Instagram
+och bannern på startsidan.
 
 Kör mot förhandsvisningen med nollställd databas:  npm run preview:node -- --reset
 """
@@ -49,6 +51,15 @@ def reset_dates(page):
     page.wait_for_url(re.compile(r"klart="))
 
 
+def set_visible(page, on: bool):
+    page.goto(f"{BASE}/admin/texter?sida=tavling")
+    box = page.locator("input[name=__sida_synlig]")
+    if box.is_checked() != on:
+        box.locator("xpath=ancestor::label[1]").click() if box.locator("xpath=ancestor::label[1]").count() else box.click()
+    page.click("#texter-form .sticky-actions button[type=submit]")
+    page.wait_for_url(re.compile(r"klart="))
+
+
 def visible_text(pg, sel):
     return [t.strip() for t in pg.locator(sel + ":visible").all_inner_texts() if t.strip()]
 
@@ -62,6 +73,17 @@ with sync_playwright() as p:
 
     adm = b.new_page(viewport={"width": 1280, "height": 1000})
     login(adm)
+
+    # ── Dold tills styrelsen visar den ──
+    anon = b.new_context().new_page()
+    check(anon.request.get(f"{BASE}/tavling").status == 404, "sidan är dold från början (404 för besökare)")
+    check(anon.request.get(f"{BASE}/tavling/kalender.ics").status == 404, "kalenderfilen är också dold")
+    anon.goto(f"{BASE}/")
+    check(anon.locator("a[href='/tavling']").count() == 0 and anon.locator(".comp-banner").count() == 0, "ingen länk eller banner när sidan är dold")
+    adm.goto(f"{BASE}/tavling")
+    check(adm.locator(".hidden-page-note").count() == 1 and adm.locator(".jfk-tavling").count() == 1, "inloggade ser den dolda sidan med en markering")
+    set_visible(adm, True)
+    check(anon.request.get(f"{BASE}/tavling").status == 200, "sidan visas när rutan Visa sidan på webbplatsen bockas i")
     reset_dates(adm)
 
     # ── Standardläget (före 1 november) ──
@@ -97,7 +119,7 @@ with sync_playwright() as p:
 
     # Ämnesraden
     pub.fill("#t-namn", "Anna Andersson")
-    pub.locator(".t-seg-opt", has_text="Merch").click()
+    pub.locator(".t-subject .t-seg-opt", has_text="Merch").click()
     check(pub.locator("[data-subject-out]").inner_text() == "JFK Tävling – Merch – Anna Andersson", "ämnesraden fylls i med kategori och namn")
 
     # Kopiera
@@ -121,6 +143,45 @@ with sync_playwright() as p:
     check(all(nojs.locator(f"#{i}").is_visible() for i in ("om", "regler", "delta")), "utan JavaScript visas alla tre flikarna efter varandra")
     check("45" in nojs.locator("[data-unit=d]").inner_text() or nojs.locator("[data-unit=d]").inner_text().isdigit(), "nedräkningen visar dagar även utan JavaScript")
     nojs.close()
+
+    # Verktyg och material
+    fresh(pub, "#delta")
+    check(pub.locator(".t-program").count() == 6, "sex program under Verktyg och material")
+    check(pub.locator(".t-program a[href='https://inkscape.org']").get_attribute("target") == "_blank", "programlänkarna öppnas i ny flik")
+    for f in ["jfk-logotyp.svg", "jfk-logotyp.png", "jfk-logotyp-ljus.svg", "mall-marke.svg", "mall-tryck.svg"]:
+        a = pub.locator(f".t-dl a[href^='/assets/tavling/{f}']")
+        check(a.count() == 1 and a.get_attribute("download") is not None and pub.request.get(f"{BASE}/assets/tavling/{f}").status == 200, f"{f} går att ladda ned")
+    check(pub.locator(".t-swatch").count() == 3, "JFK:s tre färger visas")
+    check(pub.locator("[data-try]").is_visible(), "Testa din design visas med JavaScript")
+    pub.set_input_files("[data-try-input]", str(test_image(OUT / "tavling-test.jpg", (600, 600), (220, 60, 60))))
+    check((pub.locator("[data-try-img]").first.get_attribute("href") or "").startswith("blob:"), "den valda bilden visas på märket utan att laddas upp")
+    with pub.expect_download() as dl:
+        pub.click("[data-share-button]")
+    path = dl.value.path()
+    from PIL import Image
+    check(Image.open(path).size == (1080, 1920), "bilden till Instagram är 1080 × 1920")
+    Image.open(path).save(OUT / "tavling-story.png")
+
+    # Bannern på startsidan
+    pub.goto(f"{BASE}/")
+    check(pub.locator(".comp-banner a[href='/tavling']").count() == 1 and "öppnar 1 november" in pub.locator(".comp-banner").inner_text(), "bannern på startsidan när sidan visas")
+
+    # Bidrag (Innehåll → Tävlingen)
+    for code, cat, who in [("A", "marke", "Anna Andersson"), ("B", "merch", "Bertil Berg")]:
+        adm.goto(f"{BASE}/admin/tavling/ny")
+        adm.fill("input[name=code]", code.lower())
+        adm.check(f"input[name=category][value={cat}]")
+        adm.set_input_files("input[name=image_key]", str(test_image(OUT / f"bidrag-{code}.jpg", (900, 900), (40, 90, 160))))
+        adm.fill("input[name=designer]", who)
+        if code == "A":
+            adm.check("input[name=winner]")
+        adm.click("form button[type=submit] >> nth=-1")
+        adm.wait_for_load_state()
+    adm.goto(f"{BASE}/admin/tavling")
+    check(adm.locator("a.row-title", has_text="Design A").count() == 1, "bidraget sparas med koden i versaler (Design A)")
+    check(adm.locator(".comp-status").count() == 1, "rutan överst visar läget och om sidan visas")
+    fresh(pub, "#delta")
+    check(pub.locator(".t-entries").count() == 0, "bidragen visas inte före röstningen")
 
     # ── Lägena: datumen ändras i adminpanelen ──
     now = datetime.now(TZ)
@@ -148,6 +209,9 @@ with sync_playwright() as p:
     fresh(pub, "#delta")
     vote = pub.locator(".t-card--vote a.t-btn-gold")
     check(vote.is_visible() and vote.get_attribute("href") == "https://forms.gle/exempel" and vote.get_attribute("target") == "_blank", "knappen Till röstningen leder till enkäten i ny flik")
+    check(pub.locator(".t-entry").count() == 2 and "Anna" not in pub.content(), "under röstningen visas bidragen utan namn – inte ens i koden")
+    pub.click(".t-filter button[data-filter=merch]")
+    check(pub.locator(".t-entry:visible").count() == 1, "filtret visar bara Merch")
     pub.screenshot(path=str(OUT / "tavling-rostning.png"), full_page=True)
 
     # Klart
@@ -155,6 +219,9 @@ with sync_playwright() as p:
     fresh(pub)
     check(pub.locator(".jfk-tavling").get_attribute("data-state") == "done", "läget blir ”klart”")
     check(not pub.locator(".t-clock").is_visible(), "ingen nedräkning när allt är klart")
+    check("av Anna Andersson" in pub.locator(".t-entries").inner_text() and pub.locator(".t-entry.is-winner").count() == 1, "efter röstningen visas namnen och vinnaren")
+    pub.goto(f"{BASE}/")
+    check(pub.locator(".comp-banner").count() == 0, "ingen banner när röstningen är klar")
 
     # Läget byts av sig självt i webbläsaren när tiden passerar (deadline om 65 s → stänger efter 23:59-regeln)
     set_dates(adm, now - timedelta(days=2), now + timedelta(seconds=70), now + timedelta(days=5), now + timedelta(days=9))
@@ -176,6 +243,8 @@ with sync_playwright() as p:
     check(pub.locator("a[href='/tavling']").count() >= 1, "sökningen hittar tävlingen")
     check(pub.request.get(f"{BASE}/tavlingen", max_redirects=0).status == 301, "/tavlingen skickar vidare till /tavling")
 
+    set_visible(adm, False)
+    check(anon.request.get(f"{BASE}/tavling").status == 404, "sidan kan döljas igen")
     check(not errors, "inga JavaScript-fel" + (f": {errors}" if errors else ""))
     b.close()
 

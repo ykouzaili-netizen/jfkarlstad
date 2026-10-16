@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297" font-family="Arial, Helvetica, sans-serif">
+<title>JFK:s merchtävling – mall för tryck</title>
+<rect width="210" height="297" fill="#ffffff"/>
+<text x="105" y="20" text-anchor="middle" font-size="7" font-weight="bold" fill="#141414">Mall för tryck</text>
+<text x="105" y="28" text-anchor="middle" font-size="3.6" fill="#555555">Lägg din design i en av ytorna. Ytorna är exempel – storleken bestäms med tryckeriet.</text>
+<g transform="translate(6 40) scale(0.5)">
+<path d="M74 34 52 42 22 64l16 30 18-10v86h96V84l18 10 16-30-30-22-22-8c-4 10-16 16-30 16S78 44 74 34Z" fill="#f4f1e8" stroke="#141414" stroke-width="1.6"/>
+<path d="M74 34c4 10 16 16 30 16s26-6 30-16" fill="none" stroke="#141414" stroke-width="1.6"/>
+<rect x="120" y="66" width="22" height="22" rx="2" fill="none" stroke="#2a6fdb" stroke-width="1.2" stroke-dasharray="2 2"/>
+</g>
+<g transform="translate(106 40) scale(0.5)">
+<path d="M74 34 52 42 22 64l16 30 18-10v86h96V84l18 10 16-30-30-22-22-8c-4 10-16 16-30 16S78 44 74 34Z" fill="#f4f1e8" stroke="#141414" stroke-width="1.6"/>
+<path d="M78 36c6 4 16 6 26 6s20-2 26-6" fill="none" stroke="#141414" stroke-width="1.6"/>
+<rect x="62" y="62" width="84" height="100" rx="2" fill="none" stroke="#cda72a" stroke-width="1.2" stroke-dasharray="4 3"/>
+</g>
+<text x="58" y="140" text-anchor="middle" font-size="4.4" font-weight="bold" fill="#141414">Fram</text>
+<text x="158" y="140" text-anchor="middle" font-size="4.4" font-weight="bold" fill="#141414">Rygg</text>
+<g font-size="3.6" fill="#141414">
+<line x1="30" y1="160" x2="40" y2="160" stroke="#cda72a" stroke-width="0.8" stroke-dasharray="2 1.5"/><text x="44" y="161.3">Stort tryck, t.ex. på ryggen eller framsidan</text>
+<line x1="30" y1="170" x2="40" y2="170" stroke="#2a6fdb" stroke-width="0.8" stroke-dasharray="1 1"/><text x="44" y="171.3">Litet tryck, t.ex. på bröstet</text>
+</g>
+<rect x="30" y="185" width="150" height="80" rx="4" fill="none" stroke="#bbbbbb" stroke-width="0.4" stroke-dasharray="2 2"/>
+<text x="105" y="225" text-anchor="middle" font-size="4" fill="#999999">Plats för din skiss – eller rita direkt på tröjorna ovan</text>
+<text x="105" y="282" text-anchor="middle" font-size="3.2" fill="#666666">Ett tryck · koppling till JFK, juridik eller Karlstad · skriv inte ditt namn i filen</text>
+</svg>

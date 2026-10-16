@@ -4467,3 +4467,22 @@ button.pd-plaque:hover { transform: translateY(-2px); filter: brightness(1.06); 
   .cine-screen.is-playing .cine-card { opacity: 1; }
   .cine-title { font-size: calc(1.75rem * var(--display-scale)); }
 }
+
+/* ---------- Bannern för merch- och märkestävlingen (startsidan, se pages/competition-kit.ts) ---------- */
+
+.comp-banner { background: var(--c-accent); color: var(--c-on-accent); }
+.comp-banner-inner { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; padding-block: 14px; }
+.comp-banner-dot { position: relative; width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: none; }
+.comp-banner.is-live .comp-banner-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid currentColor; opacity: 0; }
+.comp-banner-text { margin: 0; flex: 1 1 260px; font-weight: 600; font-size: 0.9375rem; }
+.comp-banner-link { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9375rem; color: inherit; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1.5px; }
+.comp-banner-link .icon { transition: transform 0.2s var(--ease); }
+.comp-banner-link:hover .icon { transform: translateX(4px); }
+@media (prefers-reduced-motion: no-preference) {
+  [data-motion]:not([data-motion="av"]) .comp-banner.is-live .comp-banner-dot::after { animation: comp-ping 2s var(--ease) infinite; }
+}
+@keyframes comp-ping { 0% { transform: scale(0.6); opacity: 0.9; } 80%, 100% { transform: scale(1.8); opacity: 0; } }
+
+/* Dold sida som visas för den som är inloggad (src/index.ts → hiddenPreview) */
+.hidden-page-note { margin: 0; padding: 10px var(--gutter); background: var(--c-accent); color: var(--c-on-accent); font-size: 0.875rem; text-align: center; }
+.hidden-page-note a { color: inherit; font-weight: 700; text-underline-offset: 3px; }

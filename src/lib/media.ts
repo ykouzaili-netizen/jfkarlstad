@@ -53,6 +53,13 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
     db.prepare("SELECT id, name AS title, image_key AS k FROM medals WHERE image_key IS NOT NULL AND image_key != ''"),
   ]);
   type R = { id: number; title: string; k: string };
+  // Tävlingens tabeller (migrering 0016) – hämtas för sig så att en äldre databas utan dem inte stoppar resten.
+  const [entries, resources] = await db
+    .batch([
+      db.prepare("SELECT id, 'Design ' || code AS title, image_key AS k FROM competition_entries WHERE image_key IS NOT NULL AND image_key != ''"),
+      db.prepare("SELECT id, title, file_key AS k FROM competition_resources WHERE file_key IS NOT NULL AND file_key != ''"),
+    ])
+    .catch(() => [undefined, undefined] as (D1Result | undefined)[]);
   const each = (res: D1Result | undefined, label: string, path: string) =>
     ((res?.results ?? []) as R[]).forEach((r) => add(r.k, { label: `${label}: ${r.title || "utan namn"}`, href: `/admin/${path}/${r.id}` }));
   each(news, "Nyhet", "nyheter");
@@ -65,6 +72,8 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
   each(gallery, "Bildgalleri", "galleri");
   each(docs, "Dokument", "dokument");
   each(insta, "Instagram", "instagram");
+  each(entries, "Tävlingsbidrag", "tavling");
+  each(resources, "Tävlingsmaterial", "tavling-material");
   for (const r of [cm1, cm2, cm3]) each(r, "Utskott", "utskott");
   for (const r of (settings?.results ?? []) as { key: string; k: string }[]) {
     if (r.key === "ig:profil") {

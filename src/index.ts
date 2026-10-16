@@ -32,7 +32,22 @@ import { networkPage } from "./pages/networks.js";
 import { competitionIcsHandler, competitionPage } from "./pages/competition.js";
 import { errorPage, notFoundPage } from "./pages/errors.js";
 import { registerAdminRoutes } from "./admin/routes.js";
+import { getSession } from "./admin/auth.js";
 import { runMaintenance } from "./lib/maintenance.js";
+
+/**
+ * En dold sida som visas för den som är inloggad: en rad överst säger att besökarna inte ser den,
+ * och svaret får inte sparas någonstans (private, no-store) eller indexeras.
+ */
+async function hiddenPreview(res: Response, path: string): Promise<Response> {
+  const pageId = pageIdForPath(path) ?? "";
+  const note = `<p class="hidden-page-note" role="status"><strong>Sidan är dold.</strong> Bara du som är inloggad ser den. <a href="/admin/texter?sida=${encodeURIComponent(pageId)}">Visa den för alla under Texter och sidor</a></p>`;
+  const body = (await res.text()).replace('<main id="innehall" tabindex="-1">', (m) => note + m);
+  const headers = new Headers(res.headers);
+  headers.set("Cache-Control", "private, no-store");
+  headers.set("X-Robots-Tag", "noindex, nofollow");
+  return new Response(body, { status: 200, headers });
+}
 
 /** Sidor som styrelsen dolt (Texter och sidor) svarar som om de inte finns. */
 async function isHiddenPage(env: Env, path: string): Promise<boolean> {
@@ -213,7 +228,10 @@ export default {
         return await match.handler(c);
       }
       const [hidden, res] = await Promise.all([isHiddenPage(env, url.pathname), match.handler(c)]);
-      return hidden ? await notFoundPage(c) : res;
+      if (!hidden) return res;
+      // Inloggade i adminpanelen kan se en dold sida (t.ex. tävlingen innan den visas) – med en tydlig markering.
+      if (res.status === 200 && (res.headers.get("Content-Type") ?? "").startsWith("text/html") && (await getSession(c))) return hiddenPreview(res, url.pathname);
+      return await notFoundPage(c);
     } catch (err) {
       // Engångslänkar (lösenord) får aldrig hamna i loggen
       const safePath = url.pathname.replace(/^\/admin\/losenord\/.+$/, "/admin/losenord/[dold]");

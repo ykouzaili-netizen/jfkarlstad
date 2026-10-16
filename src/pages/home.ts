@@ -10,6 +10,7 @@ import { joinButton, layout, mediaUrl, picture, PREVIEW_IMAGE_PREFIX, srcset } f
 import { arrowLink, emptyState, eventCard, newsCard, partnerCard, partnerLogo, sectionHead } from "../views/components.js";
 import { htmlResponse } from "../lib/http.js";
 import { ec } from "../lib/settings.js";
+import { competitionBanner } from "./competition-kit.js";
 
 export async function homePage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
@@ -27,6 +28,7 @@ export async function homePage(c: RequestContext): Promise<Response> {
   const plain = (id: string) => !blockColors(s, "startsida", id);
   const content = html`
     ${hero(s, events[0])}
+    ${competitionBanner(s)}
     <span id="efter-toppen" class="scroll-anchor"></span>
     ${arrange(s, "startsida", {
       partners: () => partnersSection(s, partners, openJobs),

@@ -4,6 +4,9 @@
  *  1. Läget och nedräkningen – byter läge av sig själv när tiden passerar (samma regler som src/lib/competition.ts).
  *  2. Flikarna – riktiga flikar med tangentbord och adresser som går att dela (#regler, #delta, #regel-3 …).
  *  3. Ämnesraden och kopieringsknapparna i kortet "Skicka in ditt bidrag".
+ *  4. Bidragen: filtret Alla / Märke / Merch.
+ *  5. Testa din design: bilden visas på märket eller tröjan (stannar i webbläsaren, laddas aldrig upp).
+ *  6. Sprid tävlingen: en färdig bild (1080 × 1920) till Instagram med nedräkningen.
  * Varje del ligger i en egen IIFE, som i site.js.
  */
 
@@ -274,9 +277,10 @@
     });
   }
 
-  root.querySelectorAll("[data-copy]").forEach(function (btn) {
-    var source = root.querySelector('[data-copy-source="' + btn.getAttribute("data-copy") + '"]');
-    if (!source) return;
+  root.querySelectorAll("[data-copy], [data-copy-value]").forEach(function (btn) {
+    var fixed = btn.getAttribute("data-copy-value");
+    var source = fixed ? null : root.querySelector('[data-copy-source="' + btn.getAttribute("data-copy") + '"]');
+    if (!fixed && !source) return;
     var label = btn.querySelector("[data-copy-label]");
     var original = label ? label.textContent : "";
     var live = document.createElement("span");
@@ -286,7 +290,7 @@
     var reset = null;
     btn.hidden = false;
     btn.addEventListener("click", function () {
-      copy(source.textContent.trim()).then(function () {
+      copy(fixed || source.textContent.trim()).then(function () {
         btn.classList.add("is-copied");
         if (label) label.textContent = copiedText;
         live.textContent = copiedText;
@@ -298,5 +302,196 @@
         }, 2200);
       }, function () {});
     });
+  });
+})();
+
+/* ── 4. Bidragen: filtret ──────────────────────────────────────────────── */
+(function () {
+  var filter = document.querySelector("[data-entry-filter]");
+  if (!filter) return;
+  var items = Array.prototype.slice.call(document.querySelectorAll("[data-entries] [data-category]"));
+  var buttons = Array.prototype.slice.call(filter.querySelectorAll("[data-filter]"));
+  filter.hidden = false;
+  buttons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var cat = btn.getAttribute("data-filter");
+      buttons.forEach(function (b) { b.setAttribute("aria-pressed", b === btn ? "true" : "false"); });
+      items.forEach(function (li) { li.hidden = !!cat && li.getAttribute("data-category") !== cat; });
+    });
+  });
+})();
+
+/* ── 5. Testa din design ───────────────────────────────────────────────── */
+(function () {
+  var box = document.querySelector("[data-try]");
+  if (!box || !window.URL || !URL.createObjectURL) return;
+  var stage = box.querySelector("[data-try-stage]");
+  var input = box.querySelector("[data-try-input]");
+  var label = box.querySelector("[data-try-label]");
+  var images = box.querySelectorAll("[data-try-img]");
+  var current = null;
+  box.hidden = false;
+
+  box.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t.name === "t-try-kind") stage.setAttribute("data-try-stage", t.value);
+    if (t === input && input.files && input.files[0]) {
+      var file = input.files[0];
+      if (!/^image\//.test(file.type)) return;
+      if (current) URL.revokeObjectURL(current);
+      current = URL.createObjectURL(file);
+      images.forEach(function (img) { img.setAttribute("href", current); });
+      stage.classList.add("has-image");
+      if (label && label.getAttribute("data-again")) label.textContent = label.getAttribute("data-again");
+    }
+  });
+})();
+
+/* ── 6. Sprid tävlingen: bild till Instagram ───────────────────────────── */
+(function () {
+  var card = document.querySelector("[data-share]");
+  var root = document.querySelector("[data-tavling]");
+  var canvasOk = !!document.createElement("canvas").getContext;
+  if (!card || !root || !canvasOk) return;
+  var button = card.querySelector("[data-share-button]");
+  card.hidden = false;
+
+  function visibleText(sel) {
+    var el = Array.prototype.slice.call(root.querySelectorAll(sel)).find(function (x) { return !x.hidden && x.offsetParent !== null; });
+    return el ? el.textContent.replace(/\s+/g, " ").trim() : "";
+  }
+  function forms(spec) {
+    var p = (spec || "").split("|");
+    return [p[0] || "", p[1] || p[0] || ""];
+  }
+  /** Det som är kvar i den största hela enheten: [siffra, enhet]. */
+  function left() {
+    var d = +(root.querySelector("[data-unit=d]") || {}).textContent || 0;
+    var h = +(root.querySelector("[data-unit=h]") || {}).textContent || 0;
+    var m = +(root.querySelector("[data-unit=m]") || {}).textContent || 0;
+    var u = (card.getAttribute("data-units") || "").split(";");
+    if (d > 0) return [d, forms(u[0])[d === 1 ? 0 : 1]];
+    if (h > 0) return [h, forms(u[1])[h === 1 ? 0 : 1]];
+    return [Math.max(1, m), forms(u[2])[m === 1 ? 0 : 1]];
+  }
+  function wrap(ctx, text, max) {
+    var words = text.split(" "), lines = [], line = "";
+    words.forEach(function (w) {
+      var test = line ? line + " " + w : w;
+      if (ctx.measureText(test).width > max && line) { lines.push(line); line = w; } else line = test;
+    });
+    if (line) lines.push(line);
+    return lines;
+  }
+  function loadImage(src) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { resolve(null); };
+      img.src = src;
+    });
+  }
+
+  function draw() {
+    var W = 1080, H = 1920;
+    var c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    var ctx = c.getContext("2d");
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#1c2d63"); g.addColorStop(1, "#0b1430");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // rutnät
+    ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.lineWidth = 2;
+    for (var x = 0; x <= W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (var y = 0; y <= H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    // söm i guld
+    ctx.save(); ctx.strokeStyle = "rgba(243,196,92,0.6)"; ctx.lineWidth = 6; ctx.setLineDash([26, 20]);
+    ctx.beginPath(); ctx.arc(W + 140, -60, 420, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.strokeStyle = "rgba(227,173,58,0.22)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(W + 140, -60, 480, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+
+    return loadImage("/assets/tavling/jfk-logotyp-ljus.png").then(function (logo) {
+      var y0 = 300;
+      if (logo) { ctx.drawImage(logo, (W - 300) / 2, 170, 300, 303); y0 = 560; }
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#f3c45c";
+      ctx.font = '700 38px "DM Sans", system-ui, sans-serif';
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "8px";
+      ctx.fillText((card.getAttribute("data-kicker") || "").toUpperCase(), W / 2, y0);
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+
+      ctx.font = '700 112px "Playfair Display", Georgia, serif';
+      var lines = wrap(ctx, card.getAttribute("data-title") || "", W - 160);
+      var ty = y0 + 140;
+      lines.forEach(function (l) {
+        // "&" i guld
+        var parts = l.split("&");
+        var total = ctx.measureText(l).width, cx = W / 2 - total / 2;
+        ctx.textAlign = "left";
+        parts.forEach(function (p, i) {
+          if (i) { ctx.fillStyle = "#e3ad3a"; ctx.fillText("&", cx, ty); cx += ctx.measureText("&").width; }
+          ctx.fillStyle = "#f4f1e8"; ctx.fillText(p, cx, ty); cx += ctx.measureText(p).width;
+        });
+        ctx.textAlign = "center";
+        ty += 128;
+      });
+
+      // nedräkningen
+      var label = visibleText(".t-countdown-label > span").toUpperCase();
+      var lf = left();
+      var by = ty + 70;
+      ctx.fillStyle = "#f3c45c"; ctx.font = '700 40px "DM Sans", system-ui, sans-serif';
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "6px";
+      ctx.fillText(label, W / 2, by);
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+      // ruta bakom siffran
+      ctx.fillStyle = "rgba(5,11,32,0.55)"; ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 3;
+      var bw = 620, bh = 420, bx = (W - bw) / 2, bY = by + 50;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(bx, bY, bw, bh, 48); else ctx.rect(bx, bY, bw, bh);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#ffffff"; ctx.font = '700 300px "DM Sans", system-ui, sans-serif';
+      ctx.fillText(String(lf[0]), W / 2, bY + 300);
+      ctx.fillStyle = "#c9d0e4"; ctx.font = '600 52px "DM Sans", system-ui, sans-serif';
+      ctx.fillText((card.getAttribute("data-left") || "{enhet}").replace("{enhet}", lf[1]), W / 2, bY + 380);
+      // datumet
+      ctx.fillStyle = "#f4f1e8"; ctx.font = '500 46px "DM Sans", system-ui, sans-serif';
+      ctx.fillText(visibleText(".t-countdown-when > span"), W / 2, bY + bh + 96);
+      // adressen
+      ctx.fillStyle = "#e3ad3a";
+      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect((W - 640) / 2, H - 270, 640, 110, 55); else ctx.rect((W - 640) / 2, H - 270, 640, 110); ctx.fill();
+      ctx.fillStyle = "#0e1a3a"; ctx.font = '700 46px "DM Sans", system-ui, sans-serif';
+      ctx.fillText(location.host.replace(/^www\./, "") + location.pathname, W / 2, H - 200);
+      ctx.fillStyle = "rgba(244,241,232,0.7)"; ctx.font = '500 34px "DM Sans", system-ui, sans-serif';
+      ctx.fillText(card.getAttribute("data-site") || "", W / 2, H - 90);
+      return c;
+    });
+  }
+
+  button.addEventListener("click", function () {
+    button.disabled = true;
+    var fonts = document.fonts && document.fonts.load
+      ? Promise.all([document.fonts.load('700 112px "Playfair Display"'), document.fonts.load('700 300px "DM Sans"'), document.fonts.load('500 46px "DM Sans"')]).catch(function () {})
+      : Promise.resolve();
+    fonts
+      .then(draw)
+      .then(function (c) {
+        return new Promise(function (resolve) { c.toBlob(resolve, "image/png"); });
+      })
+      .then(function (blob) {
+        if (!blob) return;
+        var name = "jfk-tavling-story.png";
+        var file = window.File ? new File([blob], name, { type: "image/png" }) : null;
+        // På mobilen: dela direkt (t.ex. till Instagram). Annars: ladda ned filen.
+        if (file && navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia("(pointer: coarse)").matches) {
+          return navigator.share({ files: [file] }).catch(function () {});
+        }
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      })
+      .then(function () { button.disabled = false; }, function () { button.disabled = false; });
   });
 })();

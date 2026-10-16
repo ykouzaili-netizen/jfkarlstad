@@ -106,6 +106,7 @@ export async function adminLayout(
         { href: "/admin/faq", label: "Vanliga frågor", icon: "network" },
         { href: "/admin/galleri", label: "Bildgalleri", icon: "image" },
         { href: "/admin/instagram", label: "Instagram", icon: "instagram" },
+        { href: "/admin/tavling", label: "Tävlingen", icon: "trophy" },
       ],
     },
     {
