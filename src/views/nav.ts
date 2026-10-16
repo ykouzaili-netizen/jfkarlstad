@@ -52,6 +52,7 @@ export const DEFAULT_NAV: NavItem[] = [
     children: [
       { id: "nyheter", label: "Nyheter", href: "/aktuellt" },
       { id: "kalender", label: "Kalender", href: "/kalender" },
+      { id: "tavling", label: "Merch- och märkestävlingen", href: "/tavling" },
     ],
   },
   {

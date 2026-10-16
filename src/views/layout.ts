@@ -9,7 +9,7 @@ import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "86";
+export const ASSET_VERSION = "87";
 
 export interface PageMeta {
   title: string;
@@ -24,6 +24,8 @@ export interface PageMeta {
   overlayHeader?: boolean;
   /** Sidan i textregistret (för sidans egna färger). Standard: räknas ut från sökvägen. */
   pageId?: string;
+  /** Sidans egna filer i /assets (t.ex. "tavling.css", "tavling.js", "fonts/dm-sans.woff2") – laddas bara på den sidan. */
+  assets?: { css?: string[]; js?: string[]; fonts?: string[] };
 }
 
 /** Prefix för bilder som valts i adminpanelen men inte sparats ännu (bara i förhandsvisningen). */
@@ -257,10 +259,13 @@ ${favicon(s)}
 <link rel="alternate" type="text/calendar" title="${s.site_short_name} – kalender" href="/kalender.ics">
 <link rel="preload" href="/assets/fonts/montserrat.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${HEADING_FONTS[headingFont(s)].file}" as="font" type="font/woff2" crossorigin>
+${(meta.assets?.fonts ?? []).map((f) => html`<link rel="preload" href="/assets/${f}" as="font" type="font/woff2" crossorigin>`)}
 <link rel="stylesheet" href="/assets/site.css?v=${ASSET_VERSION}">
+${(meta.assets?.css ?? []).map((f) => html`<link rel="stylesheet" href="/assets/${f}?v=${ASSET_VERSION}">`)}
 <style nonce="${c.nonce}">${raw(themeCss(s) + pageColorCss(s, meta.pageId ?? pageIdForPath(path)) + blockColorCss(s) + imageFitCss(imageFits(s)) + textStyleCss(siteLayout(s).styles) + transitions)}</style>
 ${intro ? html`<script src="/assets/intro-check.js?v=${ASSET_VERSION}"></script><script src="/assets/intro.js?v=${ASSET_VERSION}" defer></script>` : ""}
 <script src="/assets/site.js?v=${ASSET_VERSION}" defer></script>
+${(meta.assets?.js ?? []).map((f) => html`<script src="/assets/${f}?v=${ASSET_VERSION}" defer></script>`)}
 ${motion === "av" ? "" : html`<script src="/assets/motion.js?v=${ASSET_VERSION}" defer></script>`}
 ${ld}
 </head>

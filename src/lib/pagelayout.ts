@@ -78,6 +78,7 @@ export const PAGE_LAYOUTS: Record<string, PageLayoutDef> = {
   dokument: { paths: ["/dokument"], blocks: [] },
   faq: { paths: ["/faq"], blocks: [] },
   "jf-paverka": { paths: ["/jf-paverka"], blocks: [] },
+  tavling: { paths: ["/tavling"], blocks: [] },
   kontakt: { paths: ["/kontakt"], blocks: [] },
 };
 

@@ -20,6 +20,7 @@ import {
 import { plainText, renderInline, renderMarkdown } from "../lib/markdown.js";
 import { eventDate, formatDate, isoDate, localToIso, stockholmNow, stockholmToday, truncate } from "../lib/format.js";
 import { fill } from "../lib/texts.js";
+import { icsResponse, icsText, icsTime, nowStamp, VTIMEZONE } from "../lib/ics.js";
 import { partnerImageStyle, type PartnerImageStyle } from "../lib/partner-image.js";
 import { parsePartnerLinks } from "../lib/partner-links.js";
 
@@ -339,53 +340,6 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
 
 // ───────────────────────── iCalendar ─────────────────────────
 
-/** Tidszonsdefinition så att alla kalenderappar tolkar tiderna som svensk tid (inkl. sommartid). */
-const VTIMEZONE = [
-  "BEGIN:VTIMEZONE",
-  "TZID:Europe/Stockholm",
-  "X-LIC-LOCATION:Europe/Stockholm",
-  "BEGIN:DAYLIGHT",
-  "TZOFFSETFROM:+0100",
-  "TZOFFSETTO:+0200",
-  "TZNAME:CEST",
-  "DTSTART:19700329T020000",
-  "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
-  "END:DAYLIGHT",
-  "BEGIN:STANDARD",
-  "TZOFFSETFROM:+0200",
-  "TZOFFSETTO:+0100",
-  "TZNAME:CET",
-  "DTSTART:19701025T030000",
-  "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
-  "END:STANDARD",
-  "END:VTIMEZONE",
-];
-
-const icsText = (t: string) => t.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
-const icsTime = (local: string) => local.replace(/[-:]/g, "") + "00";
-
-/** Raderna får vara högst 75 oktetter (RFC 5545) – längre rader viks med CRLF + mellanslag. */
-function foldLine(line: string): string {
-  const enc = new TextEncoder();
-  if (enc.encode(line).length <= 75) return line;
-  const out: string[] = [];
-  let cur = "";
-  let curLen = 0;
-  for (const ch of line) {
-    const len = enc.encode(ch).length;
-    const max = out.length ? 74 : 75; // fortsättningsrader börjar med ett mellanslag
-    if (curLen + len > max) {
-      out.push(cur);
-      cur = "";
-      curLen = 0;
-    }
-    cur += ch;
-    curLen += len;
-  }
-  out.push(cur);
-  return out.join("\r\n ");
-}
-
 function eventEnd(e: EventRow): string {
   if (e.ends_at) return e.ends_at;
   const [d, t] = e.starts_at.split("T");
@@ -408,19 +362,6 @@ function vevent(siteUrl: string, e: EventRow, stamp: string): string[] {
     "END:VEVENT",
   ];
 }
-
-function icsResponse(lines: string[], filename: string | null): Response {
-  const body = lines.map(foldLine).join("\r\n") + "\r\n";
-  const headers: Record<string, string> = {
-    "Content-Type": "text/calendar; charset=utf-8",
-    "X-Content-Type-Options": "nosniff",
-    "Cache-Control": "public, max-age=900",
-  };
-  if (filename) headers["Content-Disposition"] = `attachment; filename="${filename}"`;
-  return new Response(body, { headers });
-}
-
-const nowStamp = () => new Date().toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
 
 /** Ett enskilt evenemang som .ics-fil ("Lägg till i kalendern"). */
 async function eventIcsHandler(c: RequestContext, slug: string): Promise<Response> {

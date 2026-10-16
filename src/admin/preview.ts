@@ -8,6 +8,7 @@ import { membershipPage } from "../pages/membership.js";
 import { studentsPage } from "../pages/students.js";
 import { companiesPage, contactPage, engagePage, paverkaPage, thanksPage } from "../pages/forms.js";
 import { networkPage } from "../pages/networks.js";
+import { competitionPage } from "../pages/competition.js";
 import { documentTextPage, documentsPage, eventDetailPage, faqPage, newsArticlePage, newsListPage, partnerDetailPage, partnersPage } from "../pages/listings.js";
 import { jobDetailPage, jobsPage } from "../pages/careers.js";
 import { calendarPage } from "../pages/calendar.js";
@@ -45,6 +46,7 @@ export const PREVIEW_PAGES: { path: string; label: string; render: Render }[] = 
   { path: "/dokument", label: "Dokument", render: documentsPage },
   { path: "/faq", label: "Vanliga frågor", render: faqPage },
   { path: "/jf-paverka", label: "JF Påverka", render: (c) => paverkaPage(c) },
+  { path: "/tavling", label: "Merch- och märkestävlingen", render: competitionPage },
   { path: "/kontakt", label: "Kontakt", render: (c) => contactPage(c) },
   { path: "/sok", label: "Sök", render: searchPage },
   { path: "/integritetspolicy", label: "Integritetspolicy", render: privacyPage },

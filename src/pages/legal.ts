@@ -115,7 +115,7 @@ export async function sitemapXml(c: RequestContext): Promise<Response> {
   const networks = await loadNetworks(db);
   const staticPaths = [
     "/", "/om-oss", "/engagera-dig", "/bli-medlem", "/for-studenter", "/karriar", "/for-foretag", "/partners",
-    "/aktuellt", "/kalender", "/dokument", "/jf-paverka", "/faq", "/kontakt", "/integritetspolicy", "/cookies",
+    "/aktuellt", "/kalender", "/dokument", "/jf-paverka", "/tavling", "/faq", "/kontakt", "/integritetspolicy", "/cookies",
   ];
   const entry = (path: string, mod?: string) =>
     `<url><loc>${site}${path}</loc>${mod ? `<lastmod>${mod.slice(0, 10)}</lastmod>` : ""}</url>`;

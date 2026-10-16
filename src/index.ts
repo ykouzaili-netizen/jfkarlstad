@@ -29,6 +29,7 @@ import {
 } from "./pages/listings.js";
 import { cookiesPage, privacyPage, sitemapXml } from "./pages/legal.js";
 import { networkPage } from "./pages/networks.js";
+import { competitionIcsHandler, competitionPage } from "./pages/competition.js";
 import { errorPage, notFoundPage } from "./pages/errors.js";
 import { registerAdminRoutes } from "./admin/routes.js";
 import { runMaintenance } from "./lib/maintenance.js";
@@ -74,6 +75,9 @@ const router = new Router()
   .get("/jf-paverka", (c) => paverkaPage(c))
   .post("/jf-paverka", submitHandler("paverka"))
   .get("/jf-paverka/tack", thanksPage("paverka"))
+  .get("/tavling", competitionPage)
+  .get("/tavling/kalender.ics", competitionIcsHandler)
+  .get("/tavlingen", () => redirect("/tavling", 301))
   .get("/faq", faqPage)
   .get("/kontakt", (c) => contactPage(c))
   .post("/kontakt", submitHandler("kontakt"))

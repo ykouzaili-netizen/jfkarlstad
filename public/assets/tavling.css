@@ -1,0 +1,844 @@
+/*
+ * Merch- och märkestävlingen (/tavling) – laddas bara på den sidan (src/pages/competition.ts).
+ * Allt är scopat under .jfk-tavling: inga globala regler, sidhuvud och sidfot behåller sajtens utseende.
+ * Sidan har en egen kampanjprofil – mörkblått och guld – med ljust och mörkt läge (prefers-color-scheme).
+ * Färgerna är variabler i det första blocket nedan; ändra dem där och ingen annanstans.
+ * Höj ASSET_VERSION i src/views/layout.ts när filen ändras.
+ */
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("/assets/fonts/dm-sans.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Färger och mått ---------- */
+
+.jfk-tavling {
+  /* Profilen */
+  --t-ink: #0e1a3a;
+  --t-navy: #13204a;
+  --t-navy-2: #1c2d63;
+  --t-navy-3: #26397a;
+  --t-gold: #e3ad3a;
+  --t-gold-soft: #f3c45c;
+  --t-cream: #f4f1e8;
+
+  /* Ljust läge */
+  --t-paper: #f7f4ec;
+  --t-card: #ffffff;
+  --t-card-2: #fbf9f4;
+  --t-line: #e4dfd2;
+  --t-line-strong: #cfc8b6;
+  --t-text: #0e1a3a;
+  --t-muted: #5a6177;
+  --t-gold-text: #8a5a00;
+  --t-gold-tint: rgb(227 173 58 / 0.16);
+  --t-green: #1e7a4f;
+  --t-green-bg: #e3f3ea;
+  --t-red: #b42f2f;
+  --t-red-bg: #fbe9e7;
+  --t-blue-bg: #e8ecf7;
+  --t-strong-bg: var(--t-navy);
+  --t-strong-text: #ffffff;
+  --t-strong-hover: var(--t-navy-2);
+  --t-shadow: 0 1px 2px rgb(14 26 58 / 0.05), 0 12px 32px -18px rgb(14 26 58 / 0.28);
+
+  /* Toppen är mörkblå i båda lägena */
+  --t-hero-bg: var(--t-navy);
+  --t-hero-text: var(--t-cream);
+  --t-hero-muted: #c9d0e4;
+  --t-hero-line: rgb(255 255 255 / 0.14);
+
+  --t-radius: 24px;
+  --t-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --t-body: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  font-family: var(--t-body);
+  color: var(--t-text);
+  background: var(--t-paper);
+  font-size: 1rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  .jfk-tavling {
+    --t-paper: #0a1430;
+    --t-card: #13204a;
+    --t-card-2: #182757;
+    --t-line: #2a3a6e;
+    --t-line-strong: #3a4c86;
+    --t-text: #eef1f8;
+    --t-muted: #a6b0c8;
+    --t-gold-text: #f3c45c;
+    --t-gold-tint: rgb(243 196 92 / 0.14);
+    --t-green: #6fd3a0;
+    --t-green-bg: rgb(111 211 160 / 0.12);
+    --t-red: #ff8a80;
+    --t-red-bg: rgb(255 138 128 / 0.12);
+    --t-blue-bg: #1a2a5c;
+    --t-strong-bg: var(--t-cream);
+    --t-strong-text: var(--t-ink);
+    --t-strong-hover: #ffffff;
+    --t-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -20px rgb(0 0 0 / 0.6);
+    --t-hero-bg: #0e1a3d;
+    color-scheme: dark;
+  }
+}
+
+.jfk-tavling *,
+.jfk-tavling *::before,
+.jfk-tavling *::after { box-sizing: border-box; }
+.jfk-tavling [hidden] { display: none !important; }
+.jfk-tavling a { color: inherit; }
+.jfk-tavling :focus-visible { outline: 3px solid var(--t-gold); outline-offset: 3px; border-radius: 6px; }
+.jfk-tavling .icon { width: 1.25em; height: 1.25em; flex: none; }
+.jfk-tavling .icon-sm { width: 1.05em; height: 1.05em; }
+
+/* ---------- Typografi ---------- */
+
+.jfk-tavling .t-h2 {
+  font-family: var(--t-display);
+  font-weight: 700;
+  font-size: clamp(1.75rem, 1.2rem + 2.2vw, 2.5rem);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  margin: 0 0 0.5em;
+  text-wrap: balance;
+  color: var(--t-text);
+}
+.jfk-tavling .t-h3 { font-family: var(--t-display); font-size: 1.375rem; font-weight: 700; line-height: 1.3; margin: 0; letter-spacing: -0.01em; }
+.jfk-tavling .t-h4 { font-family: var(--t-body); font-size: 1.0625rem; font-weight: 700; line-height: 1.35; margin: 0 0 0.25em; }
+.jfk-tavling .t-h5 { font-family: var(--t-body); display: flex; align-items: center; gap: 8px; font-size: 0.9375rem; font-weight: 700; margin: 0 0 10px; }
+.jfk-tavling .t-text-lg { font-size: 1.125rem; color: var(--t-muted); max-width: 60ch; margin: 0; }
+.jfk-tavling p { margin: 0; }
+
+.jfk-tavling .t-prose { color: var(--t-muted); }
+.jfk-tavling .t-prose > * + * { margin-top: 0.75em; }
+.jfk-tavling .t-prose strong { color: var(--t-text); font-weight: 700; }
+.jfk-tavling .t-prose a { color: var(--t-gold-text); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.jfk-tavling .t-prose ul { list-style: none; padding: 0; margin-block: 0.75em 0; display: grid; gap: 10px; }
+.jfk-tavling .t-prose li { position: relative; padding-left: 22px; }
+.jfk-tavling .t-prose li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: var(--t-gold);
+}
+
+/* ---------- Knappar ---------- */
+
+.jfk-tavling .t-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 0 24px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  font: 700 0.9375rem/1.2 var(--t-body);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s var(--t-ease), color 0.2s var(--t-ease), border-color 0.2s var(--t-ease), transform 0.2s var(--t-ease), box-shadow 0.2s var(--t-ease);
+}
+.jfk-tavling .t-btn:hover { transform: translateY(-1px); }
+.jfk-tavling .t-btn:active { transform: translateY(0); }
+.jfk-tavling .t-btn .icon { transition: transform 0.2s var(--t-ease); }
+.jfk-tavling .t-btn:hover .icon-sm:last-child { transform: translateX(3px); }
+.jfk-tavling .t-btn-block { width: 100%; }
+.jfk-tavling .t-btn-gold { background: var(--t-gold); color: var(--t-ink); box-shadow: 0 10px 24px -12px rgb(227 173 58 / 0.7); }
+.jfk-tavling .t-btn-gold:hover { background: var(--t-gold-soft); }
+.jfk-tavling .t-btn-ghost { border-color: rgb(255 255 255 / 0.35); color: var(--t-hero-text); }
+.jfk-tavling .t-btn-ghost:hover { background: rgb(255 255 255 / 0.08); border-color: rgb(255 255 255 / 0.6); }
+.jfk-tavling .t-btn-navy { background: var(--t-strong-bg); color: var(--t-strong-text); }
+.jfk-tavling .t-btn-navy:hover { background: var(--t-strong-hover); }
+.jfk-tavling .t-btn-outline { border-color: var(--t-line-strong); color: var(--t-text); background: transparent; }
+.jfk-tavling .t-btn-outline:hover { background: var(--t-blue-bg); border-color: var(--t-text); }
+
+/* ---------- Toppen ---------- */
+
+.jfk-tavling .t-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--t-hero-text);
+  background:
+    radial-gradient(120% 90% at 85% 0%, rgb(227 173 58 / 0.18), transparent 55%),
+    radial-gradient(80% 80% at 0% 100%, rgb(38 57 122 / 0.9), transparent 60%),
+    var(--t-hero-bg);
+  padding-block: clamp(44px, 8vw, 104px) clamp(48px, 7vw, 96px);
+}
+/* Rutnät som på ett skissblock, som tonar ut mot kanterna */
+.jfk-tavling .t-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: radial-gradient(70% 70% at 70% 30%, #000 20%, transparent 80%);
+  mask-image: radial-gradient(70% 70% at 70% 30%, #000 20%, transparent 80%);
+}
+.jfk-tavling .t-hero-art {
+  position: absolute;
+  z-index: -1;
+  width: min(640px, 120vw);
+  height: auto;
+  right: -260px;
+  top: -200px;
+  pointer-events: none;
+}
+.jfk-tavling .ha-ring { fill: none; stroke: var(--t-gold); stroke-opacity: 0.22; stroke-width: 1.5; }
+.jfk-tavling .ha-ring-2 { stroke-opacity: 0.14; }
+.jfk-tavling .ha-stitch { fill: none; stroke: var(--t-gold-soft); stroke-opacity: 0.6; stroke-width: 2.5; stroke-dasharray: 12 9; stroke-linecap: round; transform-origin: 300px 300px; }
+
+.jfk-tavling .t-hero-grid { display: grid; gap: clamp(32px, 5vw, 64px); align-items: center; }
+@media (min-width: 960px) {
+  .jfk-tavling .t-hero-grid { grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr); }
+  .jfk-tavling .t-hero-art { right: -120px; top: -140px; }
+}
+
+.jfk-tavling .t-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--t-gold-soft);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+}
+.jfk-tavling .t-kicker::before { content: ""; width: 28px; height: 2px; background: currentColor; border-radius: 2px; }
+.jfk-tavling .t-title {
+  font-family: var(--t-display);
+  font-weight: 700;
+  font-size: clamp(2.35rem, 1.2rem + 5.4vw, 4.6rem);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  margin: 0;
+  color: var(--t-hero-text);
+  text-wrap: balance;
+}
+.jfk-tavling .t-amp { color: var(--t-gold); font-weight: 400; font-size: 1.08em; padding-inline: 0.04em; }
+.jfk-tavling .t-lead { margin-top: 22px; max-width: 54ch; font-size: clamp(1.0625rem, 1rem + 0.35vw, 1.1875rem); color: var(--t-hero-muted); }
+.jfk-tavling .t-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+
+/* Lägesetiketten */
+.jfk-tavling .t-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  padding: 7px 14px 7px 12px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.07);
+  border: 1px solid var(--t-hero-line);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--t-hero-text);
+}
+.jfk-tavling .t-chip-dot { position: relative; width: 9px; height: 9px; border-radius: 50%; background: var(--t-gold); flex: none; }
+.jfk-tavling[data-state="open"] .t-chip-dot,
+.jfk-tavling[data-state="voting"] .t-chip-dot { background: #4fd18b; }
+.jfk-tavling[data-state="open"] .t-chip-dot::after,
+.jfk-tavling[data-state="voting"] .t-chip-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid #4fd18b; opacity: 0; }
+
+/* Nedräkningen */
+.jfk-tavling .t-countdown {
+  position: relative;
+  padding: clamp(22px, 3vw, 32px);
+  border-radius: var(--t-radius);
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.025));
+  border: 1px solid var(--t-hero-line);
+  box-shadow: 0 30px 60px -30px rgb(0 0 0 / 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.jfk-tavling .t-countdown::before {
+  content: "";
+  position: absolute;
+  left: clamp(22px, 3vw, 32px);
+  right: clamp(22px, 3vw, 32px);
+  top: -1px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(90deg, var(--t-gold), var(--t-gold-soft));
+}
+.jfk-tavling .t-countdown-label { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--t-gold-soft); margin-bottom: 16px; }
+.jfk-tavling .t-countdown[data-state="done"] .t-countdown-label {
+  font-family: var(--t-display);
+  font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2rem);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--t-hero-text);
+  margin: 0;
+  line-height: 1.2;
+}
+.jfk-tavling .t-clock { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(6px, 1.2vw, 10px); }
+.jfk-tavling .t-clock-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: clamp(12px, 2vw, 18px) 4px clamp(10px, 1.6vw, 14px);
+  border-radius: 16px;
+  background: rgb(5 11 32 / 0.5);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+.jfk-tavling .t-clock-num {
+  display: block;
+  font-size: clamp(1.75rem, 1.2rem + 2.6vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+.jfk-tavling .t-clock-unit { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--t-hero-muted); }
+.jfk-tavling .t-countdown-when { display: flex; align-items: center; gap: 8px; margin-top: 18px; font-size: 0.9375rem; color: var(--t-hero-text); font-weight: 500; }
+.jfk-tavling .t-countdown-when > span { display: inline-flex; align-items: center; gap: 8px; }
+.jfk-tavling .t-countdown-when .icon { color: var(--t-gold-soft); }
+.jfk-tavling .t-cal-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--t-hero-muted);
+  text-decoration: underline;
+  text-decoration-color: rgb(243 196 92 / 0.5);
+  text-underline-offset: 4px;
+  transition: color 0.2s var(--t-ease), text-decoration-color 0.2s var(--t-ease);
+}
+.jfk-tavling .t-cal-link:hover { color: #ffffff; text-decoration-color: var(--t-gold-soft); }
+
+/* ---------- Flikarna ---------- */
+
+.jfk-tavling .t-tabs-bar {
+  position: sticky;
+  top: var(--header-h, 72px);
+  z-index: 20;
+  background: color-mix(in srgb, var(--t-paper) 92%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--t-line);
+}
+.jfk-tavling .t-tabs { display: flex; gap: clamp(18px, 4vw, 40px); overflow-x: auto; scrollbar-width: none; }
+.jfk-tavling .t-tabs::-webkit-scrollbar { display: none; }
+.jfk-tavling .t-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 18px 2px 16px;
+  white-space: nowrap;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--t-muted);
+  text-decoration: none;
+  transition: color 0.2s var(--t-ease);
+}
+.jfk-tavling .t-tab::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--t-gold);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s var(--t-ease);
+}
+.jfk-tavling .t-tab:hover { color: var(--t-text); }
+.jfk-tavling .t-tab[aria-selected="true"] { color: var(--t-text); }
+.jfk-tavling .t-tab[aria-selected="true"]::after { transform: scaleX(1); }
+.jfk-tavling .t-tab:focus-visible { outline-offset: -3px; }
+.jfk-tavling .t-tab-num { font-size: 0.75rem; font-weight: 700; color: var(--t-gold-text); font-variant-numeric: tabular-nums; }
+
+/* ---------- Flikarnas innehåll ---------- */
+
+.jfk-tavling .t-panels { padding-block: clamp(40px, 6vw, 80px) clamp(56px, 8vw, 104px); }
+.jfk-tavling .t-panel { scroll-margin-top: calc(var(--header-h, 72px) + 72px); }
+/* Utan JavaScript visas flikarna efter varandra */
+.jfk-tavling:not(.has-tabs) .t-panel + .t-panel { margin-top: clamp(56px, 8vw, 96px); padding-top: clamp(56px, 8vw, 96px); border-top: 1px solid var(--t-line); }
+.jfk-tavling:not(.has-tabs) .t-next { display: none; }
+.jfk-tavling .t-panel:focus { outline: none; }
+.jfk-tavling .t-panel-head { margin-bottom: clamp(24px, 4vw, 40px); }
+.jfk-tavling .t-block { margin-top: clamp(56px, 7vw, 88px); }
+
+.jfk-tavling .t-ico {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--t-gold-tint);
+  color: var(--t-gold-text);
+  flex: none;
+}
+.jfk-tavling .t-ico .icon { width: 22px; height: 22px; }
+.jfk-tavling .t-ico-lg { width: 52px; height: 52px; border-radius: 14px; }
+.jfk-tavling .t-ico-lg .icon { width: 26px; height: 26px; }
+
+.jfk-tavling .t-next { margin-top: clamp(40px, 6vw, 64px); display: flex; justify-content: flex-end; }
+.jfk-tavling .t-next a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 4px;
+  font-weight: 700;
+  color: var(--t-gold-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 6px;
+}
+.jfk-tavling .t-next a .icon { transition: transform 0.2s var(--t-ease); }
+.jfk-tavling .t-next a:hover .icon { transform: translateX(4px); }
+
+/* ── Om tävlingen ── */
+
+.jfk-tavling .t-intro { display: grid; gap: clamp(28px, 4vw, 64px); }
+@media (min-width: 900px) { .jfk-tavling .t-intro { grid-template-columns: 1fr 1fr; align-items: start; } }
+.jfk-tavling .t-why { list-style: none; margin: 0; padding: 0; }
+.jfk-tavling .t-why li { display: flex; gap: 16px; padding: 20px 0; border-top: 1px solid var(--t-line); }
+.jfk-tavling .t-why li:last-child { border-bottom: 1px solid var(--t-line); }
+.jfk-tavling .t-why p { color: var(--t-muted); }
+
+.jfk-tavling .t-cats { display: grid; gap: 20px; }
+@media (min-width: 760px) { .jfk-tavling .t-cats { grid-template-columns: 1fr 1fr; gap: 24px; } }
+.jfk-tavling .t-cat {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--t-radius);
+  overflow: hidden;
+  background: var(--t-card);
+  border: 1px solid var(--t-line);
+  box-shadow: var(--t-shadow);
+  transition: transform 0.35s var(--t-ease), box-shadow 0.35s var(--t-ease);
+}
+.jfk-tavling .t-cat:hover { transform: translateY(-3px); }
+.jfk-tavling .t-cat-art {
+  display: grid;
+  place-items: center;
+  height: clamp(180px, 22vw, 230px);
+  background:
+    radial-gradient(60% 70% at 50% 45%, rgb(227 173 58 / 0.22), transparent 70%),
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px) 0 0 / 24px 24px,
+    var(--t-navy);
+}
+.jfk-tavling .t-cat--merch .t-cat-art {
+  background:
+    radial-gradient(60% 70% at 50% 45%, rgb(243 196 92 / 0.16), transparent 70%),
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px) 0 0 / 24px 24px,
+    var(--t-navy-2);
+}
+.jfk-tavling .t-art { width: auto; height: 78%; transition: transform 0.6s var(--t-ease); }
+.jfk-tavling .t-cat:hover .t-art-patch { transform: rotate(-8deg) scale(1.03); }
+.jfk-tavling .t-cat:hover .t-art-shirt { transform: translateY(-4px) rotate(2deg); }
+.jfk-tavling .t-cat-body { display: flex; flex-direction: column; gap: 10px; padding: clamp(22px, 3vw, 30px); }
+.jfk-tavling .t-cat-body > p { color: var(--t-muted); }
+.jfk-tavling .t-facts { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.jfk-tavling .t-facts li { display: flex; align-items: flex-start; gap: 10px; font-weight: 500; }
+.jfk-tavling .t-facts .icon { margin-top: 3px; padding: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--t-gold-tint); color: var(--t-gold-text); stroke-width: 2.6; }
+
+/* Illustrationerna (färgerna är profilens – de ändras inte i mörkt läge) */
+.jfk-tavling .pa-shadow, .jfk-tavling .sh-shadow { fill: rgb(0 0 0 / 0.28); }
+.jfk-tavling .pa-edge { fill: var(--t-gold); }
+.jfk-tavling .pa-merrow { fill: none; stroke: #8a5a00; stroke-width: 6; stroke-dasharray: 1.5 3.2; }
+.jfk-tavling .pa-face { fill: var(--t-navy-3); }
+.jfk-tavling .pa-stitch { fill: none; stroke: var(--t-gold-soft); stroke-width: 2; stroke-dasharray: 6 5; stroke-linecap: round; }
+.jfk-tavling .pa-star { fill: var(--t-gold-soft); }
+.jfk-tavling .pa-glyph { font-family: var(--t-display); font-size: 68px; font-weight: 700; fill: var(--t-gold); }
+.jfk-tavling .sh-body { fill: var(--t-cream); }
+.jfk-tavling .sh-collar { fill: none; stroke: #d6cfbc; stroke-width: 3; stroke-linecap: round; }
+.jfk-tavling .sh-print { fill: rgb(227 173 58 / 0.1); stroke: var(--t-gold); stroke-width: 2.5; stroke-dasharray: 7 6; stroke-linecap: round; }
+.jfk-tavling .sh-glyph { font-family: var(--t-display); font-size: 44px; font-weight: 700; fill: var(--t-navy); }
+
+/* Tidslinjen: lodrät i mobilen, vågrät från 900 px */
+.jfk-tavling .t-timeline { --dot: 48px; position: relative; list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 0; }
+.jfk-tavling .t-track { display: none; }
+.jfk-tavling .t-step { position: relative; display: grid; grid-template-columns: var(--dot) 1fr; gap: 18px; padding-bottom: 28px; }
+.jfk-tavling .t-step:last-child { padding-bottom: 0; }
+/* Linjen mellan stegen i mobilen */
+.jfk-tavling .t-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--dot) / 2 - 1px);
+  top: var(--dot);
+  bottom: 0;
+  width: 2px;
+  background: var(--t-line);
+}
+.jfk-tavling .t-step[data-state="done"]:not(:last-child)::before { background: var(--t-gold); }
+.jfk-tavling .t-step[data-state="now"]:not(:last-child)::before { background: linear-gradient(var(--t-gold), var(--t-line)); }
+.jfk-tavling .t-step-dot {
+  --accent: var(--t-gold);
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: var(--t-card);
+  border: 2px solid var(--t-line-strong);
+  color: var(--t-muted);
+  transition: background-color 0.3s var(--t-ease), border-color 0.3s var(--t-ease), color 0.3s var(--t-ease);
+}
+.jfk-tavling .t-step--1 .t-step-dot { --accent: var(--t-green); }
+.jfk-tavling .t-step--2 .t-step-dot { --accent: var(--t-red); }
+.jfk-tavling .t-step--3 .t-step-dot { --accent: var(--t-navy-3); }
+.jfk-tavling .t-step--4 .t-step-dot { --accent: var(--t-gold-text); }
+@media (prefers-color-scheme: dark) {
+  .jfk-tavling .t-step--3 .t-step-dot { --accent: #8fa6ff; }
+}
+.jfk-tavling .t-step-dot .icon { width: 22px; height: 22px; }
+.jfk-tavling .t-step[data-state="next"] .t-step-dot { border-style: dashed; border-color: var(--accent); color: var(--accent); }
+.jfk-tavling .t-step[data-state="now"] .t-step-dot { background: var(--accent); border-color: var(--accent); color: #ffffff; box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent); }
+.jfk-tavling .t-step--4[data-state="now"] .t-step-dot { background: var(--t-gold); border-color: var(--t-gold); color: var(--t-ink); }
+.jfk-tavling .t-step[data-state="done"] .t-step-dot { background: var(--t-card); border-color: var(--accent); color: var(--accent); }
+.jfk-tavling .t-step-body { padding-top: 2px; min-width: 0; }
+.jfk-tavling .t-step-when { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--t-gold-text); }
+.jfk-tavling .t-step-time { letter-spacing: 0.04em; }
+.jfk-tavling .t-step-title { font-family: var(--t-display); font-size: 1.25rem; font-weight: 700; margin: 4px 0; }
+.jfk-tavling .t-step-text { color: var(--t-muted); font-size: 0.9375rem; }
+.jfk-tavling .t-step-status { margin-top: 10px; min-height: 26px; }
+.jfk-tavling .t-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.jfk-tavling .t-pill--done { background: var(--t-green-bg); color: var(--t-green); }
+.jfk-tavling .t-pill--now { background: var(--t-gold); color: var(--t-ink); }
+.jfk-tavling .t-pill--next { background: var(--t-blue-bg); color: var(--t-text); }
+.jfk-tavling .t-live { position: relative; width: 7px; height: 7px; border-radius: 50%; background: var(--t-ink); }
+
+@media (min-width: 900px) {
+  .jfk-tavling .t-timeline { --gap: 28px; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); }
+  .jfk-tavling .t-step { grid-template-columns: 1fr; gap: 16px; padding-bottom: 0; }
+  .jfk-tavling .t-step::before { display: none; }
+  /* En sammanhängande linje från första till sista punkten som fylls i takt med tiden (--t-progress, 0–1) */
+  .jfk-tavling .t-track {
+    display: block;
+    position: absolute;
+    top: calc(var(--dot) / 2 - 1.5px);
+    left: calc(var(--dot) / 2);
+    width: calc(75% + var(--gap) * 0.75);
+    height: 3px;
+    border-radius: 3px;
+    background: var(--t-line);
+    overflow: hidden;
+  }
+  .jfk-tavling .t-track-fill { position: absolute; inset: 0; background: linear-gradient(90deg, var(--t-gold), var(--t-gold-soft)); transform-origin: left; transform: scaleX(var(--t-progress, 0)); transition: transform 0.8s var(--t-ease); }
+}
+
+/* Vinnarna */
+.jfk-tavling .t-winners {
+  margin-bottom: clamp(48px, 6vw, 72px);
+  padding: clamp(24px, 4vw, 44px);
+  border-radius: var(--t-radius);
+  color: var(--t-hero-text);
+  background:
+    radial-gradient(100% 120% at 100% 0%, rgb(227 173 58 / 0.22), transparent 55%),
+    var(--t-navy);
+  box-shadow: var(--t-shadow);
+}
+.jfk-tavling .t-winners .t-h2 { color: var(--t-hero-text); margin: 0; }
+.jfk-tavling .t-winners .t-ico { background: var(--t-gold); color: var(--t-ink); }
+.jfk-tavling .t-winners-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.jfk-tavling .t-winners .t-prose { color: var(--t-hero-muted); max-width: 64ch; }
+.jfk-tavling .t-winners .t-prose strong { color: #ffffff; }
+.jfk-tavling .t-winners .t-prose a { color: var(--t-gold-soft); }
+.jfk-tavling .t-winners-grid { display: grid; gap: 20px; margin-top: 28px; }
+@media (min-width: 640px) { .jfk-tavling .t-winners-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); } }
+.jfk-tavling .t-winner { margin: 0; }
+.jfk-tavling .t-winner img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; border-radius: 18px; background: var(--t-cream); }
+.jfk-tavling .t-winner figcaption { margin-top: 10px; font-weight: 600; }
+
+/* ── Regler ── */
+
+.jfk-tavling .t-summary {
+  margin-bottom: clamp(24px, 4vw, 40px);
+  padding: 22px clamp(20px, 3vw, 28px);
+  border-radius: 18px;
+  background: var(--t-card-2);
+  border: 1px solid var(--t-line);
+  border-left: 4px solid var(--t-gold);
+}
+.jfk-tavling .t-summary .t-h4 { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--t-gold-text); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.8125rem; }
+.jfk-tavling .t-summary ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px 32px; counter-reset: kort; }
+@media (min-width: 760px) { .jfk-tavling .t-summary ul { grid-template-columns: 1fr 1fr; } }
+.jfk-tavling .t-summary li { position: relative; padding-left: 34px; font-weight: 600; counter-increment: kort; }
+.jfk-tavling .t-summary li::before {
+  content: counter(kort);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--t-strong-bg);
+  color: var(--t-strong-text);
+}
+
+.jfk-tavling .t-rules { display: grid; gap: 18px; }
+@media (min-width: 860px) {
+  .jfk-tavling .t-rules { grid-template-columns: 1fr 1fr; gap: 20px; }
+  .jfk-tavling .t-rule--wide { grid-column: 1 / -1; }
+}
+.jfk-tavling .t-rule {
+  position: relative;
+  padding: clamp(22px, 3vw, 30px);
+  border-radius: 20px;
+  background: var(--t-card);
+  border: 1px solid var(--t-line);
+  scroll-margin-top: calc(var(--header-h, 72px) + 80px);
+  transition: border-color 0.3s var(--t-ease), box-shadow 0.3s var(--t-ease);
+}
+.jfk-tavling .t-rule:target { border-color: var(--t-gold); box-shadow: 0 0 0 3px var(--t-gold-tint); }
+.jfk-tavling .t-rule-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; padding-right: 56px; }
+.jfk-tavling .t-rule-num {
+  position: absolute;
+  top: clamp(16px, 2.4vw, 22px);
+  right: clamp(18px, 2.6vw, 26px);
+  font-family: var(--t-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--t-gold-text);
+  opacity: 0.5;
+  font-variant-numeric: lining-nums;
+}
+.jfk-tavling .t-dodont { display: grid; gap: 14px; margin-top: 20px; }
+@media (min-width: 640px) { .jfk-tavling .t-dodont { grid-template-columns: 1fr 1fr; } }
+.jfk-tavling .t-do, .jfk-tavling .t-dont { padding: 18px 20px; border-radius: 14px; }
+.jfk-tavling .t-do { background: var(--t-green-bg); }
+.jfk-tavling .t-dont { background: var(--t-red-bg); }
+.jfk-tavling .t-do .t-h5 { color: var(--t-green); }
+.jfk-tavling .t-dont .t-h5 { color: var(--t-red); }
+.jfk-tavling .t-do ul, .jfk-tavling .t-dont ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.jfk-tavling .t-do li, .jfk-tavling .t-dont li { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9375rem; }
+.jfk-tavling .t-do li .icon { color: var(--t-green); margin-top: 3px; stroke-width: 2.4; }
+.jfk-tavling .t-dont li .icon { color: var(--t-red); margin-top: 3px; stroke-width: 2.4; }
+.jfk-tavling .t-contact { display: flex; align-items: center; gap: 10px; margin-top: 28px; color: var(--t-muted); }
+.jfk-tavling .t-contact a { color: var(--t-gold-text); font-weight: 600; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.jfk-tavling .t-contact .icon { color: var(--t-gold-text); }
+
+/* ── Delta och rösta ── */
+
+.jfk-tavling .t-cards { display: grid; gap: 20px; align-items: stretch; }
+@media (min-width: 900px) { .jfk-tavling .t-cards { grid-template-columns: 1fr 1fr; gap: 24px; } }
+.jfk-tavling .t-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: clamp(22px, 3vw, 32px);
+  border-radius: var(--t-radius);
+  background: var(--t-card);
+  border: 1px solid var(--t-line);
+  box-shadow: var(--t-shadow);
+  transition: box-shadow 0.3s var(--t-ease), border-color 0.3s var(--t-ease);
+}
+.jfk-tavling .t-card[data-state="open"] { border-color: var(--t-gold); box-shadow: 0 0 0 1px var(--t-gold), var(--t-shadow); }
+.jfk-tavling .t-card > p { color: var(--t-muted); }
+.jfk-tavling .t-card-head { display: grid; grid-template-columns: auto 1fr; gap: 14px 16px; align-items: center; }
+.jfk-tavling .t-card-status { grid-column: 1 / -1; }
+@media (min-width: 480px) {
+  .jfk-tavling .t-card-head { grid-template-columns: auto 1fr auto; }
+  .jfk-tavling .t-card-status { grid-column: auto; align-self: start; }
+}
+.jfk-tavling .t-card-kicker { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--t-gold-text); margin-bottom: 2px; }
+.jfk-tavling .t-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.jfk-tavling .t-status-dot { position: relative; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.jfk-tavling .t-status.is-soon { background: var(--t-blue-bg); color: var(--t-text); }
+.jfk-tavling .t-status.is-open { background: var(--t-green-bg); color: var(--t-green); }
+.jfk-tavling .t-status.is-closed { background: var(--t-card-2); color: var(--t-muted); border: 1px solid var(--t-line); }
+.jfk-tavling .t-status.is-open .t-status-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid currentColor; opacity: 0; }
+
+.jfk-tavling .t-field { display: grid; gap: 8px; }
+.jfk-tavling .t-field-label { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--t-muted); padding: 0; }
+.jfk-tavling .t-copy-row { display: flex; gap: 8px; align-items: stretch; }
+.jfk-tavling .t-email,
+.jfk-tavling .t-subject-out {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: var(--t-card-2);
+  border: 1px solid var(--t-line);
+  font-weight: 600;
+  overflow-wrap: break-word;
+  line-height: 1.35;
+}
+@media (max-width: 420px) { .jfk-tavling .t-email, .jfk-tavling .t-subject-out { font-size: 0.9375rem; padding-inline: 14px; } }
+.jfk-tavling .t-email { text-decoration: none; color: var(--t-text); transition: border-color 0.2s var(--t-ease); }
+.jfk-tavling .t-email:hover { border-color: var(--t-gold); }
+.jfk-tavling .t-subject-out { font-size: 0.9375rem; }
+.jfk-tavling .t-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 50px;
+  min-height: 50px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid var(--t-line-strong);
+  background: var(--t-card);
+  color: var(--t-text);
+  font: 700 0.875rem/1 var(--t-body);
+  cursor: pointer;
+  transition: background-color 0.2s var(--t-ease), border-color 0.2s var(--t-ease), color 0.2s var(--t-ease);
+}
+.jfk-tavling .t-copy:hover { background: var(--t-blue-bg); border-color: var(--t-text); }
+.jfk-tavling .t-copy.is-copied { background: var(--t-green-bg); border-color: var(--t-green); color: var(--t-green); }
+@media (max-width: 420px) { .jfk-tavling .t-copy-label { display: none; } .jfk-tavling .t-copy { padding: 0; } }
+
+.jfk-tavling .t-subject { display: grid; gap: 16px; padding: 18px; border-radius: 18px; background: var(--t-card-2); border: 1px dashed var(--t-line-strong); }
+.jfk-tavling .t-subject .t-email,
+.jfk-tavling .t-subject .t-subject-out { background: var(--t-card); }
+.jfk-tavling .t-seg { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.jfk-tavling .t-seg legend { margin-bottom: 8px; }
+.jfk-tavling .t-seg-opt { position: relative; }
+.jfk-tavling .t-seg-opt input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.jfk-tavling .t-seg-opt span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1.5px solid var(--t-line-strong);
+  background: var(--t-card);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  transition: background-color 0.2s var(--t-ease), color 0.2s var(--t-ease), border-color 0.2s var(--t-ease);
+}
+.jfk-tavling .t-seg-opt:hover span { border-color: var(--t-text); }
+.jfk-tavling .t-seg-opt input:checked + span { background: var(--t-strong-bg); border-color: var(--t-strong-bg); color: var(--t-strong-text); }
+.jfk-tavling .t-seg-opt input:focus-visible + span { outline: 3px solid var(--t-gold); outline-offset: 2px; }
+.jfk-tavling .t-input {
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--t-line-strong);
+  background: var(--t-card);
+  color: var(--t-text);
+  font: 500 1rem/1.3 var(--t-body);
+  transition: border-color 0.2s var(--t-ease), box-shadow 0.2s var(--t-ease);
+}
+.jfk-tavling .t-input::placeholder { color: var(--t-muted); opacity: 0.8; }
+.jfk-tavling .t-input:focus { outline: none; border-color: var(--t-gold); box-shadow: 0 0 0 4px var(--t-gold-tint); }
+.jfk-tavling .t-hint { display: flex; gap: 8px; align-items: flex-start; font-size: 0.8125rem; color: var(--t-muted); }
+.jfk-tavling .t-hint .icon { margin-top: 2px; color: var(--t-gold-text); }
+
+.jfk-tavling .t-card-foot { display: grid; gap: 10px; margin-top: auto; }
+.jfk-tavling .t-note { padding: 14px 16px; border-radius: 14px; background: var(--t-blue-bg); color: var(--t-text); font-size: 0.9375rem; font-weight: 500; }
+.jfk-tavling .t-card[data-state="closed"] .t-note { background: var(--t-card-2); color: var(--t-muted); border: 1px solid var(--t-line); }
+
+.jfk-tavling .t-check { border-top: 1px solid var(--t-line); padding-top: 16px; }
+.jfk-tavling .t-check summary { cursor: pointer; list-style: none; margin: 0; }
+.jfk-tavling .t-check summary::-webkit-details-marker { display: none; }
+.jfk-tavling .t-check summary::after { content: ""; margin-left: auto; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translate(-2px, -2px); transition: transform 0.2s var(--t-ease); opacity: 0.6; }
+.jfk-tavling .t-check[open] summary::after { transform: rotate(-135deg) translate(-2px, -2px); }
+.jfk-tavling .t-check summary .icon { color: var(--t-gold-text); }
+.jfk-tavling .t-check ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.jfk-tavling .t-check li { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9375rem; color: var(--t-muted); }
+.jfk-tavling .t-check li .icon { color: var(--t-green); margin-top: 3px; stroke-width: 2.4; }
+
+.jfk-tavling .t-vote-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.jfk-tavling .t-vote-facts li { padding: 6px 12px; border-radius: 999px; background: var(--t-gold-tint); color: var(--t-gold-text); font-size: 0.8125rem; font-weight: 700; }
+.jfk-tavling .t-ballot-art {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  min-height: 170px;
+  padding: 24px 0 12px;
+  border-radius: 18px;
+  background:
+    linear-gradient(var(--t-line) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(90deg, var(--t-line) 1px, transparent 1px) 0 0 / 22px 22px,
+    var(--t-card-2);
+  overflow: hidden;
+}
+.jfk-tavling .t-art-ballot { width: min(280px, 80%); height: auto; overflow: visible; }
+.jfk-tavling .ba-front { fill: none; stroke: var(--t-gold); stroke-opacity: 0.55; stroke-width: 1.5; stroke-dasharray: 5 4; }
+.jfk-tavling .ba-paper { fill: #ffffff; stroke: var(--t-line-strong); stroke-width: 2; }
+.jfk-tavling .ba-tick { fill: none; stroke: var(--t-green); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.jfk-tavling .ba-box { fill: var(--t-navy); }
+.jfk-tavling .ba-slot { fill: var(--t-ink); stroke: var(--t-gold); stroke-width: 1.5; }
+.jfk-tavling .t-card[data-state="closed"] .t-ballot-art { opacity: 0.55; filter: grayscale(0.6); }
+@media (prefers-color-scheme: dark) { .jfk-tavling .ba-box { fill: var(--t-navy-3); } }
+
+/* ---------- Rörelse (respekterar Utseende → Rörelse och systemets inställning) ---------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion="av"]) .jfk-tavling .ha-stitch { animation: t-spin 120s linear infinite; }
+  html:not([data-motion="av"]) .jfk-tavling[data-state="open"] .t-chip-dot::after,
+  html:not([data-motion="av"]) .jfk-tavling[data-state="voting"] .t-chip-dot::after,
+  html:not([data-motion="av"]) .jfk-tavling .t-status.is-open .t-status-dot::after { animation: t-ping 2s var(--t-ease) infinite; }
+  html:not([data-motion="av"]) .jfk-tavling .t-step[data-state="now"] .t-step-dot { animation: t-glow 2.4s ease-in-out infinite; }
+  html:not([data-motion="av"]) .jfk-tavling .t-clock-num.is-tick { animation: t-tick 0.45s var(--t-ease); }
+  html:not([data-motion="av"]) .jfk-tavling.has-tabs .t-panel:not([hidden]) { animation: t-in 0.45s var(--t-ease); }
+  html:not([data-motion="av"]) .jfk-tavling .t-card[data-state="open"] .ba-sheet { animation: t-drop 3.2s var(--t-ease) infinite; }
+}
+@keyframes t-spin { to { transform: rotate(360deg); } }
+@keyframes t-ping { 0% { transform: scale(0.6); opacity: 0.9; } 80%, 100% { transform: scale(1.8); opacity: 0; } }
+@keyframes t-glow { 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 8%, transparent); } }
+@keyframes t-tick { from { transform: translateY(-6px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes t-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes t-drop { 0%, 15% { transform: translateY(-6px); } 45%, 60% { transform: translateY(26px); opacity: 1; } 70% { opacity: 0; transform: translateY(30px); } 71% { transform: translateY(-14px); opacity: 0; } 85%, 100% { transform: translateY(-6px); opacity: 1; } }
+
+/* ---------- Utskrift: reglerna och datumen på papper ---------- */
+
+@media print {
+  .jfk-tavling { background: #ffffff; color: #000000; }
+  .jfk-tavling .t-hero { background: none; color: #000000; padding-block: 0 24px; }
+  .jfk-tavling .t-hero::before, .jfk-tavling .t-hero-art, .jfk-tavling .t-tabs-bar, .jfk-tavling .t-actions,
+  .jfk-tavling .t-copy, .jfk-tavling .t-cal-link, .jfk-tavling .t-next, .jfk-tavling .t-clock,
+  .jfk-tavling .t-ballot-art, .jfk-tavling .t-cat-art, .jfk-tavling .t-subject { display: none !important; }
+  .jfk-tavling .t-title, .jfk-tavling .t-lead, .jfk-tavling .t-chip, .jfk-tavling .t-countdown-label, .jfk-tavling .t-countdown-when { color: #000000; }
+  .jfk-tavling .t-countdown { background: none; border: 1px solid #999999; box-shadow: none; }
+  .jfk-tavling .t-panel[hidden] { display: block !important; }
+  .jfk-tavling .t-rule, .jfk-tavling .t-card, .jfk-tavling .t-cat { break-inside: avoid; box-shadow: none; }
+}
