@@ -13,6 +13,8 @@ export interface MedalRow {
   name: string;
   kind: MedalKind;
   design: string;
+  /** Grupp på Om oss (MEDAL_GROUPS), tom = ingen grupp. Saknas före migrering 0011. */
+  category?: string;
   description: string;
   founded: number | null;
   image_key: string | null;
@@ -26,6 +28,18 @@ export const MEDAL_KINDS = {
   orden: { label: "Orden" },
 } as const;
 export type MedalKind = keyof typeof MEDAL_KINDS;
+
+/**
+ * Grupperna som medaljerna delas in i på Om oss, i den ordning de visas. Rubrikerna är redigerbara texter
+ * (Texter och sidor → Om oss → Hedersmedlemmar och utmärkelser). Medaljer utan grupp hamnar sist under "Övriga".
+ */
+export const MEDAL_GROUPS = [
+  { value: "heder", textKey: "honors_group_heder", label: "Hedersmedlemskap" },
+  { value: "organ", textKey: "honors_group_organ", label: "Styrelse och utskott" },
+  { value: "projekt", textKey: "honors_group_projekt", label: "Kommittéer och projektgrupper" },
+  { value: "arets", textKey: "honors_group_arets", label: "Årets utmärkelser" },
+] as const;
+export type MedalGroup = (typeof MEDAL_GROUPS)[number]["value"];
 
 /** Föreningens medaljbilder i förlagans ordning. Etiketterna beskriver bara utseendet – namnen sätts i adminpanelen. */
 export const MEDAL_DESIGNS = {

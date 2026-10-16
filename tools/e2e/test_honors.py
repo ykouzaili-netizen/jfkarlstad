@@ -133,6 +133,18 @@ def run() -> None:
         page.wait_for_load_state()
         check(titles().index(MEMBER2) < titles().index(MEMBER), "Flytta upp byter plats inom året")
 
+        print("Admin: grupper")
+        page.goto(f"{BASE}/admin/medaljer/{medal_id}")
+        page.locator('input[name="category"][value="projekt"]').check(force=True)
+        page.locator(".admin-form-actions button[type=submit]").click()
+        page.wait_for_load_state("networkidle")
+        page.goto(f"{BASE}/admin/medaljer")
+        medal_row = page.locator("tr", has=page.locator(f'a.row-title:has-text("{MEDAL}")')).last
+        check("Kommittéer och projektgrupper" in medal_row.inner_text(), "gruppen syns i medaljlistan")
+        page.goto(f"{BASE}/om-oss")
+        groups = page.locator(".honors-group")
+        check(groups.count() >= 1 and "Kommittéer och projektgrupper" in " ".join(groups.all_text_contents()), "Om oss visar gruppens rubrik")
+
         for style in ["galleri", "kabinett", "band", "kortlek"]:
             print(f"Om oss: {style}")
             set_style(page, style)

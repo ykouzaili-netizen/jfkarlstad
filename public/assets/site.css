@@ -3569,10 +3569,26 @@ a.cal-num:hover { background: var(--c-hover); }
 .hk-vitrine {
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
   border-block: 1px solid color-mix(in srgb, var(--c-on-primary) 14%, transparent);
 }
 .hk-item + .hk-item { border-left: 1px solid color-mix(in srgb, var(--c-on-primary) 9%, transparent); }
+/* Medaljerna i grupper (Hedersmedlemskap, Styrelse och utskott …) – rubriken står över varje grupps monter */
+.hk-name, .hd-coin-name, .hb-tab-label { hyphens: manual; -webkit-hyphens: manual; overflow-wrap: break-word; }
+.honors-group {
+  font-family: var(--font-body); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  line-height: 1.4;
+}
+.hk-group { margin: clamp(36px, 5vw, 56px) 0 14px; color: var(--c-accent); }
+.hk-group:first-of-type { margin-top: 0; }
+.hd-group { margin: clamp(36px, 5vw, 56px) 0 -12px; color: var(--c-muted); }
+.hd-orders-intro + .hd-group { margin-top: clamp(28px, 4vw, 44px); }
+.hb-rack.is-grouped { border-top: 0; gap: 22px; }
+/* Grupperna krymper aldrig under sina flikar – raden skrollar i sidled i stället (som utan grupper) */
+.hb-tabgroup { display: flex; flex-direction: column; flex: 1 0 auto; }
+.hb-tabgroup-tabs .hb-tab { flex: 1 0 118px; }
+.hb-group-label { min-height: 1.4em; margin-bottom: 8px; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; opacity: 0.8; }
+.hb-tabgroup-tabs { display: flex; gap: 6px; padding: 0 2px 8px; border-top: 5px solid var(--hb-detail); }
 .hk-case {
   position: relative;
   display: flex; flex-direction: column; align-items: center;

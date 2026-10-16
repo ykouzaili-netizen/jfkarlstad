@@ -18,7 +18,7 @@ import { adminHead, adminLayout, csrfField, newMessageCount, postButton, statusP
 import { handleUpload, imageUploadField } from "./uploads.js";
 import { jobTotals } from "./job-stats.js";
 import { CUSTOM_DESIGN, DESIGN_OPTIONS, medalFormPreview, medalOptions } from "./medals.js";
-import { MEDAL_KINDS, medalImageUrl } from "../lib/medals.js";
+import { MEDAL_GROUPS, MEDAL_KINDS, medalImageUrl } from "../lib/medals.js";
 
 /**
  * Generisk redigering (skapa, lista, ändra, publicera, ta bort) för innehållstyperna.
@@ -452,14 +452,16 @@ export const RESOURCES: Resource[] = [
     title: "Ordnar och medaljer",
     singular: "orden eller medalj",
     newLabel: "Lägg till orden eller medalj",
-    lead: "Belöningssystemets ordnar och medaljer, i den ordning de visas på Om oss. Lägg till nya, byt namn och beskrivning, dölj eller ta bort. Vem som har fått dem lägger du in under fliken Utmärkelser.",
-    orderBy: "sort_order, id",
+    lead: "Belöningssystemets ordnar och medaljer, grupperade och i den ordning de visas på Om oss. Lägg till nya, byt namn och beskrivning, dölj eller ta bort. Vem som har fått dem lägger du in under fliken Utmärkelser.",
+    // Grupperna i samma ordning som på Om oss (MEDAL_GROUPS); pilarna flyttar en medalj inom sin grupp.
+    orderBy: "CASE category WHEN 'heder' THEN 1 WHEN 'organ' THEN 2 WHEN 'projekt' THEN 3 WHEN 'arets' THEN 4 ELSE 5 END, sort_order, id",
+    moveGroup: ["category"],
     publishable: true,
     publishLabels: ["Visas", "Dold"],
     navActive: "/admin/styrelsen",
     tabs: BOARD_TABS,
     emptyText: "Inga ordnar eller medaljer är inlagda ännu. Lägg till den första – ge den ett namn och välj bild.",
-    listQuery: "SELECT m.*, (SELECT COUNT(*) FROM honors h WHERE h.medal_id = m.id) AS recipient_count FROM medals m ORDER BY m.sort_order, m.id",
+    listQuery: "SELECT m.*, (SELECT COUNT(*) FROM honors h WHERE h.medal_id = m.id) AS recipient_count FROM medals m ORDER BY CASE category WHEN 'heder' THEN 1 WHEN 'organ' THEN 2 WHEN 'projekt' THEN 3 WHEN 'arets' THEN 4 ELSE 5 END, sort_order, id",
     formIntro: medalFormPreview,
     fields: [
       { name: "name", label: "Namn", type: "text", required: true, max: 120, help: "T.ex. Förtjänstmedaljen i guld." },
@@ -483,6 +485,13 @@ export const RESOURCES: Resource[] = [
         help: "Bäst blir en PNG med genomskinlig bakgrund där bandet hänger rakt uppåt, ungefär 220 × 460 pixlar eller större.",
       },
       {
+        name: "category",
+        label: "Grupp",
+        type: "radio",
+        help: "Rubriken medaljen står under på Om oss. Rubrikerna ändrar du under Texter och sidor → Om oss.",
+        options: [...MEDAL_GROUPS.map((g) => ({ value: g.value, label: g.label })), { value: "", label: "Ingen grupp (Övriga utmärkelser)" }],
+      },
+      {
         name: "kind",
         label: "Kallas på webbplatsen",
         type: "radio",
@@ -502,6 +511,7 @@ export const RESOURCES: Resource[] = [
         className: "col-thumb",
       },
       { label: "Namn", render: (r) => html`<a class="row-title" href="/admin/medaljer/${r.id}">${String(r.name)}</a>` },
+      { label: "Grupp", render: (r) => MEDAL_GROUPS.find((g) => g.value === r.category)?.label ?? "–" },
       { label: "Mottagare", render: (r) => (Number(r.recipient_count) ? String(r.recipient_count) : "–") },
       { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
     ],

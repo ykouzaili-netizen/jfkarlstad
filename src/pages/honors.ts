@@ -1,6 +1,6 @@
 import { html, paragraphs, raw, type SafeHtml } from "../lib/html.js";
 import type { HonorRow } from "../lib/content.js";
-import { MEDAL_DESIGNS, medalDesign, medalImageUrl, type MedalRow } from "../lib/medals.js";
+import { MEDAL_DESIGNS, MEDAL_GROUPS, medalDesign, medalImageUrl, type MedalRow } from "../lib/medals.js";
 import { ec, ek, type Settings } from "../lib/settings.js";
 import { fill } from "../lib/texts.js";
 import { picture } from "../views/layout.js";
@@ -55,6 +55,44 @@ export function honorsSection(s: Settings, data: HonorsData): SafeHtml {
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"];
 const roman = (i: number) => ROMAN[i] ?? String(i + 1);
+
+interface MedalGroupBlock {
+  key: string;
+  /** Rubriken – null när ingen medalj har en grupp (då visas de utan rubriker, som en lista). */
+  label: { text: string; attr: SafeHtml } | null;
+  /** Löpnummer för första medaljen i gruppen (romerska siffror räknar vidare över grupperna). */
+  start: number;
+  medals: MedalWithRecipients[];
+}
+
+/** Medaljerna i grupper (MEDAL_GROUPS), i gruppernas ordning och inom gruppen i sin egen ordning. */
+function groupMedals(s: Settings, medals: MedalWithRecipients[]): MedalGroupBlock[] {
+  const known = new Set<string>(MEDAL_GROUPS.map((g) => g.value));
+  if (!medals.some((m) => m.category && known.has(m.category))) return medals.length ? [{ key: "alla", label: null, start: 0, medals }] : [];
+  const blocks: MedalGroupBlock[] = [];
+  let start = 0;
+  const push = (key: string, text: string, attr: SafeHtml, list: MedalWithRecipients[]) => {
+    if (!list.length) return;
+    blocks.push({ key, label: { text, attr }, start, medals: list });
+    start += list.length;
+  };
+  for (const g of MEDAL_GROUPS) push(g.value, s[g.textKey], ek(s, g.textKey), medals.filter((m) => m.category === g.value));
+  push("ovriga", s.honors_group_other, ek(s, "honors_group_other"), medals.filter((m) => !m.category || !known.has(m.category)));
+  return blocks;
+}
+
+/**
+ * Mjukt bindestreck i långa sammansättningar ("Kommunikations­utskottet", "Åre­projekt­gruppen"), så att namnen
+ * bryts snyggt i smala kolumner på mobilen. Webbläsarnas automatiska avstavning saknar ofta svenska.
+ */
+function breakable(name: string): string {
+  return name.replace(/([a-zåäö])(utskott|kommitt|projekt|grupp)/giu, "$1\u00AD$2");
+}
+
+/** Gruppens rubrik (ingenting när medaljerna inte är grupperade). */
+function groupHeading(g: MedalGroupBlock, cls: string): SafeHtml | string {
+  return g.label ? html`<h4 class="honors-group ${cls}" id="medaljgrupp-${cls}-${g.key}"${g.label.attr}>${g.label.text}</h4>` : "";
+}
 
 
 function title(s: Settings): SafeHtml {
@@ -139,7 +177,9 @@ function kabinett(s: Settings, d: HonorsData): SafeHtml {
           <div class="prose"${ek(s, "rewards_text")}>${paragraphs(s.rewards_text)}</div>
         </div>
         ${d.medals.length
-          ? html`<ol class="hk-vitrine">${d.medals.map((m, i) => kabinettMedal(s, m, i))}</ol>`
+          ? groupMedals(s, d.medals).map(
+              (g) => html`${groupHeading(g, "hk-group")}<ol class="hk-vitrine" start="${g.start + 1}"${g.label ? html` aria-labelledby="medaljgrupp-hk-group-${g.key}"` : ""}>${g.medals.map((m, i) => kabinettMedal(s, m, g.start + i))}</ol>`,
+            )
           : emptyState(s.honors_medals_empty, ek(s, "honors_medals_empty"))}
       </div>
 
@@ -165,7 +205,7 @@ function kabinettMedal(s: Settings, m: MedalWithRecipients, i: number): SafeHtml
       <span class="hk-art">${medalArt(m, "(min-width: 900px) 150px, 35vw")}</span>
       <span class="hk-label">
         <span class="hk-no">${roman(i)}</span>
-        <span class="hk-name">${m.name}</span>
+        <span class="hk-name">${breakable(m.name)}</span>
         <span class="hk-meta">${medalMeta(s, m)}</span>
         <span class="hk-count">${countText(s, m.recipients.length)}</span>
       </span>
@@ -199,10 +239,22 @@ function kabinettPortrait(s: Settings, h: HonorRow): SafeHtml {
 // ───────────────────────── 2. Ordensbandet ─────────────────────────
 
 function band(s: Settings, d: HonorsData): SafeHtml {
-  const tabs = [
-    ...(d.members.length || !d.medals.length ? [{ id: "heder", label: s.honors_members_title, medal: null as MedalRow | null }] : []),
-    ...d.medals.map((m) => ({ id: `m${m.id}`, label: m.name, medal: m as MedalRow | null })),
-  ];
+  type Tab = { id: string; label: string; medal: MedalRow | null };
+  const groups = groupMedals(s, d.medals);
+  const ordered = groups.flatMap((g) => g.medals);
+  const memberTab: Tab[] = d.members.length || !d.medals.length ? [{ id: "heder", label: s.honors_members_title, medal: null }] : [];
+  const tabs: Tab[] = [...memberTab, ...ordered.map((m) => ({ id: `m${m.id}`, label: m.name, medal: m }))];
+  const first = tabs[0]?.id;
+  const tabLink = (t: Tab) => html`<a class="hb-tab" href="#band-${t.id}" data-tab="band-${t.id}"${t.id === first ? html` aria-current="true"` : ""}>
+            <span class="hb-ribbon${t.medal ? "" : " hb-ribbon--heder"}">${t.medal ? medalArt(t.medal, "120px", "hb-ribbon-img") : ""}</span>
+            <span class="hb-tab-label">${breakable(t.label)}</span>
+          </a>`;
+  // Flikarna i grupper: en liten rubrik ovanför varje grupps band (bara när medaljerna är grupperade).
+  const rack = groups.some((g) => g.label)
+    ? html`${memberTab.length ? html`<div class="hb-tabgroup" role="presentation"><span class="hb-group-label" aria-hidden="true"></span><div class="hb-tabgroup-tabs" role="presentation">${memberTab.map(tabLink)}</div></div>` : ""}${groups.map(
+        (g) => html`<div class="hb-tabgroup" role="presentation"><span class="hb-group-label" aria-hidden="true"${g.label!.attr}>${g.label!.text}</span><div class="hb-tabgroup-tabs" role="presentation">${g.medals.map((m) => tabLink({ id: `m${m.id}`, label: m.name, medal: m }))}</div></div>`,
+      )}`
+    : html`${tabs.map(tabLink)}`;
   return html`<section class="honors honors--band" aria-labelledby="utmarkelser">
     <div class="container">
       <header class="hb-head">
@@ -216,18 +268,13 @@ function band(s: Settings, d: HonorsData): SafeHtml {
         </aside>
       </header>
 
-      <nav class="hb-rack" aria-label="${s.honors_title}" data-tabs>
-        ${tabs.map(
-          (t, i) => html`<a class="hb-tab" href="#band-${t.id}" data-tab="band-${t.id}"${i === 0 ? html` aria-current="true"` : ""}>
-            <span class="hb-ribbon${t.medal ? "" : " hb-ribbon--heder"}">${t.medal ? medalArt(t.medal, "120px", "hb-ribbon-img") : ""}</span>
-            <span class="hb-tab-label">${t.label}</span>
-          </a>`,
-        )}
+      <nav class="hb-rack${groups.some((g) => g.label) ? " is-grouped" : ""}" aria-label="${s.honors_title}" data-tabs>
+        ${rack}
       </nav>
 
       <div class="hb-panels">
         ${tabs.some((t) => t.id === "heder") ? bandMembers(s, d) : ""}
-        ${d.medals.map((m) => bandMedal(s, m))}
+        ${ordered.map((m) => bandMedal(s, m))}
       </div>
       ${d.medals.length ? "" : emptyState(s.honors_medals_empty, ek(s, "honors_medals_empty"))}
       ${looseAwards(s, d)}
@@ -321,7 +368,9 @@ function kortlek(s: Settings, d: HonorsData): SafeHtml {
           <div class="prose"${ek(s, "rewards_text")}>${paragraphs(s.rewards_text)}</div>
         </div>
         ${d.medals.length
-          ? html`<ul class="hd-coins">${d.medals.map((m) => kortlekCoin(s, m))}</ul>`
+          ? groupMedals(s, d.medals).map(
+              (g) => html`${groupHeading(g, "hd-group")}<ul class="hd-coins"${g.label ? html` aria-labelledby="medaljgrupp-hd-group-${g.key}"` : ""}>${g.medals.map((m) => kortlekCoin(s, m))}</ul>`,
+            )
           : emptyState(s.honors_medals_empty, ek(s, "honors_medals_empty"))}
       </div>
       ${looseAwards(s, d)}
@@ -334,11 +383,11 @@ function kortlekCoin(s: Settings, m: MedalWithRecipients): SafeHtml {
     <div class="hd-coin-inner" data-flip>
       <div class="hd-face hd-front">
         <span class="hd-coin-art">${medalArt(m, "130px")}</span>
-        <h4 class="hd-coin-name">${m.name}</h4>
+        <h4 class="hd-coin-name">${breakable(m.name)}</h4>
         <p class="hd-coin-meta">${medalMeta(s, m)}</p>
       </div>
       <div class="hd-face hd-back" id="mynt-${m.id}">
-        <h4 class="hd-coin-name">${m.name}</h4>
+        <h4 class="hd-coin-name">${breakable(m.name)}</h4>
         ${m.description ? html`<div class="hd-back-text">${paragraphs(m.description)}</div>` : ""}
         <h5 class="hd-back-sub"${ek(s, "honors_recipients_title")}>${s.honors_recipients_title}</h5>
         ${recipientList(s, m, "hd-names")}
@@ -410,7 +459,9 @@ function galleri(s: Settings, d: HonorsData): SafeHtml {
           <div class="prose"${ek(s, "rewards_text")}>${paragraphs(s.rewards_text)}</div>
         </div>
         ${d.medals.length
-          ? html`<ul class="hd-coins">${d.medals.map((m) => kortlekCoin(s, m))}</ul>`
+          ? groupMedals(s, d.medals).map(
+              (g) => html`${groupHeading(g, "hd-group")}<ul class="hd-coins"${g.label ? html` aria-labelledby="medaljgrupp-hd-group-${g.key}"` : ""}>${g.medals.map((m) => kortlekCoin(s, m))}</ul>`,
+            )
           : emptyState(s.honors_medals_empty, ek(s, "honors_medals_empty"))}
       </div>
       ${looseAwards(s, d)}
