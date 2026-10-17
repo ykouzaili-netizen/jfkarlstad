@@ -436,7 +436,7 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
     </header>
     <div class="t-cards">${submitCard}${voteCard}</div>
     ${entriesSection(s, entries, phase)}
-    ${kitSection(s, resources, phase)}
+    ${kitSection(s, resources, phase, entries)}
   </section>`;
 
   const content = html`<div class="jfk-tavling" data-tavling

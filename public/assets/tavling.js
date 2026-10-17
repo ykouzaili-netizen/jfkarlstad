@@ -7,7 +7,8 @@
  *  4. Bidragen: filtret Alla / Märke / Merch.
  *  5. Testa din design: bilden visas på märket eller tröjan (stannar i webbläsaren, laddas aldrig upp).
  *  6. Sprid tävlingen: en färdig bild till Instagram (story 9:16 eller inlägg 4:5) med nedräkningen,
- *     med styrelsens bakgrundsbild (Texter och sidor) om en sådan är vald.
+ *     med styrelsens bakgrundsbild (Texter och sidor) om en sådan är vald – och under röstningen ett collage av
+ *     bidragen med "Rösta nu!".
  * Varje del ligger i en egen IIFE, som i site.js.
  */
 
@@ -412,7 +413,7 @@
   function palette() {
     var cs = getComputedStyle(document.documentElement);
     var v = function (name, fallback) { return (cs.getPropertyValue(name) || "").trim() || fallback; };
-    return { bg: v("--c-primary", "#141414"), on: v("--c-on-primary", "#ffffff"), accent: v("--c-accent", "#f1cc4d"), onAccent: v("--c-on-accent", "#141414") };
+    return { bg: v("--c-primary", "#141414"), on: v("--c-on-primary", "#ffffff"), accent: v("--c-accent", "#f1cc4d"), onAccent: v("--c-on-accent", "#141414"), cream: v("--c-bg", "#fff7d6") };
   }
   /** "#rrggbb" + genomskinlighet → "rgba(…)" (canvas förstår inte color-mix). */
   function alpha(hex, a) {
@@ -430,13 +431,28 @@
     var c0 = palette();
     var light = /^#?f/i.test(c0.on);
     var bgSrc = card.getAttribute("data-bg") || "";
-    return Promise.all([loadImage(bgSrc), loadImage(light ? "/assets/tavling/jfk-logotyp-ljus.png" : "/assets/tavling/jfk-logotyp.png")]).then(function (imgs) {
+    var tiles = (card.getAttribute("data-collage") || "").split("|").filter(Boolean);
+    var voteTitle = card.getAttribute("data-vote-title") || "";
+    return Promise.all([loadImage(tiles.length ? "" : bgSrc), loadImage(light ? "/assets/tavling/jfk-logotyp-ljus.png" : "/assets/tavling/jfk-logotyp.png"), Promise.all(tiles.map(loadImage))]).then(function (imgs) {
       var bg = imgs[0], logo = imgs[1];
+      var shots = imgs[2].filter(Boolean);
       var c = document.createElement("canvas");
       c.width = W; c.height = H;
       var ctx = c.getContext("2d");
       ctx.fillStyle = c0.bg; ctx.fillRect(0, 0, W, H);
-      if (bg) {
+      if (shots.length) {
+        // Under röstningen: bidragen i ett rutnät (som på sidan, utan namn), mörklagda så att texten syns.
+        var n = shots.length, cols = n >= 7 ? 3 : n >= 3 ? 2 : 1, rows = Math.ceil(n / cols), g = 14;
+        var tw = (W - g * (cols + 1)) / cols, th = (H - g * (rows + 1)) / rows;
+        shots.forEach(function (im, i) {
+          var cx0 = g + (i % cols) * (tw + g), cy0 = g + Math.floor(i / cols) * (th + g);
+          ctx.fillStyle = c0.cream; rounded(ctx, cx0, cy0, tw, th, 24); ctx.fill();
+          var k = Math.min((tw * 0.8) / im.naturalWidth, (th * 0.8) / im.naturalHeight);
+          var iw = im.naturalWidth * k, ih = im.naturalHeight * k;
+          ctx.drawImage(im, cx0 + (tw - iw) / 2, cy0 + (th - ih) / 2, iw, ih);
+        });
+        ctx.fillStyle = alpha(c0.bg, 0.78); ctx.fillRect(0, 0, W, H);
+      } else if (bg) {
         // Bakgrundsbilden fyller hela ytan och mörkläggs med primärfärgen så att texten syns.
         var s = Math.max(W / bg.naturalWidth, H / bg.naturalHeight);
         var bw = bg.naturalWidth * s, bh = bg.naturalHeight * s;
@@ -459,9 +475,18 @@
 
       ctx.textAlign = "center";
       var y0 = 120 * F.gap + 50;
-      if (logo) { ctx.drawImage(logo, (W - F.logo) / 2, y0, F.logo, F.logo * 1.011); y0 += F.logo + 90 * F.gap + 20; }
-      ctx.fillStyle = c0.accent; ctx.font = "700 " + F.kicker + 'px "DM Sans", system-ui, sans-serif';
-      spaced(ctx, 8); ctx.fillText((card.getAttribute("data-kicker") || "").toUpperCase(), W / 2, y0); spaced(ctx, 0);
+      // Med "Rösta nu!" blir rubriken högre – logotypen krymps lika mycket så att resten får plats.
+      var logoSize = voteTitle ? Math.round(F.logo * 0.62) : F.logo;
+      if (logo) { ctx.drawImage(logo, (W - logoSize) / 2, y0, logoSize, logoSize * 1.011); y0 += logoSize + 90 * F.gap + 20; }
+      if (voteTitle) {
+        // "Rösta nu!" i stället för den lilla etiketten – större och i accentfärgen.
+        ctx.fillStyle = c0.accent; ctx.font = "700 " + Math.round(F.title * 0.8) + 'px "Playfair Display", Georgia, serif';
+        y0 += Math.round(F.title * 0.35);
+        ctx.fillText(voteTitle, W / 2, y0);
+      } else {
+        ctx.fillStyle = c0.accent; ctx.font = "700 " + F.kicker + 'px "DM Sans", system-ui, sans-serif';
+        spaced(ctx, 8); ctx.fillText((card.getAttribute("data-kicker") || "").toUpperCase(), W / 2, y0); spaced(ctx, 0);
+      }
 
       ctx.font = "700 " + F.title + 'px "Playfair Display", Georgia, serif';
       var ty = y0 + F.title + 30;

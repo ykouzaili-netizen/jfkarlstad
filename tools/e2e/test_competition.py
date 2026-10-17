@@ -245,6 +245,15 @@ with sync_playwright() as p:
     pub.click(".t-filter button[data-filter=merch]")
     check(pub.locator(".t-entry:visible").count() == 1, "filtret visar bara Merch")
     pub.screenshot(path=str(OUT / "tavling-rostning.png"), full_page=True)
+    share = pub.locator("[data-share]")
+    check(len((share.get_attribute("data-collage") or "").split("|")) == 2 and share.get_attribute("data-vote-title") == "Rösta nu!", "under röstningen: bidragen som bakgrund och Rösta nu! på Instagram-bilden")
+    share.scroll_into_view_if_needed()
+    pub.wait_for_timeout(1200)
+    with pub.expect_download() as dl:
+        pub.click("[data-share-button]")
+    from PIL import Image
+    Image.open(dl.value.path()).save(OUT / "tavling-story-rosta.png")
+    check(Image.open(OUT / "tavling-story-rosta.png").size == (1080, 1920), "röstningsbilden laddas ned")
 
     # Klart
     set_dates(adm, now - timedelta(days=20), now - timedelta(days=15), now - timedelta(days=10), now - timedelta(days=1))

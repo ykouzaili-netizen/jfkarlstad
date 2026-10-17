@@ -1161,6 +1161,11 @@ export const PAGES = [
       text("comp_share_button", "Sprid tävlingen – knapp", "Ladda ned bilden", small),
       text("comp_share_left", "Bilden: under siffran ({enhet} = dagar/timmar …)", "{enhet} kvar", small),
       image("comp_share_image", "Instagram-bilden – bakgrundsbild", "", { help: "Valfri. Ligger bakom texten på bilden till Instagram, mörklagd så att texten syns. Utan bild används webbplatsens primärfärg." }),
+      choice("comp_share_collage", "Instagram-bilden under röstningen", "ja", [
+        { value: "ja", label: "Bidragen som bakgrund", hint: "Ett collage av bidragen (utan namn) och rubriken nedan – bara medan röstningen pågår och när det finns bidrag" },
+        { value: "nej", label: "Som vanligt", hint: "Samma bakgrund som före röstningen" },
+      ], { required: true }),
+      text("comp_share_vote_title", "Instagram-bilden: rubrik under röstningen", "Rösta nu!", { help: "Ersätter den lilla etiketten överst på bilden medan röstningen pågår." }),
       text("comp_share_story", "Instagram-bilden: knapp för story", "Story", small),
       text("comp_share_post", "Instagram-bilden: knapp för inlägg", "Inlägg", small),
       text("comp_share_format", "Instagram-bilden: rubrik för formatet (för skärmläsare)", "Format", small),

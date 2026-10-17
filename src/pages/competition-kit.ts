@@ -147,10 +147,13 @@ function tryOn(s: Settings): SafeHtml {
  * Sprid tävlingen: en färdig bild till Instagram – story (1080 × 1920) eller inlägg (1080 × 1350) – med nedräkningen,
  * ritad i webbläsaren (tavling.js). Bakgrunden är styrelsens bild (Texter och sidor), annars primärfärgen.
  */
-function shareCard(s: Settings): SafeHtml {
+function shareCard(s: Settings, entries: EntryRow[], phase: Phase): SafeHtml {
   const bg = s.comp_share_image ? mediaUrl(s.comp_share_image, "md") : "";
+  // Under röstningen: bidragen som collage (de renderas bara då – se entriesSection) och "Rösta nu!".
+  const voting = phase === "voting" && s.comp_share_collage !== "nej" && entries.length > 0;
+  const collage = voting ? entries.slice(0, 9).map((e) => mediaUrl(e.image_key, "sm")).filter(Boolean).join("|") : "";
   return html`<div class="t-kit-card t-share" data-share hidden data-format="story" data-site="${s.site_name}" data-kicker="${s.comp_kicker}" data-title="${s.comp_title}" data-left="${s.comp_share_left}"
-      data-bg="${bg ?? ""}" data-units="${[s.comp_unit_days, s.comp_unit_hours, s.comp_unit_minutes].join(";")}"${ek(s, "comp_share_image")}>
+      data-bg="${bg ?? ""}" data-collage="${collage}" data-vote-title="${voting ? s.comp_share_vote_title : ""}" data-units="${[s.comp_unit_days, s.comp_unit_hours, s.comp_unit_minutes].join(";")}"${ek(s, "comp_share_image")}>
     <div class="t-share-preview">
       <img data-share-preview alt="Förhandsvisning av bilden till Instagram" width="1080" height="1920">
     </div>
@@ -167,7 +170,7 @@ function shareCard(s: Settings): SafeHtml {
   </div>`;
 }
 
-export function kitSection(s: Settings, resources: ResourceRow[], phase: Phase): SafeHtml {
+export function kitSection(s: Settings, resources: ResourceRow[], phase: Phase, entries: EntryRow[] = []): SafeHtml {
   const programs = resources.filter((r) => r.kind === "program");
   const files = resources.filter((r) => r.kind === "fil");
   const downloads = [...(s.comp_builtin === "nej" ? [] : builtinDownloads(s)), ...files.map((r) => uploadedDownload(s, r))];
@@ -231,7 +234,7 @@ export function kitSection(s: Settings, resources: ResourceRow[], phase: Phase):
 
     <div class="t-kit-grid t-kit-grid--2">
       ${tryOn(s)}
-      ${showShare ? shareCard(s) : ""}
+      ${showShare ? shareCard(s, entries, phase) : ""}
     </div>
   </section>`;
 }
