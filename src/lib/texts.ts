@@ -419,7 +419,7 @@ export const PAGES = [
       color("honors_band_c_accent", "Ordensbandet – färg: detaljer", "", { help: "Linjen ovanför banden, linjen bredvid texten om hedersmedlemmar och mottagarnas namnbrickor och initialer. Tomt = samma som texten." }),
       text("rewards_title", "Belöningssystemet – rubrik", "Belöningssystemet"),
       area("rewards_text", "Belöningssystemet – text", "År 2025 införde JFK ett akademiskt belöningssystem, inspirerat av andra juridiska föreningar och av europeiska kungahus. Systemet består av ordnar och medaljer som uppmärksammar medlemmar som har gjort betydande insatser för föreningen."),
-      text("honors_nominate_title", "Rutan om nominering – rubrik", "Känner du någon som förtjänar en utmärkelse?", { help: "Rutan visas under utmärkelserna så länge sidan Nominera till en utmärkelse visas." }),
+      text("honors_nominate_title", "Rutan om nominering – rubrik", "Känner du någon som förtjänar ett hedersmedlemskap?", { help: "Rutan visas under utmärkelserna så länge sidan Nominera till hedersmedlemskap visas." }),
       text("honors_nominate_button", "Rutan om nominering – knapp", "Nominera någon", small),
       text("honors_members_title", "Underrubrik för hedersmedlemmar", "Hedersmedlemmar", small),
       text("honors_awards_title", "Underrubrik för utmärkelser utan vald medalj", "Utdelade utmärkelser", small),
@@ -494,11 +494,11 @@ export const PAGES = [
     pageColors("om-oss"),
   ]),
 
-  page("nominera", "Nominera till en utmärkelse", "/nominera", [
+  page("nominera", "Nominera till hedersmedlemskap", "/nominera", [
     sec("topp", "Sidans topp", [
-      text("nominate_kicker", "Liten etikett ovanför rubriken", "Belöningssystemet", small),
-      text("nominate_title", "Rubrik", "Nominera någon till en utmärkelse", { required: true }),
-      area("nominate_lead", "Ingress", "Känner du någon som har gjort något extra för JFK? Berätta för oss – styrelsen går igenom alla nomineringar inför varje utdelning."),
+      text("nominate_kicker", "Liten etikett ovanför rubriken", "Hedersmedlemskap", small),
+      text("nominate_title", "Rubrik", "Nominera någon till hedersmedlemskap", { required: true }),
+      area("nominate_lead", "Ingress", "Känner du någon som genom sitt engagemang har gjort en särskilt stor insats för JFK? Berätta för oss – styrelsen går igenom alla nomineringar inför varje utdelning."),
       ...heroFields("nominate"),
     ]),
     sec("formular", "Formuläret", [
@@ -508,7 +508,7 @@ export const PAGES = [
       ], { required: true }),
       area("nominate_closed_text", "Text när det är stängt", "Just nu tar vi inte emot nomineringar. Håll utkik i våra kanaler – vi öppnar igen inför nästa utdelning."),
       text("nominate_form_title", "Rubrik", "Din nominering", { required: true }),
-      text("nf_award", "Fält: utmärkelse", "Vilken utmärkelse?", small),
+      text("nf_award", "Fält: hedersmedlemskap", "Vilket hedersmedlemskap?", { more: true, help: "Valen är medaljerna i gruppen Hedersmedlemskap (Styrelse och uppdrag → Ordnar och medaljer)." }),
       text("nf_award_any", "Val: låt styrelsen avgöra", "Vet inte – låt styrelsen avgöra", small),
       text("nf_nominee", "Fält: vem", "Vem nominerar du?", small),
       text("nf_nominee_help", "Fält: vem – hjälptext", "För- och efternamn. Gärna termin eller uppdrag också, så att vi vet vem du menar.", { more: true }),
@@ -518,8 +518,8 @@ export const PAGES = [
       text("nf_email", "Fält: din e-post", "Din e-post", small),
       text("nf_email_help", "Fält: din e-post – hjälptext", "Om styrelsen vill fråga något. Den du nominerar får inte veta vem som nominerade.", { more: true }),
       text("nominate_steps_title", "Rutan bredvid – rubrik", "Så går det till"),
-      list("nominate_steps", "Rutan bredvid – steg", "Du skickar in din nominering – det tar ett par minuter\nStyrelsen går igenom alla nomineringar inför utdelningen\nUtmärkelserna delas ut, ofta på en sittning eller bankett", { help: "Ett steg per rad." }),
-      text("nominate_awards_link", "Länk till utmärkelserna", "Se alla ordnar och medaljer", small),
+      list("nominate_steps", "Rutan bredvid – steg", "Du skickar in din nominering – det tar ett par minuter\nStyrelsen går igenom alla nomineringar inför utdelningen\nHedersmedlemskapen delas ut, ofta på en sittning eller bankett", { help: "Ett steg per rad." }),
+      text("nominate_awards_link", "Länk till Om oss", "Läs mer om hedersmedlemmarna", small),
     ]),
     sec("tack", "Bekräftelsen", [
       text("nominate_thanks_title", "Rubrik", "Tack för din nominering!", { required: true }),
@@ -1440,8 +1440,8 @@ export const PAGES = [
       area("privacy_p10_retention", "Hur länge", "Kort tid enligt Cloudflares villkor. Vi använder inga analysverktyg och för ingen besöksstatistik om enskilda besökare."),
     ]),
     sec("b11", "Behandling 11: nomineringar", [
-      text("privacy_p11_title", "Rubrik", "Ta emot nomineringar till föreningens utmärkelser"),
-      area("privacy_p11_data", "Uppgifter", "Ditt namn och din e-postadress, namnet på den du nominerar, vilken utmärkelse och din motivering."),
+      text("privacy_p11_title", "Rubrik", "Ta emot nomineringar till hedersmedlemskap"),
+      area("privacy_p11_data", "Uppgifter", "Ditt namn och din e-postadress, namnet på den du nominerar, vilket hedersmedlemskap och din motivering."),
       area("privacy_p11_basis", "Rättslig grund", "Berättigat intresse – att kunna uppmärksamma medlemmar som gjort betydande insatser för föreningen."),
       area("privacy_p11_retention", "Hur länge", "Raderas automatiskt efter 12 månader. Den du nominerar får inte veta vem som nominerade."),
     ]),

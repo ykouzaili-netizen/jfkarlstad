@@ -24,7 +24,10 @@ with sync_playwright() as p:
     check(cta.count() >= 1, "Om oss har en knapp till nomineringen under utmärkelserna")
     pub.goto(f"{BASE}/nominera")
     awards = pub.locator("select[name=utmarkelse] option").all_inner_texts()
-    check(len(awards) >= 2, f"utmärkelserna kommer från medaljlistan ({len(awards)} val)")
+    real = [a for a in awards if a.strip() and not a.startswith("Välj") and not a.startswith("Vet inte")]
+    check(real and all(a.startswith("Hedersmedlemskap") for a in real), f"man kan bara nominera till hedersmedlemskap ({real})")
+    r = pub.request.post(f"{BASE}/nominera", form={"utmarkelse": "Årets fadder", "kandidat": "X", "meddelande": "Y", "namn": "Z", "epost": "z@example.com"})
+    check("Ogiltigt val" in r.text() or r.status in (400, 403, 422), "servern godtar inte andra medaljer")
     pub.screenshot(path=str(OUT / "nominera-mobil.png"), full_page=True)
     pub.locator("main form button[type=submit]").last.click()
     pub.wait_for_load_state()

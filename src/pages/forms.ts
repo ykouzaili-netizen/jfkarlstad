@@ -107,9 +107,16 @@ function fieldsFor(id: FormId, s: Settings, positions: PositionRow[] = [], commi
   }
 }
 
-/** Utmärkelserna man kan nominera till: föreningens ordnar och medaljer (Styrelse och uppdrag → Ordnar och medaljer). */
+/**
+ * Det man kan nominera till: bara hedersmedlemskapen – medaljerna i gruppen Hedersmedlemskap
+ * (Styrelse och uppdrag → Ordnar och medaljer → Grupp). Övriga medaljer delas ut av styrelsen utan nominering.
+ * Saknas gruppen används medaljer vars namn börjar på "Hedersmedlemskap", annars bara "Hedersmedlemskap".
+ */
 async function awardNames(db: D1Database): Promise<string[]> {
-  return (await loadMedals(db)).map((m) => m.name);
+  const medals = await loadMedals(db);
+  const heder = medals.filter((m) => m.category === "heder");
+  const named = heder.length ? heder : medals.filter((m) => /^hedersmedlem/i.test(m.name.trim()));
+  return named.length ? named.map((m) => m.name) : ["Hedersmedlemskap"];
 }
 
 /**
@@ -577,7 +584,7 @@ function committeeSection(s: Settings, committees: CommitteeRow[], signup: Signu
   </section>`;
 }
 
-/** Nominera till en utmärkelse (/nominera). Inskicken hamnar i Meddelanden som formuläret "Nominering". */
+/** Nominera till hedersmedlemskap (/nominera). Inskicken hamnar i Meddelanden som formuläret "Nominering". */
 export async function nominatePage(c: RequestContext, values?: Values, errors?: Errors, topError?: string, status = 200): Promise<Response> {
   const db = c.env.DB;
   const [s, awards] = await Promise.all([loadSettings(db, c.preview), awardNames(db)]);
