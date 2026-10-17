@@ -392,29 +392,45 @@
     });
   }
 
+  /** Webbplatsens färger (Utseende) – samma som sidan, så att bilden alltid matchar paletten. */
+  function palette() {
+    var cs = getComputedStyle(document.documentElement);
+    var v = function (name, fallback) { return (cs.getPropertyValue(name) || "").trim() || fallback; };
+    return { bg: v("--c-primary", "#141414"), on: v("--c-on-primary", "#ffffff"), accent: v("--c-accent", "#f1cc4d"), onAccent: v("--c-on-accent", "#141414") };
+  }
+  /** "#rrggbb" + genomskinlighet → "rgba(…)" (canvas förstår inte color-mix). */
+  function alpha(hex, a) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+    return m ? "rgba(" + parseInt(m[1], 16) + "," + parseInt(m[2], 16) + "," + parseInt(m[3], 16) + "," + a + ")" : hex;
+  }
+
   function draw() {
     var W = 1080, H = 1920;
+    var c0 = palette();
     var c = document.createElement("canvas");
     c.width = W; c.height = H;
     var ctx = c.getContext("2d");
     var g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "#1c2d63"); g.addColorStop(1, "#0b1430");
+    g.addColorStop(0, c0.bg); g.addColorStop(1, c0.bg);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    var glow = ctx.createRadialGradient(W * 0.85, 0, 0, W * 0.85, 0, 1100);
+    glow.addColorStop(0, alpha(c0.accent, 0.2)); glow.addColorStop(1, alpha(c0.accent, 0));
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
     // rutnät
-    ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.lineWidth = 2;
+    ctx.strokeStyle = alpha(c0.on, 0.05); ctx.lineWidth = 2;
     for (var x = 0; x <= W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
     for (var y = 0; y <= H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
     // söm i guld
-    ctx.save(); ctx.strokeStyle = "rgba(243,196,92,0.6)"; ctx.lineWidth = 6; ctx.setLineDash([26, 20]);
+    ctx.save(); ctx.strokeStyle = alpha(c0.accent, 0.6); ctx.lineWidth = 6; ctx.setLineDash([26, 20]);
     ctx.beginPath(); ctx.arc(W + 140, -60, 420, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-    ctx.save(); ctx.strokeStyle = "rgba(227,173,58,0.22)"; ctx.lineWidth = 3;
+    ctx.save(); ctx.strokeStyle = alpha(c0.accent, 0.22); ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(W + 140, -60, 480, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
 
-    return loadImage("/assets/tavling/jfk-logotyp-ljus.png").then(function (logo) {
+    return loadImage(/^#?f/i.test(c0.on) ? "/assets/tavling/jfk-logotyp-ljus.png" : "/assets/tavling/jfk-logotyp.png").then(function (logo) {
       var y0 = 300;
       if (logo) { ctx.drawImage(logo, (W - 300) / 2, 170, 300, 303); y0 = 560; }
       ctx.textAlign = "center";
-      ctx.fillStyle = "#f3c45c";
+      ctx.fillStyle = c0.accent;
       ctx.font = '700 38px "DM Sans", system-ui, sans-serif';
       if ("letterSpacing" in ctx) ctx.letterSpacing = "8px";
       ctx.fillText((card.getAttribute("data-kicker") || "").toUpperCase(), W / 2, y0);
@@ -429,8 +445,8 @@
         var total = ctx.measureText(l).width, cx = W / 2 - total / 2;
         ctx.textAlign = "left";
         parts.forEach(function (p, i) {
-          if (i) { ctx.fillStyle = "#e3ad3a"; ctx.fillText("&", cx, ty); cx += ctx.measureText("&").width; }
-          ctx.fillStyle = "#f4f1e8"; ctx.fillText(p, cx, ty); cx += ctx.measureText(p).width;
+          if (i) { ctx.fillStyle = c0.accent; ctx.fillText("&", cx, ty); cx += ctx.measureText("&").width; }
+          ctx.fillStyle = c0.on; ctx.fillText(p, cx, ty); cx += ctx.measureText(p).width;
         });
         ctx.textAlign = "center";
         ty += 128;
@@ -440,29 +456,29 @@
       var label = visibleText(".t-countdown-label > span").toUpperCase();
       var lf = left();
       var by = ty + 70;
-      ctx.fillStyle = "#f3c45c"; ctx.font = '700 40px "DM Sans", system-ui, sans-serif';
+      ctx.fillStyle = c0.accent; ctx.font = '700 40px "DM Sans", system-ui, sans-serif';
       if ("letterSpacing" in ctx) ctx.letterSpacing = "6px";
       ctx.fillText(label, W / 2, by);
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
       // ruta bakom siffran
-      ctx.fillStyle = "rgba(5,11,32,0.55)"; ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 3;
+      ctx.fillStyle = alpha(c0.on, 0.06); ctx.strokeStyle = alpha(c0.on, 0.14); ctx.lineWidth = 3;
       var bw = 620, bh = 420, bx = (W - bw) / 2, bY = by + 50;
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(bx, bY, bw, bh, 48); else ctx.rect(bx, bY, bw, bh);
       ctx.fill(); ctx.stroke();
-      ctx.fillStyle = "#ffffff"; ctx.font = '700 300px "DM Sans", system-ui, sans-serif';
+      ctx.fillStyle = c0.on; ctx.font = '700 300px "DM Sans", system-ui, sans-serif';
       ctx.fillText(String(lf[0]), W / 2, bY + 300);
-      ctx.fillStyle = "#c9d0e4"; ctx.font = '600 52px "DM Sans", system-ui, sans-serif';
+      ctx.fillStyle = alpha(c0.on, 0.78); ctx.font = '600 52px "DM Sans", system-ui, sans-serif';
       ctx.fillText((card.getAttribute("data-left") || "{enhet}").replace("{enhet}", lf[1]), W / 2, bY + 380);
       // datumet
-      ctx.fillStyle = "#f4f1e8"; ctx.font = '500 46px "DM Sans", system-ui, sans-serif';
+      ctx.fillStyle = c0.on; ctx.font = '500 46px "DM Sans", system-ui, sans-serif';
       ctx.fillText(visibleText(".t-countdown-when > span"), W / 2, bY + bh + 96);
       // adressen
-      ctx.fillStyle = "#e3ad3a";
+      ctx.fillStyle = c0.accent;
       ctx.beginPath(); if (ctx.roundRect) ctx.roundRect((W - 640) / 2, H - 270, 640, 110, 55); else ctx.rect((W - 640) / 2, H - 270, 640, 110); ctx.fill();
-      ctx.fillStyle = "#0e1a3a"; ctx.font = '700 46px "DM Sans", system-ui, sans-serif';
+      ctx.fillStyle = c0.onAccent; ctx.font = '700 46px "DM Sans", system-ui, sans-serif';
       ctx.fillText(location.host.replace(/^www\./, "") + location.pathname, W / 2, H - 200);
-      ctx.fillStyle = "rgba(244,241,232,0.7)"; ctx.font = '500 34px "DM Sans", system-ui, sans-serif';
+      ctx.fillStyle = alpha(c0.on, 0.7); ctx.font = '500 34px "DM Sans", system-ui, sans-serif';
       ctx.fillText(card.getAttribute("data-site") || "", W / 2, H - 90);
       return c;
     });

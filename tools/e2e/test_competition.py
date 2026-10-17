@@ -87,13 +87,14 @@ with sync_playwright() as p:
     reset_dates(adm)
 
     # ── Standardläget (före 1 november) ──
+    pub.bring_to_front()  # bakgrundsflikar får strypta timers i Chromium
     pub.goto(f"{BASE}/tavling")
     check(pub.locator("h1").inner_text().replace("\n", " ").strip() == "JFK:s Merch- & Märkestävling", "rubriken med & i guld")
     check(pub.locator(".jfk-tavling").get_attribute("data-state") == "before", "läget är ”före start” innan 1 november")
     check("Öppnar 1 november" in pub.locator(".t-chip").inner_text(), "etiketten säger Öppnar 1 november")
     check("30 november kl. 23:59" in pub.locator(".t-countdown-when").inner_text(), "nedräkningen gäller 30 november kl. 23:59")
     s1 = pub.locator("[data-unit=s]").inner_text()
-    pub.wait_for_timeout(1300)
+    pub.wait_for_timeout(2100)
     check(pub.locator("[data-unit=s]").inner_text() != s1, "nedräkningen uppdateras varje sekund")
 
     # Flikarna
