@@ -255,17 +255,15 @@ export async function instagramSyncSubmit(c: RequestContext, session: Session): 
   return redirect(`/admin/instagram?${status.ok ? "klart=sparat" : "fel=instagram"}`, 303);
 }
 
-/** Snabbvalet av arbetsgivare i jobbformuläret: partnerna först, sedan övriga arbetsgivare. */
-/** Studentnätverken (Partners → Studentnätverk) som val för ett event. Tål att tabellen saknas. */
-async function networkOptions(db: D1Database): Promise<{ value: string; label: string }[]> {
-  try {
-    const { results } = await db.prepare("SELECT id, name FROM networks ORDER BY sort_order, name COLLATE NOCASE").all<{ id: number; name: string }>();
-    return results.map((n) => ({ value: String(n.id), label: n.name }));
-  } catch {
-    return [];
-  }
+/** Samarbetspartnerna (byråerna under Partners) som val för ett event – huvudpartners först. */
+async function eventPartnerOptions(db: D1Database): Promise<{ value: string; label: string }[]> {
+  const { results } = await db
+    .prepare("SELECT id, name FROM partners ORDER BY tier = 'huvud' DESC, sort_order, name COLLATE NOCASE")
+    .all<{ id: number; name: string }>();
+  return results.map((p) => ({ value: String(p.id), label: p.name }));
 }
 
+/** Snabbvalet av arbetsgivare i jobbformuläret: partnerna först, sedan övriga arbetsgivare. */
 async function employerOptions(db: D1Database): Promise<{ value: string; label: string }[]> {
   const [partners, companies] = await db.batch([
     db.prepare("SELECT id, name FROM partners ORDER BY name COLLATE NOCASE"),
@@ -387,12 +385,12 @@ export const RESOURCES: Resource[] = [
       { name: "signup_url", label: "Länk till anmälan/biljetter", type: "url", nullable: true, max: 500, help: "T.ex. eventets sida hos Hitract." },
       { name: "members_only", label: "Endast för medlemmar", type: "checkbox" },
       {
-        name: "network_id",
-        label: "Tillsammans med",
+        name: "partner_id",
+        label: "Tillsammans med samarbetspartner",
         type: "select",
         nullable: true,
-        optionsFrom: networkOptions,
-        help: "Valfritt. Arrangeras eventet tillsammans med ett studentnätverk (t.ex. ELSA Karlstad) visas det också på nätverkets egen sida, och eventet får en länk till nätverket.",
+        optionsFrom: eventPartnerOptions,
+        help: "Valfritt. Arrangeras eventet tillsammans med en av era samarbetspartners (t.ex. en lunchföreläsning med en byrå) visas det också på partnerns sida, och eventet får en länk till partnern.",
       },
       { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true },
       { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200 },

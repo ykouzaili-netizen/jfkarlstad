@@ -87,7 +87,10 @@ export async function partnerDetailPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const [s, p] = await Promise.all([loadSettings(db, c.preview), partnerQuery.bySlug(db, c.params.slug ?? "").first<PartnerRow>()]);
   if (!p) return notFoundPage(c);
-  const jobs = await rows<JobRow>(jobQuery.openForPartner(db, p.id, stockholmToday()));
+  const [jobs, events] = await Promise.all([
+    rows<JobRow>(jobQuery.openForPartner(db, p.id, stockholmToday())),
+    rows<EventRow>(eventQuery.upcomingForPartner(db, p.id, stockholmNow(), 6)).catch(() => [] as EventRow[]),
+  ]);
   track(c, "partner_view", p.id);
   const kickerKey = p.tier === "huvud" ? "partner_main_kicker" : "partner_kicker";
   const vars = { namn: p.name };
@@ -150,6 +153,17 @@ export async function partnerDetailPage(c: RequestContext): Promise<Response> {
         ${side}
       </div>
     </section>
+    ${events.length
+      ? html`<section class="section${jobs.length ? "" : " section-surface"}" aria-labelledby="partner-evenemang">
+          <div class="container">
+            <div class="section-head">
+              <h2 class="section-title" id="partner-evenemang"${ek(s, "partner_events_title")}>${fill(s.partner_events_title, vars)}</h2>
+              ${arrowLink("/kalender", s.partner_events_all, "arrow-link section-link", ek(s, "partner_events_all"))}
+            </div>
+            <div class="card-grid">${events.map((e) => eventCard(s, e))}</div>
+          </div>
+        </section>`
+      : ""}
     ${jobs.length
       ? html`<section class="section section-surface" aria-labelledby="partner-jobb">
           <div class="container">
@@ -286,8 +300,8 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
   const [s, e] = await Promise.all([loadSettings(db, c.preview), eventQuery.bySlug(db, slug).first<EventRow>()]);
   if (!e) return notFoundPage(c);
   // Studentnätverket som eventet arrangeras tillsammans med (bara om nätverket visas)
-  const network = e.network_id
-    ? await db.prepare("SELECT name, slug FROM networks WHERE id = ? AND published = 1").bind(e.network_id).first<{ name: string; slug: string }>().catch(() => null)
+  const partner = e.partner_id
+    ? await db.prepare("SELECT name, slug FROM partners WHERE id = ? AND published = 1").bind(e.partner_id).first<{ name: string; slug: string }>().catch(() => null)
     : null;
   const d = eventDate(e.starts_at, e.ends_at);
   const isPast = (e.ends_at ?? e.starts_at.slice(0, 10) + "T23:59") < stockholmNow();
@@ -320,7 +334,7 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
               ${d ? html`<li>${icon("clock", "icon")}<span>${d.time}</span></li>` : ""}
               ${e.location ? html`<li>${icon("pin", "icon")}<span>${e.location}</span></li>` : ""}
               ${e.members_only ? html`<li${ek(s, "event_members_only")}>${icon("lock", "icon")}<span>${s.event_members_only}</span></li>` : ""}
-              ${network ? html`<li${ek(s, "event_with")}>${icon("network", "icon")}<span><a href="/om-oss/${network.slug}">${fill(s.event_with, { namn: network.name })}</a></span></li>` : ""}
+              ${partner ? html`<li${ek(s, "event_with")}>${icon("briefcase", "icon")}<span><a href="/partners/${partner.slug}">${fill(s.event_with, { namn: partner.name })}</a></span></li>` : ""}
             </ul>
             ${!isPast
               ? html`<div class="stack-sm">
