@@ -1157,15 +1157,13 @@ export const PAGES = [
       text("comp_try_button", "Testa din design – knapp", "Välj bild", small),
       text("comp_try_again", "Testa din design – knapp efter val", "Byt bild", small),
       text("comp_share_title", "Sprid tävlingen – rubrik", "Sprid tävlingen"),
-      text("comp_share_text", "Sprid tävlingen – text", "En färdig bild till Instagram med nedräkningen – som story eller inlägg. Välj gärna en egen bakgrund."),
+      text("comp_share_text", "Sprid tävlingen – text", "En färdig bild till Instagram med nedräkningen – som story eller inlägg."),
       text("comp_share_button", "Sprid tävlingen – knapp", "Ladda ned bilden", small),
       text("comp_share_left", "Bilden: under siffran ({enhet} = dagar/timmar …)", "{enhet} kvar", small),
-      image("comp_share_image", "Instagram-bilden – bakgrundsbild", "", { help: "Valfri. Ligger bakom texten på bilden till Instagram, mörklagd så att texten syns. Utan bild används webbplatsens primärfärg. Besökarna kan också välja en egen bild på sidan." }),
+      image("comp_share_image", "Instagram-bilden – bakgrundsbild", "", { help: "Valfri. Ligger bakom texten på bilden till Instagram, mörklagd så att texten syns. Utan bild används webbplatsens primärfärg." }),
       text("comp_share_story", "Instagram-bilden: knapp för story", "Story", small),
       text("comp_share_post", "Instagram-bilden: knapp för inlägg", "Inlägg", small),
       text("comp_share_format", "Instagram-bilden: rubrik för formatet (för skärmläsare)", "Format", small),
-      text("comp_share_own", "Instagram-bilden: välj egen bild", "Egen bakgrund", small),
-      text("comp_share_reset", "Instagram-bilden: ta bort egen bild", "Ta bort bilden", small),
     ], "Programmen (namn, etikett, beskrivning och länk) och egna filer att ladda ned ändrar du under Innehåll → Tävlingen → Program och filer. Där kan du lägga till, ändra, dölja, ta bort och flytta dem."),
     sec("banner", "Bannern på startsidan", [
       choice("comp_banner", "Visa en banner på startsidan", "ja", [

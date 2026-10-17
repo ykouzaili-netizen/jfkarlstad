@@ -7,7 +7,7 @@
  *  4. Bidragen: filtret Alla / Märke / Merch.
  *  5. Testa din design: bilden visas på märket eller tröjan (stannar i webbläsaren, laddas aldrig upp).
  *  6. Sprid tävlingen: en färdig bild till Instagram (story 9:16 eller inlägg 4:5) med nedräkningen,
- *     med styrelsens bakgrundsbild eller en egen som besökaren väljer (stannar i webbläsaren).
+ *     med styrelsens bakgrundsbild (Texter och sidor) om en sådan är vald.
  * Varje del ligger i en egen IIFE, som i site.js.
  */
 
@@ -356,9 +356,6 @@
   if (!card || !root || !canvasOk) return;
   var button = card.querySelector("[data-share-button]");
   var preview = card.querySelector("[data-share-preview]");
-  var fileInput = card.querySelector("[data-share-input]");
-  var resetBtn = card.querySelector("[data-share-reset]");
-  var ownUrl = null; // egen bakgrund vald av besökaren (stannar i webbläsaren)
   var previewUrl = null;
   card.hidden = false;
 
@@ -432,7 +429,7 @@
     var F = FORMATS[fmt], W = F.W, H = F.H;
     var c0 = palette();
     var light = /^#?f/i.test(c0.on);
-    var bgSrc = ownUrl || card.getAttribute("data-bg") || "";
+    var bgSrc = card.getAttribute("data-bg") || "";
     return Promise.all([loadImage(bgSrc), loadImage(light ? "/assets/tavling/jfk-logotyp-ljus.png" : "/assets/tavling/jfk-logotyp.png")]).then(function (imgs) {
       var bg = imgs[0], logo = imgs[1];
       var c = document.createElement("canvas");
@@ -531,19 +528,6 @@
   card.addEventListener("change", function (e) {
     var t = e.target;
     if (t.name === "t-share-format") refresh();
-    if (t === fileInput && fileInput.files && fileInput.files[0] && /^image\//.test(fileInput.files[0].type)) {
-      if (ownUrl) URL.revokeObjectURL(ownUrl);
-      ownUrl = URL.createObjectURL(fileInput.files[0]);
-      if (resetBtn) resetBtn.hidden = false;
-      refresh();
-    }
-  });
-  if (resetBtn) resetBtn.addEventListener("click", function () {
-    if (ownUrl) URL.revokeObjectURL(ownUrl);
-    ownUrl = null;
-    if (fileInput) fileInput.value = "";
-    resetBtn.hidden = true;
-    refresh();
   });
 
   button.addEventListener("click", function () {

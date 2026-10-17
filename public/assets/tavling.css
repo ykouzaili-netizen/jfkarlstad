@@ -1026,9 +1026,6 @@
 }
 .jfk-tavling .t-share[data-format="post"] .t-share-preview img { aspect-ratio: 4 / 5; }
 .jfk-tavling .t-share .t-seg small { font-weight: 500; opacity: 0.7; margin-left: 4px; }
-.jfk-tavling .t-share-own { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
-.jfk-tavling .t-text-btn { border: 0; background: none; padding: 6px 0; color: var(--t-muted); font: 600 0.875rem/1.2 var(--t-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.jfk-tavling .t-text-btn:hover { color: var(--t-text); }
 @media (max-width: 420px) { .jfk-tavling .t-share { grid-template-columns: 1fr; } .jfk-tavling .t-share-preview { max-width: 220px; } }
 
 /* ---------- Rörelse (respekterar Utseende → Rörelse och systemets inställning) ---------- */

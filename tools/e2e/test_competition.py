@@ -166,8 +166,7 @@ with sync_playwright() as p:
     check(Image.open(path).size == (1080, 1920), "bilden till Instagram är 1080 × 1920 (story)")
     Image.open(path).save(OUT / "tavling-story.png")
     pub.locator("[data-share] .t-seg-opt", has_text="Inlägg").click()
-    pub.set_input_files("[data-share-input]", str(test_image(OUT / "egen-bakgrund.jpg", (1600, 1200), (180, 60, 40))))
-    check(pub.locator("[data-share-reset]").is_visible(), "egen bakgrund kan väljas och tas bort")
+    check(pub.locator("[data-share] input[type=file]").count() == 0, "besökaren kan inte välja en egen bild")
     pub.wait_for_timeout(800)
     with pub.expect_download() as dl:
         pub.click("[data-share-button]")

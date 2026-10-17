@@ -145,8 +145,7 @@ function tryOn(s: Settings): SafeHtml {
 
 /**
  * Sprid tävlingen: en färdig bild till Instagram – story (1080 × 1920) eller inlägg (1080 × 1350) – med nedräkningen,
- * ritad i webbläsaren (tavling.js). Bakgrunden är styrelsens bild (Texter och sidor) eller en egen som besökaren väljer;
- * den egna bilden stannar i webbläsaren.
+ * ritad i webbläsaren (tavling.js). Bakgrunden är styrelsens bild (Texter och sidor), annars primärfärgen.
  */
 function shareCard(s: Settings): SafeHtml {
   const bg = s.comp_share_image ? mediaUrl(s.comp_share_image, "md") : "";
@@ -163,13 +162,6 @@ function shareCard(s: Settings): SafeHtml {
         <label class="t-seg-opt"><input type="radio" name="t-share-format" value="story" checked><span${ek(s, "comp_share_story")}>${s.comp_share_story} <small>9:16</small></span></label>
         <label class="t-seg-opt"><input type="radio" name="t-share-format" value="post"><span${ek(s, "comp_share_post")}>${s.comp_share_post} <small>4:5</small></span></label>
       </fieldset>
-      <div class="t-share-own">
-        <label class="t-btn t-btn-outline t-try-pick">
-          ${icon("image", "icon icon-sm")}<span${ek(s, "comp_share_own")}>${s.comp_share_own}</span>
-          <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-share-input>
-        </label>
-        <button class="t-text-btn" type="button" data-share-reset hidden${ek(s, "comp_share_reset")}>${s.comp_share_reset}</button>
-      </div>
       <button class="t-btn t-btn-gold" type="button" data-share-button>${icon("arrowDown", "icon icon-sm")}<span${ek(s, "comp_share_button")}>${s.comp_share_button}</span></button>
     </div>
   </div>`;
