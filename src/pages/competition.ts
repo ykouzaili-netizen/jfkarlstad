@@ -24,7 +24,7 @@ import {
 import type { RequestContext } from "../router.js";
 import { entriesSection, kitSection, swatchCss } from "./competition-kit.js";
 import { loadEntries, loadResources } from "../lib/competition.js";
-import { layout, picture } from "../views/layout.js";
+import { ASSET_VERSION, layout, picture } from "../views/layout.js";
 import { icon, type IconName } from "../views/icons.js";
 
 /**
@@ -142,7 +142,8 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
     <a class="t-cal-link" href="/tavling/kalender.ics" download${ek(s, "comp_calendar")}>${icon("calendar", "icon icon-sm")}${s.comp_calendar}</a>
   </div>`;
 
-  const hero = html`<section class="t-hero" aria-labelledby="t-title">
+  const hero = html`<section class="t-hero${s.comp_hero_image ? " has-photo" : ""}" aria-labelledby="t-title">
+    ${s.comp_hero_image ? html`<div class="t-hero-photo" aria-hidden="true"${ek(s, "comp_hero_image")}>${picture(s.comp_hero_image, { alt: "", sizes: "100vw", width: 1600, height: 900, eager: true })}</div>` : ""}
     ${heroArt()}
     <div class="container t-hero-grid">
       <div class="t-hero-copy">
@@ -218,12 +219,16 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
   ];
 
   const category = (kind: "badge" | "merch") => {
-    const [title, text, facts] =
+    const [title, text, facts, img, alt] =
       kind === "badge"
-        ? (["comp_cat_badge_title", "comp_cat_badge_text", "comp_cat_badge_facts"] as const)
-        : (["comp_cat_merch_title", "comp_cat_merch_text", "comp_cat_merch_facts"] as const);
+        ? (["comp_cat_badge_title", "comp_cat_badge_text", "comp_cat_badge_facts", "comp_cat_badge_image", "comp_cat_badge_image_alt"] as const)
+        : (["comp_cat_merch_title", "comp_cat_merch_text", "comp_cat_merch_facts", "comp_cat_merch_image", "comp_cat_merch_image_alt"] as const);
+    // Med en egen bild (Texter och sidor) visas den i stället för teckningen.
+    const art = s[img]
+      ? html`<div class="t-cat-art has-photo"${ek(s, img)}>${picture(s[img], { alt: s[alt], sizes: "(min-width: 760px) 45vw, 100vw", width: 900, height: 500 })}</div>`
+      : html`<div class="t-cat-art" aria-hidden="true">${kind === "badge" ? patchArt() : shirtArt()}</div>`;
     return html`<article class="t-cat t-cat--${kind}">
-      <div class="t-cat-art" aria-hidden="true">${kind === "badge" ? patchArt() : shirtArt()}</div>
+      ${art}
       <div class="t-cat-body">
         <h3 class="t-h3"${ek(s, title)}>${s[title]}</h3>
         <p${ek(s, text)}>${s[text]}</p>
@@ -281,6 +286,7 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
       <h2 class="t-h2" id="kategorier"${ek(s, "comp_cat_title")}>${s.comp_cat_title}</h2>
       <div class="t-cats">${category("badge")}${category("merch")}</div>
     </section>
+    ${photosSection(s)}
     ${timeline}
     ${nextLink(0)}
   </section>`;
@@ -468,6 +474,31 @@ function breakableEmail(email: string): SafeHtml {
   return at > 0 ? html`${email.slice(0, at + 1)}<wbr>${email.slice(at + 1)}` : html`${email}`;
 }
 
+/** Bilder 1–4 under Om tävlingen (Texter och sidor). Visas bara när minst en bild är vald. */
+function photosSection(s: Settings): SafeHtml | string {
+  const photos = (
+    [
+      ["comp_photo_1", "comp_photo_1_caption"],
+      ["comp_photo_2", "comp_photo_2_caption"],
+      ["comp_photo_3", "comp_photo_3_caption"],
+      ["comp_photo_4", "comp_photo_4_caption"],
+    ] as const
+  ).filter(([k]) => s[k]);
+  if (!photos.length) return "";
+  return html`<section class="t-block" aria-labelledby="bilder">
+    <h2 class="t-h2" id="bilder"${ek(s, "comp_photos_title")}>${s.comp_photos_title}</h2>
+    ${s.comp_photos_text ? html`<p class="t-text-lg t-photos-lead"${ek(s, "comp_photos_text")}>${s.comp_photos_text}</p>` : ""}
+    <ul class="t-photos t-photos--${photos.length}">
+      ${photos.map(
+        ([k, cap], i) => html`<li><figure${ek(s, k)}>
+          ${picture(s[k], { alt: s[cap], sizes: i === 0 && photos.length > 2 ? "(min-width: 900px) 55vw, 100vw" : "(min-width: 900px) 40vw, 100vw", width: 1200, height: 900 })}
+          ${s[cap] ? html`<figcaption${ek(s, cap)}>${s[cap]}</figcaption>` : ""}
+        </figure></li>`,
+      )}
+    </ul>
+  </section>`;
+}
+
 function capitalize(t: string): string {
   return t.charAt(0).toLocaleUpperCase("sv") + t.slice(1);
 }
@@ -487,33 +518,30 @@ function mailInline(text: string, email: string): SafeHtml {
 
 // ───────────── Illustrationer (dekorativa, utan text) ─────────────
 
-/** Broderat tygmärke: tjock kantsöm, stygn och ett §. */
+/** JFK:s logotyp i teckningarna (små versioner, se tools/design/tavling-material.py). */
+const LOGO_LIGHT = `/assets/tavling/jfk-logotyp-ljus-liten.webp?v=${ASSET_VERSION}`;
+const LOGO_DARK = `/assets/tavling/jfk-logotyp-liten.webp?v=${ASSET_VERSION}`;
+
+/** Broderat tygmärke: tjock kantsöm, stygn och JFK:s logotyp i mitten. */
 function patchArt(): SafeHtml {
-  const stars = [0, 72, 144, 216, 288]
-    .map((a) => {
-      const r = (a - 90) * (Math.PI / 180);
-      return `<path class="pa-star" transform="translate(${(100 + 52 * Math.cos(r)).toFixed(1)} ${(100 + 52 * Math.sin(r)).toFixed(1)}) scale(.55)" d="M0-9 2.6-2.8 9.3-2.8 3.9 1.1 6 7.6 0 3.6-6 7.6-3.9 1.1-9.3-2.8-2.6-2.8z"/>`;
-    })
-    .join("");
   return raw(`<svg class="t-art t-art-patch" viewBox="0 0 200 200" width="200" height="200" focusable="false">
     <circle class="pa-shadow" cx="104" cy="106" r="86"/>
     <circle class="pa-edge" cx="100" cy="100" r="86"/>
     <circle class="pa-merrow" cx="100" cy="100" r="80"/>
     <circle class="pa-face" cx="100" cy="100" r="72"/>
     <circle class="pa-stitch" cx="100" cy="100" r="64"/>
-    ${stars}
-    <text class="pa-glyph" x="100" y="124" text-anchor="middle">§</text>
+    <image href="${LOGO_LIGHT}" x="50" y="49" width="100" height="101" preserveAspectRatio="xMidYMid meet"/>
   </svg>`);
 }
 
-/** T-tröja med en streckad tryckyta. */
+/** T-tröja med en streckad tryckyta och JFK:s logotyp. */
 function shirtArt(): SafeHtml {
   return raw(`<svg class="t-art t-art-shirt" viewBox="0 0 200 200" width="200" height="200" focusable="false">
     <path class="sh-shadow" d="M74 34 52 42 22 64l16 30 18-10v86h96V84l18 10 16-30-30-22-22-8c-4 10-16 16-30 16S78 44 74 34Z" transform="translate(4 6)"/>
     <path class="sh-body" d="M74 34 52 42 22 64l16 30 18-10v86h96V84l18 10 16-30-30-22-22-8c-4 10-16 16-30 16S78 44 74 34Z"/>
     <path class="sh-collar" d="M74 34c4 10 16 16 30 16s26-6 30-16"/>
-    <rect class="sh-print" x="76" y="74" width="56" height="56" rx="6"/>
-    <text class="sh-glyph" x="104" y="116" text-anchor="middle">§</text>
+    <rect class="sh-print" x="74" y="72" width="60" height="60" rx="6"/>
+    <image href="${LOGO_DARK}" x="78" y="76" width="52" height="52" preserveAspectRatio="xMidYMid meet"/>
   </svg>`);
 }
 

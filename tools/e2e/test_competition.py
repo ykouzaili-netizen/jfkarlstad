@@ -156,12 +156,44 @@ with sync_playwright() as p:
     check(pub.locator("[data-try]").is_visible(), "Testa din design visas med JavaScript")
     pub.set_input_files("[data-try-input]", str(test_image(OUT / "tavling-test.jpg", (600, 600), (220, 60, 60))))
     check((pub.locator("[data-try-img]").first.get_attribute("href") or "").startswith("blob:"), "den valda bilden visas på märket utan att laddas upp")
+    from PIL import Image
+    pub.locator("[data-share]").scroll_into_view_if_needed()
+    pub.wait_for_timeout(1500)
+    check((pub.locator("[data-share-preview]").get_attribute("src") or "").startswith("blob:"), "Instagram-bilden förhandsvisas i kortet")
     with pub.expect_download() as dl:
         pub.click("[data-share-button]")
     path = dl.value.path()
-    from PIL import Image
-    check(Image.open(path).size == (1080, 1920), "bilden till Instagram är 1080 × 1920")
+    check(Image.open(path).size == (1080, 1920), "bilden till Instagram är 1080 × 1920 (story)")
     Image.open(path).save(OUT / "tavling-story.png")
+    pub.locator("[data-share] .t-seg-opt", has_text="Inlägg").click()
+    pub.set_input_files("[data-share-input]", str(test_image(OUT / "egen-bakgrund.jpg", (1600, 1200), (180, 60, 40))))
+    check(pub.locator("[data-share-reset]").is_visible(), "egen bakgrund kan väljas och tas bort")
+    pub.wait_for_timeout(800)
+    with pub.expect_download() as dl:
+        pub.click("[data-share-button]")
+    path = dl.value.path()
+    check(Image.open(path).size == (1080, 1350) and dl.value.suggested_filename == "jfk-tavling-inlagg.png", "inlägget är 1080 × 1350")
+    Image.open(path).save(OUT / "tavling-inlagg.png")
+
+    # Logotypen på kategorikorten (i stället för §)
+    check(pub.locator(".t-art-patch image[href*='jfk-logotyp-ljus-liten']").count() == 1 and pub.locator(".t-art-shirt image[href*='jfk-logotyp-liten']").count() == 1, "JFK:s logotyp på märket och tröjan")
+    check(pub.request.get(f"{BASE}/assets/tavling/jfk-logotyp-liten.webp").status == 200, "den lilla logotypen finns")
+
+    # Egna bilder: toppen, kategorikortet, Bilder och Instagram-bakgrunden (Texter och sidor)
+    adm.goto(f"{BASE}/admin/texter?sida=tavling&falt=comp_hero_image")
+    for i, k in enumerate(["comp_hero_image", "comp_cat_badge_image", "comp_photo_1", "comp_photo_2", "comp_share_image"]):
+        loc = adm.locator(f"input[type=file][name={k}]")
+        loc.scroll_into_view_if_needed() if loc.is_visible() else None
+        loc.set_input_files(str(test_image(OUT / f"tavling-bild-{i}.jpg", (1600, 1000), (40 + i * 40, 90, 140))))
+    adm.wait_for_timeout(1500)
+    adm.click("#texter-form .sticky-actions button[type=submit]")
+    adm.wait_for_url(re.compile(r"klart=texter"), timeout=60000)
+    fresh(pub)
+    check(pub.locator(".t-hero.has-photo .t-hero-photo img").count() == 1, "bild i toppen")
+    check(pub.locator(".t-cat--badge .t-cat-art.has-photo img").count() == 1 and pub.locator(".t-cat--merch .t-art-shirt").count() == 1, "egen bild på märkeskortet, teckningen kvar på merchkortet")
+    check(pub.locator(".t-photos li").count() == 2, "avsnittet Bilder med två bilder")
+    check((pub.locator("[data-share]").get_attribute("data-bg") or "").startswith("/media/"), "Instagram-bilden får styrelsens bakgrund")
+    pub.screenshot(path=str(OUT / "tavling-bilder.png"), full_page=True)
 
     # Bannern på startsidan
     pub.goto(f"{BASE}/")

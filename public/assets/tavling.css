@@ -330,6 +330,42 @@
 }
 .jfk-tavling .t-cal-link:hover { color: var(--t-hero-text); text-decoration-color: var(--t-gold-soft); }
 
+
+/* Egen bild i toppen (Texter och sidor → Bild i toppen), mörklagd med primärfärgen så att texten syns */
+.jfk-tavling .t-hero-photo { position: absolute; inset: 0; z-index: -2; }
+.jfk-tavling .t-hero-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.jfk-tavling .t-hero-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--t-hero-bg) 92%, transparent) 0%, color-mix(in srgb, var(--t-hero-bg) 78%, transparent) 55%, color-mix(in srgb, var(--t-hero-bg) 62%, transparent) 100%),
+    linear-gradient(0deg, color-mix(in srgb, var(--t-hero-bg) 70%, transparent), transparent 40%);
+}
+@media (max-width: 959px) {
+  .jfk-tavling .t-hero-photo::after { background: color-mix(in srgb, var(--t-hero-bg) 84%, transparent); }
+}
+
+/* Egna bilder på kategorikorten och avsnittet Bilder */
+.jfk-tavling .t-cat-art.has-photo { padding: 0; background: var(--t-navy); }
+.jfk-tavling .t-cat-art.has-photo img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s var(--t-ease); }
+.jfk-tavling .t-cat:hover .t-cat-art.has-photo img { transform: scale(1.04); }
+.jfk-tavling .t-cat-art.has-photo { overflow: hidden; }
+.jfk-tavling .t-photos-lead { margin: -4px 0 22px; }
+.jfk-tavling .t-photos { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.jfk-tavling .t-photos--1 { grid-template-columns: 1fr; }
+@media (min-width: 900px) {
+  .jfk-tavling .t-photos { gap: 18px; }
+  .jfk-tavling .t-photos--3 { grid-template-columns: 1.4fr 1fr; grid-template-rows: auto auto; }
+  .jfk-tavling .t-photos--3 > li:first-child { grid-row: span 2; }
+  .jfk-tavling .t-photos--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.jfk-tavling .t-photos figure { margin: 0; height: 100%; display: flex; flex-direction: column; }
+.jfk-tavling .t-photos img { display: block; width: 100%; height: 100%; min-height: 0; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 18px; background: var(--t-card-2); }
+.jfk-tavling .t-photos--1 img { aspect-ratio: 16 / 7; }
+@media (min-width: 900px) { .jfk-tavling .t-photos--3 > li:first-child img { aspect-ratio: auto; flex: 1; } }
+.jfk-tavling .t-photos figcaption { margin-top: 8px; font-size: 0.875rem; color: var(--t-muted); }
+
 /* ---------- Flikarna ---------- */
 
 .jfk-tavling .t-tabs-bar {
@@ -469,12 +505,9 @@
 .jfk-tavling .pa-merrow { fill: none; stroke: color-mix(in srgb, var(--t-gold) 55%, #000000); stroke-width: 6; stroke-dasharray: 1.5 3.2; }
 .jfk-tavling .pa-face { fill: var(--t-navy-3); }
 .jfk-tavling .pa-stitch { fill: none; stroke: var(--t-gold-soft); stroke-width: 2; stroke-dasharray: 6 5; stroke-linecap: round; }
-.jfk-tavling .pa-star { fill: var(--t-gold-soft); }
-.jfk-tavling .pa-glyph { font-family: var(--t-display); font-size: 68px; font-weight: 700; fill: var(--t-gold); }
 .jfk-tavling .sh-body { fill: var(--t-cream); }
 .jfk-tavling .sh-collar { fill: none; stroke: color-mix(in srgb, var(--t-text) 18%, var(--t-cream)); stroke-width: 3; stroke-linecap: round; }
 .jfk-tavling .sh-print { fill: color-mix(in srgb, var(--t-gold) 10%, transparent); stroke: var(--t-gold); stroke-width: 2.5; stroke-dasharray: 7 6; stroke-linecap: round; }
-.jfk-tavling .sh-glyph { font-family: var(--t-display); font-size: 44px; font-weight: 700; fill: var(--t-navy); }
 
 /* Tidslinjen: lodrät i mobilen, vågrät från 900 px */
 .jfk-tavling .t-timeline { --dot: 48px; position: relative; list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 0; }
@@ -977,26 +1010,26 @@
 .jfk-tavling .t-try-pick { cursor: pointer; min-height: 44px; }
 .jfk-tavling .t-try-pick:focus-within { outline: 3px solid var(--t-gold); outline-offset: 3px; }
 
-.jfk-tavling .t-share { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center; }
-.jfk-tavling .t-share .t-btn { margin-top: 6px; }
-.jfk-tavling .t-share-art { display: grid; place-items: center; }
-.jfk-tavling .t-share-phone { display: block; width: clamp(104px, 12vw, 150px); aspect-ratio: 9 / 16; padding: 6px; border-radius: 18px; background: var(--t-ink); box-shadow: var(--t-shadow); }
-.jfk-tavling .t-share-screen {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 100%;
-  border-radius: 12px;
-  background: radial-gradient(100% 60% at 80% 0%, color-mix(in srgb, var(--t-gold) 30%, transparent), transparent 60%), var(--t-navy);
+.jfk-tavling .t-share { display: grid; grid-template-columns: minmax(120px, 0.62fr) 1fr; gap: 22px; align-items: start; }
+.jfk-tavling .t-share-body { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.jfk-tavling .t-share-preview { display: grid; place-items: center; }
+.jfk-tavling .t-share-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border-radius: 14px;
+  background: var(--t-navy);
+  box-shadow: var(--t-shadow);
+  transition: aspect-ratio 0.3s var(--t-ease);
 }
-.jfk-tavling .t-share-screen > span { display: block; border-radius: 3px; }
-.jfk-tavling .t-share-k { width: 40%; height: 3px; background: var(--t-gold-soft); }
-.jfk-tavling .t-share-t { width: 70%; height: 10px; background: var(--t-cream); }
-.jfk-tavling .t-share-n { width: 40%; height: 28px; margin-top: 6px; background: var(--t-hero-text); }
-.jfk-tavling .t-share-u { width: 46%; height: 4px; background: var(--t-hero-muted); }
-@media (max-width: 420px) { .jfk-tavling .t-share { grid-template-columns: 1fr; } .jfk-tavling .t-share-art { justify-items: start; } }
+.jfk-tavling .t-share[data-format="post"] .t-share-preview img { aspect-ratio: 4 / 5; }
+.jfk-tavling .t-share .t-seg small { font-weight: 500; opacity: 0.7; margin-left: 4px; }
+.jfk-tavling .t-share-own { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.jfk-tavling .t-text-btn { border: 0; background: none; padding: 6px 0; color: var(--t-muted); font: 600 0.875rem/1.2 var(--t-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.jfk-tavling .t-text-btn:hover { color: var(--t-text); }
+@media (max-width: 420px) { .jfk-tavling .t-share { grid-template-columns: 1fr; } .jfk-tavling .t-share-preview { max-width: 220px; } }
 
 /* ---------- Rörelse (respekterar Utseende → Rörelse och systemets inställning) ---------- */
 

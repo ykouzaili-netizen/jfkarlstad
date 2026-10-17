@@ -114,3 +114,12 @@ with sync_playwright() as p:
 
 for f in sorted(OUT.iterdir()):
     print(f.name, f.stat().st_size)
+
+# ── Små versioner för teckningarna på sidan (märket och tröjan på kategorikorten) ──
+from PIL import Image
+
+for name in THEMES:
+    im = Image.open(OUT / f"{name}.png")
+    im.thumbnail((360, 360), Image.LANCZOS)
+    im.save(OUT / f"{name}-liten.webp", "WEBP", quality=90, method=6)
+    print(f"{name}-liten.webp", (OUT / f"{name}-liten.webp").stat().st_size)

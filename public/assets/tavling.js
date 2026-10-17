@@ -6,7 +6,8 @@
  *  3. Ämnesraden och kopieringsknapparna i kortet "Skicka in ditt bidrag".
  *  4. Bidragen: filtret Alla / Märke / Merch.
  *  5. Testa din design: bilden visas på märket eller tröjan (stannar i webbläsaren, laddas aldrig upp).
- *  6. Sprid tävlingen: en färdig bild (1080 × 1920) till Instagram med nedräkningen.
+ *  6. Sprid tävlingen: en färdig bild till Instagram (story 9:16 eller inlägg 4:5) med nedräkningen,
+ *     med styrelsens bakgrundsbild eller en egen som besökaren väljer (stannar i webbläsaren).
  * Varje del ligger i en egen IIFE, som i site.js.
  */
 
@@ -347,15 +348,30 @@
   });
 })();
 
-/* ── 6. Sprid tävlingen: bild till Instagram ───────────────────────────── */
+/* ── 6. Sprid tävlingen: bild till Instagram (story 9:16 eller inlägg 4:5) ─ */
 (function () {
   var card = document.querySelector("[data-share]");
   var root = document.querySelector("[data-tavling]");
   var canvasOk = !!document.createElement("canvas").getContext;
   if (!card || !root || !canvasOk) return;
   var button = card.querySelector("[data-share-button]");
+  var preview = card.querySelector("[data-share-preview]");
+  var fileInput = card.querySelector("[data-share-input]");
+  var resetBtn = card.querySelector("[data-share-reset]");
+  var ownUrl = null; // egen bakgrund vald av besökaren (stannar i webbläsaren)
+  var previewUrl = null;
   card.hidden = false;
 
+  // Måtten för de två formaten. Allt annat räknas fram så att innehållet hamnar i mitten.
+  var FORMATS = {
+    story: { W: 1080, H: 1920, logo: 300, kicker: 38, title: 112, lh: 128, label: 40, box: [620, 420], num: 300, unit: 52, date: 46, pill: [640, 110, 46], site: 34, gap: 1 },
+    post: { W: 1080, H: 1350, logo: 150, kicker: 32, title: 92, lh: 104, label: 34, box: [500, 250], num: 180, unit: 40, date: 38, pill: [560, 92, 40], site: 28, gap: 0.62 },
+  };
+
+  function format() {
+    var c = card.querySelector("input[name=t-share-format]:checked");
+    return c && FORMATS[c.value] ? c.value : "story";
+  }
   function visibleText(sel) {
     var el = Array.prototype.slice.call(root.querySelectorAll(sel)).find(function (x) { return !x.hidden && x.offsetParent !== null; });
     return el ? el.textContent.replace(/\s+/g, " ").trim() : "";
@@ -383,15 +399,18 @@
     if (line) lines.push(line);
     return lines;
   }
+  var cache = {};
   function loadImage(src) {
-    return new Promise(function (resolve) {
+    if (!src) return Promise.resolve(null);
+    if (cache[src]) return cache[src];
+    cache[src] = new Promise(function (resolve) {
       var img = new Image();
       img.onload = function () { resolve(img); };
       img.onerror = function () { resolve(null); };
       img.src = src;
     });
+    return cache[src];
   }
-
   /** Webbplatsens färger (Utseende) – samma som sidan, så att bilden alltid matchar paletten. */
   function palette() {
     var cs = getComputedStyle(document.documentElement);
@@ -403,100 +422,139 @@
     var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
     return m ? "rgba(" + parseInt(m[1], 16) + "," + parseInt(m[2], 16) + "," + parseInt(m[3], 16) + "," + a + ")" : hex;
   }
-
-  function draw() {
-    var W = 1080, H = 1920;
+  function rounded(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+  }
+  function spaced(ctx, px) { if ("letterSpacing" in ctx) ctx.letterSpacing = px + "px"; }
+  /** Rita bilden i ett format, med eller utan bakgrundsbild. */
+  function draw(fmt) {
+    var F = FORMATS[fmt], W = F.W, H = F.H;
     var c0 = palette();
-    var c = document.createElement("canvas");
-    c.width = W; c.height = H;
-    var ctx = c.getContext("2d");
-    var g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, c0.bg); g.addColorStop(1, c0.bg);
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    var glow = ctx.createRadialGradient(W * 0.85, 0, 0, W * 0.85, 0, 1100);
-    glow.addColorStop(0, alpha(c0.accent, 0.2)); glow.addColorStop(1, alpha(c0.accent, 0));
-    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
-    // rutnät
-    ctx.strokeStyle = alpha(c0.on, 0.05); ctx.lineWidth = 2;
-    for (var x = 0; x <= W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-    for (var y = 0; y <= H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    // söm i guld
-    ctx.save(); ctx.strokeStyle = alpha(c0.accent, 0.6); ctx.lineWidth = 6; ctx.setLineDash([26, 20]);
-    ctx.beginPath(); ctx.arc(W + 140, -60, 420, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-    ctx.save(); ctx.strokeStyle = alpha(c0.accent, 0.22); ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(W + 140, -60, 480, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    var light = /^#?f/i.test(c0.on);
+    var bgSrc = ownUrl || card.getAttribute("data-bg") || "";
+    return Promise.all([loadImage(bgSrc), loadImage(light ? "/assets/tavling/jfk-logotyp-ljus.png" : "/assets/tavling/jfk-logotyp.png")]).then(function (imgs) {
+      var bg = imgs[0], logo = imgs[1];
+      var c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      var ctx = c.getContext("2d");
+      ctx.fillStyle = c0.bg; ctx.fillRect(0, 0, W, H);
+      if (bg) {
+        // Bakgrundsbilden fyller hela ytan och mörkläggs med primärfärgen så att texten syns.
+        var s = Math.max(W / bg.naturalWidth, H / bg.naturalHeight);
+        var bw = bg.naturalWidth * s, bh = bg.naturalHeight * s;
+        ctx.drawImage(bg, (W - bw) / 2, (H - bh) / 2, bw, bh);
+        ctx.fillStyle = alpha(c0.bg, 0.74); ctx.fillRect(0, 0, W, H);
+        var shade = ctx.createLinearGradient(0, H * 0.45, 0, H);
+        shade.addColorStop(0, alpha(c0.bg, 0)); shade.addColorStop(1, alpha(c0.bg, 0.7));
+        ctx.fillStyle = shade; ctx.fillRect(0, 0, W, H);
+      } else {
+        var glow = ctx.createRadialGradient(W * 0.85, 0, 0, W * 0.85, 0, 1100);
+        glow.addColorStop(0, alpha(c0.accent, 0.2)); glow.addColorStop(1, alpha(c0.accent, 0));
+        ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = alpha(c0.on, 0.05); ctx.lineWidth = 2;
+        for (var x = 0; x <= W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+        for (var y = 0; y <= H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      }
+      // söm i guld uppe till höger
+      ctx.save(); ctx.strokeStyle = alpha(c0.accent, 0.6); ctx.lineWidth = 6; ctx.setLineDash([26, 20]);
+      ctx.beginPath(); ctx.arc(W + 140, -60, 420 * F.gap + 120, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
 
-    return loadImage(/^#?f/i.test(c0.on) ? "/assets/tavling/jfk-logotyp-ljus.png" : "/assets/tavling/jfk-logotyp.png").then(function (logo) {
-      var y0 = 300;
-      if (logo) { ctx.drawImage(logo, (W - 300) / 2, 170, 300, 303); y0 = 560; }
       ctx.textAlign = "center";
-      ctx.fillStyle = c0.accent;
-      ctx.font = '700 38px "DM Sans", system-ui, sans-serif';
-      if ("letterSpacing" in ctx) ctx.letterSpacing = "8px";
-      ctx.fillText((card.getAttribute("data-kicker") || "").toUpperCase(), W / 2, y0);
-      if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+      var y0 = 120 * F.gap + 50;
+      if (logo) { ctx.drawImage(logo, (W - F.logo) / 2, y0, F.logo, F.logo * 1.011); y0 += F.logo + 90 * F.gap + 20; }
+      ctx.fillStyle = c0.accent; ctx.font = "700 " + F.kicker + 'px "DM Sans", system-ui, sans-serif';
+      spaced(ctx, 8); ctx.fillText((card.getAttribute("data-kicker") || "").toUpperCase(), W / 2, y0); spaced(ctx, 0);
 
-      ctx.font = '700 112px "Playfair Display", Georgia, serif';
-      var lines = wrap(ctx, card.getAttribute("data-title") || "", W - 160);
-      var ty = y0 + 140;
-      lines.forEach(function (l) {
-        // "&" i guld
-        var parts = l.split("&");
-        var total = ctx.measureText(l).width, cx = W / 2 - total / 2;
+      ctx.font = "700 " + F.title + 'px "Playfair Display", Georgia, serif';
+      var ty = y0 + F.title + 30;
+      wrap(ctx, card.getAttribute("data-title") || "", W - 160).forEach(function (l) {
+        var parts = l.split("&"), cx = W / 2 - ctx.measureText(l).width / 2;
         ctx.textAlign = "left";
         parts.forEach(function (p, i) {
           if (i) { ctx.fillStyle = c0.accent; ctx.fillText("&", cx, ty); cx += ctx.measureText("&").width; }
           ctx.fillStyle = c0.on; ctx.fillText(p, cx, ty); cx += ctx.measureText(p).width;
         });
         ctx.textAlign = "center";
-        ty += 128;
+        ty += F.lh;
       });
 
-      // nedräkningen
-      var label = visibleText(".t-countdown-label > span").toUpperCase();
       var lf = left();
-      var by = ty + 70;
-      ctx.fillStyle = c0.accent; ctx.font = '700 40px "DM Sans", system-ui, sans-serif';
-      if ("letterSpacing" in ctx) ctx.letterSpacing = "6px";
-      ctx.fillText(label, W / 2, by);
-      if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
-      // ruta bakom siffran
-      ctx.fillStyle = alpha(c0.on, 0.06); ctx.strokeStyle = alpha(c0.on, 0.14); ctx.lineWidth = 3;
-      var bw = 620, bh = 420, bx = (W - bw) / 2, bY = by + 50;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(bx, bY, bw, bh, 48); else ctx.rect(bx, bY, bw, bh);
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = c0.on; ctx.font = '700 300px "DM Sans", system-ui, sans-serif';
-      ctx.fillText(String(lf[0]), W / 2, bY + 300);
-      ctx.fillStyle = alpha(c0.on, 0.78); ctx.font = '600 52px "DM Sans", system-ui, sans-serif';
-      ctx.fillText((card.getAttribute("data-left") || "{enhet}").replace("{enhet}", lf[1]), W / 2, bY + 380);
-      // datumet
-      ctx.fillStyle = c0.on; ctx.font = '500 46px "DM Sans", system-ui, sans-serif';
-      ctx.fillText(visibleText(".t-countdown-when > span"), W / 2, bY + bh + 96);
-      // adressen
-      ctx.fillStyle = c0.accent;
-      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect((W - 640) / 2, H - 270, 640, 110, 55); else ctx.rect((W - 640) / 2, H - 270, 640, 110); ctx.fill();
-      ctx.fillStyle = c0.onAccent; ctx.font = '700 46px "DM Sans", system-ui, sans-serif';
-      ctx.fillText(location.host.replace(/^www\./, "") + location.pathname, W / 2, H - 200);
-      ctx.fillStyle = alpha(c0.on, 0.7); ctx.font = '500 34px "DM Sans", system-ui, sans-serif';
-      ctx.fillText(card.getAttribute("data-site") || "", W / 2, H - 90);
+      var by = ty + 70 * F.gap + 10;
+      ctx.fillStyle = c0.accent; ctx.font = "700 " + F.label + 'px "DM Sans", system-ui, sans-serif';
+      spaced(ctx, 6); ctx.fillText(visibleText(".t-countdown-label > span").toUpperCase(), W / 2, by); spaced(ctx, 0);
+      var bw2 = F.box[0], bh2 = F.box[1], bx = (W - bw2) / 2, bY = by + 40;
+      ctx.fillStyle = alpha(c0.on, bg ? 0.1 : 0.06); ctx.strokeStyle = alpha(c0.on, 0.16); ctx.lineWidth = 3;
+      rounded(ctx, bx, bY, bw2, bh2, 44); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = c0.on; ctx.font = "700 " + F.num + 'px "DM Sans", system-ui, sans-serif';
+      ctx.fillText(String(lf[0]), W / 2, bY + bh2 * 0.7);
+      ctx.fillStyle = alpha(c0.on, 0.8); ctx.font = "600 " + F.unit + 'px "DM Sans", system-ui, sans-serif';
+      ctx.fillText((card.getAttribute("data-left") || "{enhet}").replace("{enhet}", lf[1]), W / 2, bY + bh2 * 0.9);
+      ctx.fillStyle = c0.on; ctx.font = "500 " + F.date + 'px "DM Sans", system-ui, sans-serif';
+      ctx.fillText(visibleText(".t-countdown-when > span"), W / 2, bY + bh2 + F.date + 40 * F.gap + 10);
+
+      var pw = F.pill[0], ph = F.pill[1], py = H - ph - (F.site + 90 * F.gap + 30);
+      ctx.fillStyle = c0.accent; rounded(ctx, (W - pw) / 2, py, pw, ph, ph / 2); ctx.fill();
+      ctx.fillStyle = c0.onAccent; ctx.font = "700 " + F.pill[2] + 'px "DM Sans", system-ui, sans-serif';
+      ctx.fillText(location.host.replace(/^www\./, "") + location.pathname, W / 2, py + ph / 2 + F.pill[2] * 0.36);
+      ctx.fillStyle = alpha(c0.on, 0.72); ctx.font = "500 " + F.site + 'px "DM Sans", system-ui, sans-serif';
+      ctx.fillText(card.getAttribute("data-site") || "", W / 2, H - (60 * F.gap + 20));
       return c;
     });
   }
 
+  var fontsReady = document.fonts && document.fonts.load
+    ? Promise.all([document.fonts.load('700 112px "Playfair Display"'), document.fonts.load('700 300px "DM Sans"'), document.fonts.load('500 46px "DM Sans"')]).catch(function () {})
+    : Promise.resolve();
+  function toBlob(c) { return new Promise(function (resolve) { c.toBlob(resolve, "image/png"); }); }
+
+  /** Förhandsvisningen i kortet – ritas om när formatet eller bakgrunden ändras. */
+  var pending = 0;
+  function refresh() {
+    var id = ++pending;
+    var fmt = format();
+    card.setAttribute("data-format", fmt);
+    return fontsReady.then(function () { return draw(fmt); }).then(toBlob).then(function (blob) {
+      if (id !== pending || !blob || !preview) return;
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      previewUrl = URL.createObjectURL(blob);
+      preview.src = previewUrl;
+    });
+  }
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      if (entries.some(function (e) { return e.isIntersecting; })) { io.disconnect(); refresh(); }
+    }, { rootMargin: "200px" });
+    io.observe(card);
+  } else refresh();
+
+  card.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t.name === "t-share-format") refresh();
+    if (t === fileInput && fileInput.files && fileInput.files[0] && /^image\//.test(fileInput.files[0].type)) {
+      if (ownUrl) URL.revokeObjectURL(ownUrl);
+      ownUrl = URL.createObjectURL(fileInput.files[0]);
+      if (resetBtn) resetBtn.hidden = false;
+      refresh();
+    }
+  });
+  if (resetBtn) resetBtn.addEventListener("click", function () {
+    if (ownUrl) URL.revokeObjectURL(ownUrl);
+    ownUrl = null;
+    if (fileInput) fileInput.value = "";
+    resetBtn.hidden = true;
+    refresh();
+  });
+
   button.addEventListener("click", function () {
     button.disabled = true;
-    var fonts = document.fonts && document.fonts.load
-      ? Promise.all([document.fonts.load('700 112px "Playfair Display"'), document.fonts.load('700 300px "DM Sans"'), document.fonts.load('500 46px "DM Sans"')]).catch(function () {})
-      : Promise.resolve();
-    fonts
-      .then(draw)
-      .then(function (c) {
-        return new Promise(function (resolve) { c.toBlob(resolve, "image/png"); });
-      })
+    var fmt = format();
+    fontsReady
+      .then(function () { return draw(fmt); })
+      .then(toBlob)
       .then(function (blob) {
         if (!blob) return;
-        var name = "jfk-tavling-story.png";
+        var name = fmt === "post" ? "jfk-tavling-inlagg.png" : "jfk-tavling-story.png";
         var file = window.File ? new File([blob], name, { type: "image/png" }) : null;
         // På mobilen: dela direkt (t.ex. till Instagram). Annars: ladda ned filen.
         if (file && navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia("(pointer: coarse)").matches) {

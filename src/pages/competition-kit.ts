@@ -1,5 +1,5 @@
 import { html, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ek, lines, siteLayout, type Settings } from "../lib/settings.js";
+import { ec, ek, lines, siteLayout, type Settings } from "../lib/settings.js";
 import { isLinkVisible } from "../lib/pagelayout.js";
 import { fill } from "../lib/texts.js";
 import { slugify } from "../lib/slug.js";
@@ -94,7 +94,7 @@ function uploadedDownload(s: Settings, r: ResourceRow): SafeHtml {
   const key = r.file_key!;
   const ext = /\.([a-z0-9]+)$/i.exec(key)?.[1]?.toLowerCase() ?? "jpg";
   const filename = `${slugify(r.title) || "jfk-material"}.${ext}`;
-  return html`<li class="t-dl">
+  return html`<li class="t-dl"${ec(s, `/admin/tavling-material/${r.id}`, `Tävlingen › ${r.title}`)}>
     <div class="t-dl-preview is-photo" aria-hidden="true">${picture(key, { alt: "", sizes: "160px", width: 320, height: 320 })}</div>
     <div class="t-dl-body">
       <p class="t-dl-title">${r.title}</p>
@@ -143,17 +143,34 @@ function tryOn(s: Settings): SafeHtml {
   </div>`;
 }
 
-/** Sprid tävlingen: en färdig bild (1080 × 1920) till Instagram med nedräkningen, ritad i webbläsaren (tavling.js). */
+/**
+ * Sprid tävlingen: en färdig bild till Instagram – story (1080 × 1920) eller inlägg (1080 × 1350) – med nedräkningen,
+ * ritad i webbläsaren (tavling.js). Bakgrunden är styrelsens bild (Texter och sidor) eller en egen som besökaren väljer;
+ * den egna bilden stannar i webbläsaren.
+ */
 function shareCard(s: Settings): SafeHtml {
-  return html`<div class="t-kit-card t-share" data-share hidden data-site="${s.site_name}" data-kicker="${s.comp_kicker}" data-title="${s.comp_title}" data-left="${s.comp_share_left}"
-      data-units="${[s.comp_unit_days, s.comp_unit_hours, s.comp_unit_minutes].join(";")}">
-    <div class="t-share-art" aria-hidden="true">
-      <span class="t-share-phone"><span class="t-share-screen"><span class="t-share-k"></span><span class="t-share-t"></span><span class="t-share-n"></span><span class="t-share-u"></span></span></span>
+  const bg = s.comp_share_image ? mediaUrl(s.comp_share_image, "md") : "";
+  return html`<div class="t-kit-card t-share" data-share hidden data-format="story" data-site="${s.site_name}" data-kicker="${s.comp_kicker}" data-title="${s.comp_title}" data-left="${s.comp_share_left}"
+      data-bg="${bg ?? ""}" data-units="${[s.comp_unit_days, s.comp_unit_hours, s.comp_unit_minutes].join(";")}"${ek(s, "comp_share_image")}>
+    <div class="t-share-preview">
+      <img data-share-preview alt="Förhandsvisning av bilden till Instagram" width="1080" height="1920">
     </div>
-    <div>
+    <div class="t-share-body">
       <h3 class="t-h3"${ek(s, "comp_share_title")}>${s.comp_share_title}</h3>
       <p class="t-kit-text"${ek(s, "comp_share_text")}>${s.comp_share_text}</p>
-      <button class="t-btn t-btn-gold" type="button" data-share-button>${icon("instagram", "icon icon-sm")}<span${ek(s, "comp_share_button")}>${s.comp_share_button}</span></button>
+      <fieldset class="t-seg">
+        <legend class="sr-only"${ek(s, "comp_share_format")}>${s.comp_share_format}</legend>
+        <label class="t-seg-opt"><input type="radio" name="t-share-format" value="story" checked><span${ek(s, "comp_share_story")}>${s.comp_share_story} <small>9:16</small></span></label>
+        <label class="t-seg-opt"><input type="radio" name="t-share-format" value="post"><span${ek(s, "comp_share_post")}>${s.comp_share_post} <small>4:5</small></span></label>
+      </fieldset>
+      <div class="t-share-own">
+        <label class="t-btn t-btn-outline t-try-pick">
+          ${icon("image", "icon icon-sm")}<span${ek(s, "comp_share_own")}>${s.comp_share_own}</span>
+          <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-share-input>
+        </label>
+        <button class="t-text-btn" type="button" data-share-reset hidden${ek(s, "comp_share_reset")}>${s.comp_share_reset}</button>
+      </div>
+      <button class="t-btn t-btn-gold" type="button" data-share-button>${icon("arrowDown", "icon icon-sm")}<span${ek(s, "comp_share_button")}>${s.comp_share_button}</span></button>
     </div>
   </div>`;
 }
@@ -183,7 +200,7 @@ export function kitSection(s: Settings, resources: ResourceRow[], phase: Phase):
       ? html`<h3 class="t-kit-sub"${ek(s, "comp_programs_title")}>${s.comp_programs_title}</h3>
           <ul class="t-programs">
             ${programs.map(
-              (p) => html`<li class="t-program">
+              (p) => html`<li class="t-program"${ec(s, `/admin/tavling-material/${p.id}`, `Tävlingen › ${p.title}`)}>
                 <div class="t-program-head">
                   <span class="t-program-mark" aria-hidden="true">${p.title.charAt(0)}</span>
                   <div><p class="t-program-name">${p.title}</p>${p.label ? html`<p class="t-program-label">${p.label}</p>` : ""}</div>

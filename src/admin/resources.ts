@@ -285,7 +285,7 @@ async function saveEmployer(db: D1Database, values: Values, data: Record<string,
 
 const COMP_TABS = [
   { href: "/admin/tavling", label: "Bidrag" },
-  { href: "/admin/tavling-material", label: "Material" },
+  { href: "/admin/tavling-material", label: "Program och filer" },
   { href: "/admin/texter?sida=tavling", label: "Texter och datum" },
 ];
 const COMP_CATEGORIES = [
@@ -547,15 +547,15 @@ export const RESOURCES: Resource[] = [
     table: "competition_resources",
     title: "Tävlingen",
     singular: "material",
-    newLabel: "Lägg till material",
-    lead: "Visas under Verktyg och material på tävlingssidan: tips på program (en länk) och filer att ladda ned, t.ex. bilder av campus eller tidigare merch. JFK:s logotyper och mallarna finns alltid med – de kan stängas av under Texter och datum.",
+    newLabel: "Lägg till program eller fil",
+    lead: "Programmen som rekommenderas och filerna att ladda ned under Verktyg och material på tävlingssidan. Klicka på ett namn för att ändra texten eller länken, använd pilarna för att ändra ordning och Dölj för att ta bort något tillfälligt. JFK:s logotyper och mallarna finns alltid med – de kan stängas av under Texter och datum.",
     orderBy: "kind, sort_order, title COLLATE NOCASE",
     moveGroup: ["kind"],
     publishable: true,
     publishLabels: ["Visas", "Dold"],
     tabs: COMP_TABS,
     navActive: "/admin/tavling",
-    emptyText: "Inget material ännu.",
+    emptyText: "Inga program eller filer ännu. Lägg till ett program med en länk eller en fil att ladda ned.",
     fields: [
       {
         name: "kind",
