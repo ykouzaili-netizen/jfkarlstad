@@ -65,6 +65,10 @@ export interface AdminField extends FieldSpec {
    * read läser det ur formuläret och ger värdet som sparas i kolumnen (eller ett fel).
    */
   custom?: { render: (value: string, error?: string) => SafeHtml; read: (form: FormData) => { value: string; error?: string } };
+  /** Bildfält: beskär i webbläsaren innan uppladdning (bredd/höjd, t.ex. 0.75 = stående 3:4). */
+  crop?: number;
+  /** Bildfält: gör bilden svartvit när ett annat fält har ett visst värde, t.ex. "kind=hedersmedlem". */
+  grayIf?: string;
 }
 
 const shown = (f: AdminField, v: Values) => !f.showIf || ([] as string[]).concat(f.showIf.value).includes(v[f.showIf.field] ?? "");
@@ -252,6 +256,16 @@ export async function instagramSyncSubmit(c: RequestContext, session: Session): 
 }
 
 /** Snabbvalet av arbetsgivare i jobbformuläret: partnerna först, sedan övriga arbetsgivare. */
+/** Studentnätverken (Partners → Studentnätverk) som val för ett event. Tål att tabellen saknas. */
+async function networkOptions(db: D1Database): Promise<{ value: string; label: string }[]> {
+  try {
+    const { results } = await db.prepare("SELECT id, name FROM networks ORDER BY sort_order, name COLLATE NOCASE").all<{ id: number; name: string }>();
+    return results.map((n) => ({ value: String(n.id), label: n.name }));
+  } catch {
+    return [];
+  }
+}
+
 async function employerOptions(db: D1Database): Promise<{ value: string; label: string }[]> {
   const [partners, companies] = await db.batch([
     db.prepare("SELECT id, name FROM partners ORDER BY name COLLATE NOCASE"),
@@ -372,6 +386,14 @@ export const RESOURCES: Resource[] = [
       { name: "body", label: "Mer information", type: "textarea", rows: 10, max: 20000, help: MARKDOWN_HELP },
       { name: "signup_url", label: "Länk till anmälan/biljetter", type: "url", nullable: true, max: 500, help: "T.ex. eventets sida hos Hitract." },
       { name: "members_only", label: "Endast för medlemmar", type: "checkbox" },
+      {
+        name: "network_id",
+        label: "Tillsammans med",
+        type: "select",
+        nullable: true,
+        optionsFrom: networkOptions,
+        help: "Valfritt. Arrangeras eventet tillsammans med ett studentnätverk (t.ex. ELSA Karlstad) visas det också på nätverkets egen sida, och eventet får en länk till nätverket.",
+      },
       { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true },
       { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200 },
       { name: "publish_at", label: "Publicera på webbplatsen", type: "datetime-local", schedule: true, nullable: true, help: SCHEDULE_HELP },
@@ -528,6 +550,7 @@ export const RESOURCES: Resource[] = [
       { name: "alt", label: "Beskriv bidraget", type: "text", max: 200, help: "Läses upp för den som inte ser bilden, t.ex. ”Rund märke med en gul våg och texten JFK”." },
       { name: "designer", label: "Upphovsperson", type: "text", max: 100, help: "Visas först när röstningen har stängt – innan dess skickas namnet aldrig till besökarna." },
       { name: "winner", label: "Vinnare i sin kategori", type: "checkbox", help: "Får etiketten Vinnare när röstningen har stängt." },
+      { name: "votes", label: "Antal röster", type: "number", min: 0, max: 99999, nullable: true, help: "Fyll i när röstningen är klar. Visas som ett diagram på tävlingssidan efter röstningen (kan stängas av under Texter och datum → Bidragen)." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lämna tomt för att sortera på koden." },
     ],
     listColumns: [
@@ -535,6 +558,7 @@ export const RESOURCES: Resource[] = [
       { label: "Bidrag", render: (r) => html`<a class="row-title" href="/admin/tavling/${r.id}">Design ${String(r.code)}</a>` },
       { label: "Kategori", render: (r) => (r.category === "merch" ? "Merch" : "Märke") },
       { label: "Upphovsperson", render: (r) => (r.designer ? html`${String(r.designer)}${r.winner ? html` <span class="pill pill-on">Vinnare</span>` : ""}` : html`<span class="muted">–</span>`) },
+      { label: "Röster", render: (r) => (r.votes == null ? html`<span class="muted">–</span>` : String(r.votes)), className: "num" },
       { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
     ],
     titleOf: (r) => `Design ${String(r.code)}`,
@@ -601,7 +625,7 @@ export const RESOURCES: Resource[] = [
       { name: "name", label: "Namn", type: "text", required: true, max: 100 },
       { name: "role", label: "Roll", type: "text", required: true, max: 100, placeholder: "T.ex. Ordförande" },
       { name: "email", label: "E-post för rollen", type: "email", nullable: true, max: 200 },
-      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR). Stående porträtt (ungefär 3:4) med ansiktet i övre halvan fungerar bäst. Utan foto visas initialerna. Fotot raderas helt när det tas bort." },
+      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, crop: 0.75, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR). När du väljer en bild får du beskära den till ett stående porträtt (3:4) – dra och zooma så att ansiktet hamnar i övre halvan. Utan foto visas initialerna. Fotot raderas helt när det tas bort." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägre tal visas först." },
     ],
     listColumns: [
@@ -653,7 +677,7 @@ export const RESOURCES: Resource[] = [
       { name: "name", label: "Namn", type: "text", required: true, max: 120 },
       { name: "year", label: "År", type: "number", min: 2011, max: 2100, nullable: true, help: "Året personen blev hedersmedlem eller fick utmärkelsen." },
       { name: "description", label: "Motivering", type: "textarea", rows: 10, max: 4000, help: "Tom rad = nytt stycke." },
-      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR)." },
+      { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, crop: 0.75, grayIf: "kind=hedersmedlem", help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR). När du väljer en bild får du beskära den till ett stående porträtt (3:4). Hedersmedlemmarnas foton görs svartvita automatiskt – välj därför typ innan du väljer bild." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Bestämmer ordningen bland dem som har samma år. Lägst nummer först – enklast är att använda pilarna i listan." },
     ],
     listColumns: [
@@ -1202,7 +1226,7 @@ function editForm(r: Resource, fields: AdminField[], session: Session, action: s
           const field = f.custom
             ? f.custom.render(values[f.name] ?? "", errors[f.name])
             : f.upload
-            ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload, multiple: isNew && f.multiple })
+            ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload, multiple: isNew && f.multiple, crop: f.crop, grayIf: f.grayIf })
             : renderField(f, values[f.name] ?? "", errors[f.name]);
           return f.showIf
             ? html`<div class="show-if" data-show-if="${f.showIf.field}" data-show-value="${([] as string[]).concat(f.showIf.value).join("|")}"${shown(f, values) ? "" : html` hidden`}>${field}</div>`
@@ -1247,8 +1271,10 @@ export function listHandler(r: Resource) {
       // Med moveGroup räknas bara poster i samma grupp (t.ex. samma år och typ) – andra rader kan ligga emellan.
       const peers = results.filter((x) => sameGroup(r, x, row));
       const pos = peers.indexOf(row);
-      return html`<td class="col-move"><div class="move-buttons">${btn("upp", pos <= 0)}${btn("ned", pos === peers.length - 1)}</div></td>`;
+      return html`<td class="col-move"><div class="move-buttons"><button class="btn btn-outline btn-sm btn-move drag-handle" type="button" data-sort-handle hidden aria-label="Dra för att flytta ${r.titleOf(row)} (eller använd piltangenterna)" title="Dra för att flytta">${icon("grip", "icon icon-sm")}</button>${btn("upp", pos <= 0)}${btn("ned", pos === peers.length - 1)}</div></td>`;
     };
+    // Dra och släpp (admin.js, [data-sortable]): raderna i samma flyttgrupp kan dras; ordningen sparas direkt.
+    const groupKey = (row: Row) => (r.moveGroup ?? []).map((k) => String(row[k] ?? "")).join("|");
     const content = html`
       ${adminHead(r.title, { lead: r.lead, actions: html`${r.listActions ?? ""}<a class="btn btn-primary" href="/admin/${r.path}/ny">+ ${r.newLabel}</a>` })}
       ${resourceTabs(r.tabs, `/admin/${r.path}`)}
@@ -1257,9 +1283,9 @@ export function listHandler(r: Resource) {
         ? html`<div class="admin-card admin-card-flush">
             <table class="admin-table">
               <thead><tr>${r.movable ? html`<th scope="col" class="col-move">Ordning</th>` : ""}${r.listColumns.map((cl) => html`<th scope="col" class="${cl.className ?? ""}">${cl.label ? cl.label : html`<span class="sr-only">Bild</span>`}</th>`)}<th scope="col" class="col-actions"><span class="sr-only">Åtgärder</span></th></tr></thead>
-              <tbody>
+              <tbody${r.movable ? html` data-sortable data-sort-url="/admin/${r.path}/ordning" data-csrf="${session.csrf}"` : ""}>
                 ${results.map(
-                  (row, i) => html`<tr id="rad-${row.id}"${moved === row.id ? html` class="is-moved"` : ""}>
+                  (row, i) => html`<tr id="rad-${row.id}"${moved === row.id ? html` class="is-moved"` : ""}${r.movable ? html` data-sort-id="${row.id}" data-sort-group="${groupKey(row)}"` : ""}>
                     ${r.movable ? moveCell(row, i) : ""}
                     ${r.listColumns.map((cl) => html`<td class="${cl.className ?? ""}" data-label="${cl.label}">${cl.render(row)}</td>`)}
                     <td class="col-actions">
@@ -1540,6 +1566,31 @@ export function moveHandler(r: Resource) {
       await db.batch(results.map((x, k) => db.prepare(`UPDATE ${r.table} SET sort_order = ? WHERE id = ?`).bind((k + 1) * 10, x.id)));
     }
     return redirect(`/admin/${r.path}?flyttad=${id}&riktning=${up ? "upp" : "ned"}`, 303);
+  };
+}
+
+/**
+ * Ny ordning efter dra och släpp i listan (admin.js). Tar emot alla id:n i en flyttgrupp i den nya ordningen och
+ * numrerar om dem. Svarar 409 om listan inte stämmer med databasen (t.ex. om någon annan har ändrat samtidigt).
+ */
+export function orderHandler(r: Resource) {
+  return async (c: RequestContext, session: Session): Promise<Response> => {
+    const form = await c.req.formData();
+    if (!checkCsrf(c, session, form)) return new Response("Sessionen har gått ut. Ladda om sidan.", { status: 403 });
+    const ids = String(form.get("ids") ?? "")
+      .split(",")
+      .map((x) => Number(x))
+      .filter((x) => Number.isInteger(x) && x > 0);
+    const db = c.env.DB;
+    const cols = r.moveGroup ?? [];
+    const all = (await db.prepare(`SELECT ${["id", ...cols].join(", ")} FROM ${r.table} ORDER BY ${r.orderBy}`).all<Record<string, unknown> & { id: number }>()).results;
+    const first = all.find((x) => x.id === ids[0]);
+    const group = first ? all.filter((x) => sameGroup(r, x, first)) : [];
+    const same = group.length === ids.length && new Set(ids).size === ids.length && group.every((x) => ids.includes(x.id));
+    if (!same) return new Response("Listan har ändrats. Ladda om sidan och försök igen.", { status: 409 });
+    await db.batch(ids.map((id, k) => db.prepare(`UPDATE ${r.table} SET sort_order = ? WHERE id = ?`).bind((k + 1) * 10, id)));
+    await audit(c.env, session, "ändrade ordningen i", r.title.toLocaleLowerCase("sv"), null, `${ids.length} poster`);
+    return new Response(null, { status: 204 });
   };
 }
 

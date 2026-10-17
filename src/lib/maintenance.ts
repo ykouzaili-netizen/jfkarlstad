@@ -17,6 +17,7 @@ export async function runMaintenance(env: Env): Promise<void> {
     env.DB.prepare("DELETE FROM audit_log WHERE created_at < datetime('now', '-24 months')"),
     // Partnerstatistiken (bara totalsiffror) sparas i tre år
     env.DB.prepare("DELETE FROM stats_daily WHERE day < date('now', '-3 years')"),
+    env.DB.prepare("DELETE FROM stats_links WHERE day < date('now', '-3 years')"),
     // Versionshistoriken: de 25 senaste versionerna av varje text räcker
     env.DB.prepare(
       `DELETE FROM setting_versions WHERE id IN (

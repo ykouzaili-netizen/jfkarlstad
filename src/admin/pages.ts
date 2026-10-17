@@ -1,3 +1,4 @@
+import { brokenLinkCount } from "./link-check.js";
 import { html, paragraphs, raw, type SafeHtml } from "../lib/html.js";
 import { DEFAULT_SETTINGS, HEADING_FONTS, INTRO_STYLES, MOTION_LEVELS, THEME_KEYS, headingFont, introStyle, loadSettings, motionLevel, type IntroStyle, type MotionLevel, type SettingKey, type Settings } from "../lib/settings.js";
 import { contrastRatio, isHex, readableOn } from "../lib/color.js";
@@ -70,6 +71,7 @@ export async function dashboard(c: RequestContext, session: Session): Promise<Re
     ? ((await db.prepare("SELECT COUNT(*) AS n FROM submissions WHERE status = 'ny' AND email_sent = 0 AND created_at >= datetime('now', '-30 days') AND created_at <= datetime('now', '-2 minutes')").first<{ n: number }>())?.n ?? 0)
     : 0;
   const s = await loadSettings(db);
+  const broken = await brokenLinkCount(db);
   let handover: { done: number; total: number } | null = null;
   if (isAdmin) handover = handoverProgress(s);
 
@@ -85,6 +87,7 @@ export async function dashboard(c: RequestContext, session: Session): Promise<Re
     todo.docs ? html`<li><a href="/admin/dokument">${todo.docs} dokument saknar länk, PDF eller text</a></li>` : "",
     todo.logos ? html`<li><a href="/admin/partners">${todo.logos} ${todo.logos === 1 ? "partner saknar" : "partners saknar"} logotyp</a></li>` : "",
     todo.expired ? html`<li><a href="/admin/jobb">${todo.expired} ${todo.expired === 1 ? "jobbannons har" : "jobbannonser har"} gått ut – ta bort eller förläng</a></li>` : "",
+    broken ? html`<li><a href="/admin/lankar">${broken} ${broken === 1 ? "länk fungerade" : "länkar fungerade"} inte vid senaste länkkontrollen</a></li>` : "",
     todo.slow ? html`<li><a href="/admin/bildbank#optimera">${todo.slow} ${todo.slow === 1 ? "bild kan" : "bilder kan"} göras snabbare att ladda – optimera i Bildbanken</a></li>` : "",
     !s.hero_image_key ? html`<li><a href="/admin/texter?sida=startsida&falt=hero_image_key">Ladda upp en bild överst på startsidan</a></li>` : "",
     isAdmin && !s.logo_key ? html`<li><a href="/admin/utseende#logotyp">Ladda upp föreningens logotyp</a></li>` : "",

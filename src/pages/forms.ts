@@ -16,8 +16,9 @@ import { layout, picture } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 import { checkList, contentPhoto, pageHeader } from "../views/page.js";
 import { partnerLogo } from "../views/components.js";
+import { loadMedals } from "../lib/medals.js";
 
-export type FormId = "kontakt" | "foretag" | "paverka" | "engagemang";
+export type FormId = "kontakt" | "foretag" | "paverka" | "engagemang" | "nominering";
 
 /** Namn på formulären i adminpanelen och i mejlen till styrelsen. */
 export const FORM_LABELS: Record<FormId, string> = {
@@ -25,6 +26,7 @@ export const FORM_LABELS: Record<FormId, string> = {
   foretag: "Företag",
   paverka: "JF Påverka",
   engagemang: "Engagera dig",
+  nominering: "Nominering",
 };
 
 const PAVERKA_TYPES = [
@@ -43,7 +45,7 @@ function optionsFrom(text: string): { value: string; label: string }[] {
 }
 
 /** Formulärens fält byggs från inställningarna, så att etiketter och val kan ändras i adminpanelen. */
-function fieldsFor(id: FormId, s: Settings, positions: PositionRow[] = [], committees: { name: string }[] = []): FieldSpec[] {
+function fieldsFor(id: FormId, s: Settings, positions: PositionRow[] = [], committees: { name: string }[] = [], awards: string[] = []): FieldSpec[] {
   switch (id) {
     case "kontakt":
       return [
@@ -94,7 +96,20 @@ function fieldsFor(id: FormId, s: Settings, positions: PositionRow[] = [], commi
         },
         { name: "meddelande", type: "textarea", max: 3000, rows: 5, help: s.ef_message_help, ...lbl(s, "ef_message") },
       ];
+    case "nominering":
+      return [
+        { name: "utmarkelse", type: "select", required: true, options: uniqueOptions([...awards, s.nf_award_any]), ...lbl(s, "nf_award") },
+        { name: "kandidat", type: "text", required: true, max: 150, help: s.nf_nominee_help, ...lbl(s, "nf_nominee") },
+        { name: "meddelande", type: "textarea", required: true, max: 4000, rows: 7, help: s.nf_reason_help, ...lbl(s, "nf_reason") },
+        { name: "namn", type: "text", required: true, max: 100, autocomplete: "name", ...lbl(s, "nf_name") },
+        { name: "epost", type: "email", required: true, max: 200, autocomplete: "email", help: s.nf_email_help, ...lbl(s, "nf_email") },
+      ];
   }
+}
+
+/** Utmärkelserna man kan nominera till: föreningens ordnar och medaljer (Styrelse och uppdrag → Ordnar och medaljer). */
+async function awardNames(db: D1Database): Promise<string[]> {
+  return (await loadMedals(db)).map((m) => m.name);
 }
 
 /**
@@ -210,7 +225,7 @@ function uniqueOptions(labels: string[]): { value: string; label: string }[] {
     .map((l) => ({ value: l, label: l }));
 }
 
-const PATHS: Record<FormId, string> = { kontakt: "/kontakt", foretag: "/for-foretag", paverka: "/jf-paverka", engagemang: "/engagera-dig" };
+const PATHS: Record<FormId, string> = { kontakt: "/kontakt", foretag: "/for-foretag", paverka: "/jf-paverka", engagemang: "/engagera-dig", nominering: "/nominera" };
 
 function uiTexts(s: Settings): FormUiTexts {
   return { optional: s.form_optional, select: s.form_select };
@@ -284,6 +299,7 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
   const packages = ([1, 2, 3] as const)
     .map((n) => ({ n, nameKey: `package_${n}_name` as const, textKey: `package_${n}_text` as const }))
     .filter((p) => s[p.nameKey]);
+  const packageStyle = ["kort", "nivaer", "mork"].includes(s.packages_style) ? s.packages_style : "kort";
   const formHtml = await formBlock(c, s, "foretag", fieldsFor("foretag", s), values, errors, topError);
   const content = html`
     ${pageHeader(s, {
@@ -311,12 +327,12 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
     </section>`,
       paket: () => html`
     ${packages.length
-      ? html`<section class="section section-surface" aria-labelledby="paket">
+      ? html`<section class="section section-surface packages packages--${packageStyle}" aria-labelledby="paket">
           <div class="container">
             <div class="section-head"><div><h2 class="section-title" id="paket"${ek(s, "packages_title")}>${s.packages_title}</h2><p class="section-lead"${ek(s, "packages_note")}>${s.packages_note}</p></div></div>
-            <ul class="package-grid">
-              ${packages.map((p, i) => html`<li class="package-card${i === 0 ? " package-featured" : ""}"><h3 class="package-name"${ek(s, p.nameKey)}>${s[p.nameKey]}</h3><p${ek(s, p.textKey)}>${s[p.textKey]}</p></li>`)}
-            </ul>
+            <ol class="package-grid"${ek(s, "packages_style")}>
+              ${packages.map((p, i) => html`<li class="package-card${i === 0 ? " package-featured" : ""}"><span class="package-num" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span><div><h3 class="package-name"${ek(s, p.nameKey)}>${s[p.nameKey]}</h3><p${ek(s, p.textKey)}>${s[p.textKey]}</p></div></li>`)}
+            </ol>
           </div>
         </section>`
       : ""}
@@ -561,7 +577,38 @@ function committeeSection(s: Settings, committees: CommitteeRow[], signup: Signu
   </section>`;
 }
 
-const RENDER: Record<FormId, typeof contactPage> = { kontakt: contactPage, foretag: companiesPage, paverka: paverkaPage, engagemang: engagePage };
+/** Nominera till en utmärkelse (/nominera). Inskicken hamnar i Meddelanden som formuläret "Nominering". */
+export async function nominatePage(c: RequestContext, values?: Values, errors?: Errors, topError?: string, status = 200): Promise<Response> {
+  const db = c.env.DB;
+  const [s, awards] = await Promise.all([loadSettings(db, c.preview), awardNames(db)]);
+  const open = s.nominate_open !== "stangd";
+  // "Nominera" vid en medalj på Om oss förväljer den (?utmarkelse=Namn)
+  const chosen = awards.find((a) => a === c.url.searchParams.get("utmarkelse"));
+  const formValues = values ?? (chosen ? { utmarkelse: chosen.slice(0, 120) } : {});
+  const steps = lines(s.nominate_steps);
+  const content = html`
+    ${pageHeader(s, { kickerKey: "nominate_kicker", hero: "nominate", titleKey: "nominate_title", leadKey: "nominate_lead" })}
+    <section class="section section-tight-top">
+      <div class="container form-layout">
+        <div>
+          <h2 class="form-title"${ek(s, "nominate_form_title")}>${s.nominate_form_title}</h2>
+          ${open
+            ? await formBlock(c, s, "nominering", fieldsFor("nominering", s, [], [], awards), formValues, errors, topError)
+            : html`<div class="info-card nominate-closed"${ek(s, "nominate_closed_text")}>${icon("lock")}<p>${s.nominate_closed_text}</p></div>`}
+        </div>
+        <aside class="info-card">
+          <h2 class="info-title"${ek(s, "nominate_steps_title")}>${s.nominate_steps_title}</h2>
+          ${steps.length
+            ? html`<ol class="step-list"${ek(s, "nominate_steps")}>${steps.map((t, i) => html`<li><span class="step-num" aria-hidden="true">${i + 1}</span><div><p>${t}</p></div></li>`)}</ol>`
+            : ""}
+          <p class="after-list"><a class="arrow-link" href="/om-oss#utmarkelser"${ek(s, "nominate_awards_link")}>${s.nominate_awards_link}${icon("arrowRight", "icon icon-sm")}</a></p>
+        </aside>
+      </div>
+    </section>`;
+  return htmlResponse(c, layout(c, s, { title: s.nominate_title, description: s.nominate_lead }, content), status);
+}
+
+const RENDER: Record<FormId, typeof contactPage> = { kontakt: contactPage, foretag: companiesPage, paverka: paverkaPage, engagemang: engagePage, nominering: nominatePage };
 
 // ───────────────────────── Inskick ─────────────────────────
 
@@ -580,9 +627,11 @@ export function submitHandler(id: FormId) {
     const s = await loadSettings(c.env.DB);
     // Stängd anmälan: ta inte emot något – visa sidan med rutan "Anmälan är stängd".
     if (id === "engagemang" && !signupState(s).open) return RENDER[id](c, {}, {}, undefined, 200);
+    if (id === "nominering" && s.nominate_open === "stangd") return RENDER[id](c, {}, {}, undefined, 200);
     const positions = id === "engagemang" ? await rows<PositionRow>(positionQuery.open(c.env.DB, stockholmToday())) : [];
     const committees = id === "engagemang" ? await loadCommittees(c.env.DB) : [];
-    const { values, errors } = validate(fieldsFor(id, s, positions, committees), form);
+    const awards = id === "nominering" ? await awardNames(c.env.DB) : [];
+    const { values, errors } = validate(fieldsFor(id, s, positions, committees, awards), form);
     const anonymous = id === "paverka" && values.anonym === "1";
     if (anonymous) {
       values.namn = "";
@@ -631,6 +680,13 @@ function summarize(id: FormId, s: Settings, v: Values): { subject: string; messa
       data: { Uppdrag: v.uppdrag ?? "", Termin: v.termin ?? "" },
     };
   }
+  if (id === "nominering") {
+    return {
+      subject: `Nominering: ${v.kandidat} – ${v.utmarkelse}`,
+      message: v.meddelande!,
+      data: { Utmärkelse: v.utmarkelse ?? "", Nominerad: v.kandidat ?? "" },
+    };
+  }
   const t = PAVERKA_TYPES.find((x) => x.value === v.typ);
   const typ = t ? s[t.label] : "JF Påverka";
   return { subject: `${typ}: ${v.rubrik}`, message: v.meddelande!, data: { Typ: typ } };
@@ -675,6 +731,7 @@ const THANKS: Record<FormId, [SettingKey, SettingKey]> = {
   foretag: ["companies_thanks_title", "companies_thanks_text"],
   paverka: ["paverka_thanks_title", "paverka_thanks_text"],
   engagemang: ["engage_thanks_title", "engage_thanks_text"],
+  nominering: ["nominate_thanks_title", "nominate_thanks_text"],
 };
 
 export function thanksPage(id: FormId) {

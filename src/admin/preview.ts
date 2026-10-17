@@ -6,7 +6,7 @@ import { homePage } from "../pages/home.js";
 import { aboutPage } from "../pages/about.js";
 import { membershipPage } from "../pages/membership.js";
 import { studentsPage } from "../pages/students.js";
-import { companiesPage, contactPage, engagePage, paverkaPage, thanksPage } from "../pages/forms.js";
+import { companiesPage, contactPage, engagePage, nominatePage, paverkaPage, thanksPage } from "../pages/forms.js";
 import { networkPage } from "../pages/networks.js";
 import { competitionPage } from "../pages/competition.js";
 import { documentTextPage, documentsPage, eventDetailPage, faqPage, newsArticlePage, newsListPage, partnerDetailPage, partnersPage } from "../pages/listings.js";
@@ -47,6 +47,7 @@ export const PREVIEW_PAGES: { path: string; label: string; render: Render }[] = 
   { path: "/faq", label: "Vanliga frågor", render: faqPage },
   { path: "/jf-paverka", label: "JF Påverka", render: (c) => paverkaPage(c) },
   { path: "/tavling", label: "Merch- och märkestävlingen", render: competitionPage },
+  { path: "/nominera", label: "Nominera till en utmärkelse", render: (c) => nominatePage(c) },
   { path: "/kontakt", label: "Kontakt", render: (c) => contactPage(c) },
   { path: "/sok", label: "Sök", render: searchPage },
   { path: "/integritetspolicy", label: "Integritetspolicy", render: privacyPage },
@@ -66,6 +67,7 @@ const DYNAMIC: [RegExp, Render][] = [
   [/^\/for-foretag\/tack$/, thanksPage("foretag")],
   [/^\/jf-paverka\/tack$/, thanksPage("paverka")],
   [/^\/engagera-dig\/tack$/, thanksPage("engagemang")],
+  [/^\/nominera\/tack$/, thanksPage("nominering")],
 ];
 
 function resolve(target: string, origin: string): { url: URL; render: Render; params: Record<string, string> } | null {

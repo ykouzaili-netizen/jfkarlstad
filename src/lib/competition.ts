@@ -157,6 +157,8 @@ export interface EntryRow {
   alt: string;
   designer: string;
   winner: number;
+  /** Antal röster – skrivs in av styrelsen efter röstningen (migrering 0017). Hämtas bara när röstningen är klar. */
+  votes: number | null;
 }
 
 export interface ResourceRow {
@@ -174,7 +176,7 @@ export async function loadEntries(db: D1Database, withDesigner: boolean): Promis
   try {
     const { results } = await db
       .prepare(
-        `SELECT id, code, category, image_key, alt, ${withDesigner ? "designer" : "'' AS designer"}, ${withDesigner ? "winner" : "0 AS winner"}
+        `SELECT id, code, category, image_key, alt, ${withDesigner ? "designer" : "'' AS designer"}, ${withDesigner ? "winner" : "0 AS winner"}, ${withDesigner ? "votes" : "NULL AS votes"}
          FROM competition_entries WHERE published = 1 AND image_key IS NOT NULL AND image_key != '' ORDER BY category, sort_order, code COLLATE NOCASE, id`,
       )
       .all<EntryRow>();

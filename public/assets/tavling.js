@@ -250,8 +250,26 @@
       var who = (name && name.value.replace(/\s+/g, " ").trim()) || fallbackName;
       var subject = pattern.replace(/\{kategori\}/g, checked ? checked.value : "").replace(/\{namn\}/g, who);
       out.textContent = subject;
-      if (link) link.href = "mailto:" + email + "?subject=" + encodeURIComponent(subject);
+      if (link) link.href = "mailto:" + email + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent((link.getAttribute("data-body") || "") + "\n\n");
     };
+    // Intygandet: knappen Skriv mejlet fungerar först när rutan är ikryssad
+    var affirm = box.querySelector("[data-affirm]");
+    var note = root.querySelector("[data-affirm-note]");
+    if (affirm && link) {
+      var sync = function () {
+        link.setAttribute("aria-disabled", affirm.checked ? "false" : "true");
+        link.classList.toggle("is-disabled", !affirm.checked);
+        if (affirm.checked && note) note.textContent = "";
+      };
+      affirm.addEventListener("change", sync);
+      link.addEventListener("click", function (e) {
+        if (affirm.checked) return;
+        e.preventDefault();
+        if (note) note.textContent = link.getAttribute("data-affirm-needed") || "";
+        affirm.focus();
+      });
+      sync();
+    }
     box.addEventListener("input", update);
     box.addEventListener("change", update);
     update();

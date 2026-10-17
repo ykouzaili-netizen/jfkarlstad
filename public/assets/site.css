@@ -1134,6 +1134,39 @@ main:focus { outline: none; }
 }
 .partner-strip a:hover { background: var(--c-bg); border-color: var(--c-text); }
 
+/* Rullande band med alla partners loggor (startsidan, se partnerBand() i pages/home.ts) */
+.partner-band { margin-top: 32px; padding-top: 26px; border-top: 1px solid var(--c-border); --mq-gap: 14px; }
+.partner-band > .partner-strip-title { margin-bottom: 14px; }
+.partner-band .marquee-viewport { padding-block: 10px 12px; margin-block: -10px -12px; }
+.partner-band .marquee-track { align-items: center; }
+.partner-band .marquee-item { flex: 0 0 auto; }
+@media (prefers-reduced-motion: reduce) {
+  /* Ingen rörelse: bara originalen (kopiorna till loopen döljs) och de radbryts i stället för att skrolla */
+  .partner-band .marquee-track { flex-wrap: wrap; width: auto; row-gap: var(--mq-gap); }
+  .partner-band .marquee-item[aria-hidden="true"] { display: none; }
+  .partner-band .marquee-viewport { overflow: visible; }
+}
+.partner-band .marquee-item:hover { transform: translateY(-3px); }
+.partner-band .marquee-track:hover .marquee-item:not(:hover) { opacity: 0.6; }
+.partner-band-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 170px;
+  height: 76px;
+  padding: 12px 26px;
+  border-radius: var(--radius);
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  text-decoration: none;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.partner-band-logo:hover { border-color: var(--c-text); box-shadow: 0 10px 24px -16px rgb(0 0 0 / 0.35); }
+.partner-band-logo.is-main { height: 88px; min-width: 210px; }
+.partner-band-logo.is-main .partner-logo-sm { max-height: 44px; max-width: 170px; }
+.partner-band .motion-pause { margin-top: 12px; }
+.partner-footer.has-band { justify-content: flex-end; }
+
 /* Mobil: huvudpartnerna sida vid sida att svepa mellan (nästa kort syns i kanten), och raden under
    staplas så att knappen får hela bredden i stället för att hamna snett till höger. */
 @media (max-width: 639px) {
@@ -2134,6 +2167,69 @@ main > section:nth-child(n + 3):not(.section-nav ~ *),
 .package-featured { background: var(--c-primary); color: var(--c-on-primary); }
 .package-name { font-size: calc(1.5rem * var(--display-scale)); margin-bottom: 10px; }
 .package-card p { opacity: 0.86; }
+.package-grid { padding: 0; margin: 0; }
+.package-num { display: none; }
+
+/* Samarbetsformer – Nivåer: paketen under varandra med stora siffror (Texter och sidor → För företag → Utseende) */
+.packages--nivaer .package-grid { grid-template-columns: 1fr; gap: 0; max-width: 920px; }
+.packages--nivaer .package-card {
+  display: grid;
+  /* Samma bredd på sifferkolumnen i alla rader, så att rubrikerna linjerar */
+  grid-template-columns: calc(clamp(2.5rem, 2rem + 2.4vw, 4rem) * var(--display-scale) * 1.45) 1fr;
+  gap: clamp(18px, 4vw, 40px);
+  align-items: baseline;
+  padding: clamp(22px, 3vw, 30px) 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  border-top: 1px solid var(--c-border);
+}
+.packages--nivaer .package-card:last-child { border-bottom: 1px solid var(--c-border); }
+.packages--nivaer .package-num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: calc(clamp(2.5rem, 2rem + 2.4vw, 4rem) * var(--display-scale));
+  font-weight: var(--display-weight, 700);
+  line-height: 0.9;
+  color: var(--c-text);
+  -webkit-text-stroke: 0;
+  font-variant-numeric: lining-nums;
+}
+.packages--nivaer .package-featured .package-num { color: var(--c-accent); text-shadow: 0 1px 0 color-mix(in srgb, var(--c-text) 20%, transparent); }
+.packages--nivaer .package-featured .package-name::after {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 3px;
+  margin-top: 10px;
+  border-radius: 2px;
+  background: var(--c-accent);
+}
+.packages--nivaer .package-card p { max-width: 60ch; }
+
+/* Samarbetsformer – Mörk panel */
+.packages--mork { background: var(--c-primary); color: var(--c-on-primary); }
+.packages--mork .section-title, .packages--mork .section-lead { color: var(--c-on-primary); }
+.packages--mork .section-lead { opacity: 0.8; }
+.packages--mork .package-card {
+  position: relative;
+  background: color-mix(in srgb, var(--c-on-primary) 7%, var(--c-primary));
+  color: var(--c-on-primary);
+  border: 1px solid color-mix(in srgb, var(--c-on-primary) 14%, transparent);
+  padding-top: 64px;
+}
+.packages--mork .package-num {
+  display: block;
+  position: absolute;
+  top: 24px;
+  left: 28px;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  letter-spacing: 0.14em;
+  color: var(--c-accent);
+}
+.packages--mork .package-featured { background: var(--c-accent); color: var(--c-on-accent); border-color: var(--c-accent); }
+.packages--mork .package-featured .package-num { color: var(--c-on-accent); opacity: 0.7; }
 
 .cta-inline {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px;
@@ -2174,14 +2270,21 @@ main > section:nth-child(n + 3):not(.section-nav ~ *),
 .partner-links.has-buttons { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--c-border); }
 .partner-links li + li { border-top: 1px solid var(--c-border); }
 .partner-links a {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  display: flex; align-items: center; gap: 12px;
   margin-inline: -12px; padding: 12px;
   border-radius: 12px;
   font-weight: 600; text-decoration: none;
   transition: background-color 0.15s var(--ease);
 }
 .partner-links a:hover { background: color-mix(in srgb, var(--c-accent) 20%, transparent); }
-.partner-link-text { display: grid; gap: 2px; min-width: 0; }
+.partner-link-text { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.partner-link-kind {
+  display: grid; place-items: center; flex: none;
+  width: 36px; height: 36px; border-radius: 10px;
+  background: color-mix(in srgb, var(--c-accent) 26%, transparent);
+}
+.partner-links .partner-link-kind .icon { color: var(--c-text); transform: none; }
+.partner-links a:hover .partner-link-kind .icon { transform: none; }
 .partner-link-host { font-size: 0.8125rem; font-weight: 400; color: var(--c-muted); overflow-wrap: anywhere; }
 .partner-links .icon { flex: none; color: var(--c-muted); transition: transform 0.15s var(--ease), color 0.15s var(--ease); }
 .partner-links a:hover .icon { color: var(--c-text); transform: translate(2px, -2px); }
@@ -2308,6 +2411,35 @@ a.doc-title::after { content: ""; position: absolute; inset: 0; }
 .faq-item[open] .faq-icon::after { transform: translate(-50%, -50%) rotate(0deg); }
 .faq-a { padding: 0 22px 20px; color: var(--c-muted); }
 .faq-a p + p { margin-top: 0.8em; }
+
+/* Vanliga frågor – Frågekort och Register (Texter och sidor → Vanliga frågor → Utseende) */
+.faq-cards { display: grid; gap: 14px; }
+@media (min-width: 720px) { .faq-cards { grid-template-columns: 1fr 1fr; } }
+.faq-card { padding: 22px 24px; border-radius: var(--radius); background: var(--c-surface); border: 1px solid var(--c-border); }
+.faq-card .faq-a, .faq-entry .faq-a { padding: 0; }
+.faq-card-q { font-family: var(--font-body); font-size: 1.0625rem; font-weight: 700; letter-spacing: 0; line-height: 1.4; margin-bottom: 10px; }
+.faq-card-q::before {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 3px;
+  margin-bottom: 12px;
+  border-radius: 2px;
+  background: var(--c-accent);
+}
+.faq-page--kort .container { max-width: calc(1040px + var(--gutter) * 2); }
+.faq-register { display: grid; gap: 32px; }
+@media (min-width: 900px) { .faq-register { grid-template-columns: minmax(220px, 300px) 1fr; gap: clamp(40px, 5vw, 72px); align-items: start; } }
+.faq-index { padding: 20px 22px; border-radius: var(--radius); background: var(--c-surface); border: 1px solid var(--c-border); }
+@media (min-width: 900px) { .faq-index { position: sticky; top: calc(var(--header-h) + 24px); max-height: calc(100vh - var(--header-h) - 48px); overflow: auto; } }
+.faq-index-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-muted); margin-bottom: 8px; }
+.faq-index-cat { font-weight: 700; margin: 14px 0 6px; }
+.faq-index ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
+.faq-index a { display: block; padding: 6px 10px; margin-inline: -10px; border-radius: 10px; font-size: 0.9375rem; line-height: 1.35; text-decoration: none; color: var(--c-muted); transition: background-color 0.2s var(--ease), color 0.2s var(--ease); }
+.faq-index a:hover { background: var(--c-hover); color: var(--c-text); }
+.faq-entry { padding: 22px 0; border-top: 1px solid var(--c-border); scroll-margin-top: calc(var(--header-h) + 24px); }
+.faq-entry:target .faq-card-q::before { width: 56px; }
+.faq-entry .faq-card-q::before { transition: width 0.3s var(--ease); }
 
 /* Juridiska sidor */
 .purpose-list { display: grid; gap: 14px; margin: 1em 0 1.5em; }
@@ -4486,3 +4618,9 @@ button.pd-plaque:hover { transform: translateY(-2px); filter: brightness(1.06); 
 /* Dold sida som visas för den som är inloggad (src/index.ts → hiddenPreview) */
 .hidden-page-note { margin: 0; padding: 10px var(--gutter); background: var(--c-accent); color: var(--c-on-accent); font-size: 0.875rem; text-align: center; }
 .hidden-page-note a { color: inherit; font-weight: 700; text-underline-offset: 3px; }
+
+/* Nominera till en utmärkelse (rutan under utmärkelserna på Om oss och sidan /nominera) */
+.nominate-cta-wrap { padding-block: clamp(24px, 3vw, 36px) clamp(40px, 6vw, 72px); }
+.nominate-cta { margin-top: 0; }
+.nominate-closed { display: flex; gap: 14px; align-items: flex-start; }
+.nominate-closed .icon { flex: none; margin-top: 2px; }

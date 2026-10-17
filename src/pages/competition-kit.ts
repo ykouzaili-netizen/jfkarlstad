@@ -3,7 +3,7 @@ import { ec, ek, lines, siteLayout, type Settings } from "../lib/settings.js";
 import { isLinkVisible } from "../lib/pagelayout.js";
 import { fill } from "../lib/texts.js";
 import { slugify } from "../lib/slug.js";
-import { competitionDates, countdownTarget, dayMonth, instants, phaseAt, timeLeft, type EntryRow, type Phase, type ResourceRow } from "../lib/competition.js";
+import { competitionDates, countdownTarget, dayMonth, instants, phaseAt, timeLeft, unitForms, type EntryRow, type Phase, type ResourceRow } from "../lib/competition.js";
 import { ASSET_VERSION, mediaUrl, picture } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 
@@ -21,6 +21,52 @@ const newTab = html`<span class="sr-only"> (öppnas i ny flik)</span>`;
  * Bidragen visas först när röstningen har öppnat (de renderas inte alls innan dess, inte ens dolda), och
  * upphovspersonerna först när den har stängt (loadEntries hämtar inte namnen innan dess).
  */
+/**
+ * Röstningsresultatet som liggande staplar per kategori (efter röstningen, när styrelsen har fyllt i röster).
+ * En serie per kategori i accentfärgen; vinnaren i full färg, övriga tonade. Siffrorna står som text bredvid
+ * varje stapel, så att inget hänger på färgen.
+ */
+function resultsChart(s: Settings, entries: EntryRow[], cats: { id: EntryRow["category"]; label: string }[]): SafeHtml | string {
+  if (s.comp_results_show === "nej") return "";
+  const withVotes = entries.filter((e) => e.votes != null);
+  if (!withVotes.some((e) => (e.votes ?? 0) > 0)) return "";
+  const [one, many] = unitForms(s.comp_results_unit);
+  const word = (n: number) => `${n.toLocaleString("sv-SE")} ${n === 1 ? one : many}`;
+  return html`<div class="t-results" aria-labelledby="resultat">
+    <h3 class="t-h3" id="resultat"${ek(s, "comp_results_title")}>${s.comp_results_title}</h3>
+    ${s.comp_results_text ? html`<p class="t-kit-text"${ek(s, "comp_results_text")}>${s.comp_results_text}</p>` : ""}
+    <div class="t-results-grid">
+      ${cats.map((c) => {
+        const list = withVotes.filter((e) => e.category === c.id).sort((a, b) => (b.votes ?? 0) - (a.votes ?? 0));
+        if (!list.length) return "";
+        const total = list.reduce((sum, e) => sum + (e.votes ?? 0), 0);
+        const max = Math.max(1, ...list.map((e) => e.votes ?? 0));
+        return html`<figure class="t-result">
+          <figcaption><span class="t-result-cat">${c.label}</span><span class="t-result-total"${ek(s, "comp_results_total")}>${fill(s.comp_results_total, { antal: total.toLocaleString("sv-SE") })}</span></figcaption>
+          <ol class="t-bars">
+            ${list.map((e) => {
+              const v = e.votes ?? 0;
+              const pct = total ? Math.round((v / total) * 100) : 0;
+              return html`<li class="t-bar${e.winner ? " is-winner" : ""}">
+                <span class="t-bar-label">${fill(s.comp_entry_code, { kod: e.code })}${e.designer ? html`<span class="t-bar-by"> · ${e.designer}</span>` : ""}${e.winner ? html`<span class="t-bar-win">${icon("trophy", "icon icon-sm")}<span class="sr-only">${s.comp_entry_winner}</span></span>` : ""}</span>
+                <span class="t-bar-track" aria-hidden="true"><span class="t-bar-fill t-bar-w-${Math.round((v / max) * 100)}"></span></span>
+                <span class="t-bar-value">${word(v)}<span class="t-bar-pct"> · ${pct} %</span></span>
+              </li>`;
+            })}
+          </ol>
+        </figure>`;
+      })}
+    </div>
+  </div>`;
+}
+
+/** Bredden på staplarna (0–100 %) som CSS-klasser – inga inline-stilar (CSP). */
+export function barWidthCss(): string {
+  let css = "";
+  for (let i = 0; i <= 100; i++) css += `.jfk-tavling .t-bar-w-${i}{width:${i}%}`;
+  return css;
+}
+
 export function entriesSection(s: Settings, entries: EntryRow[], phase: Phase): SafeHtml | string {
   if (!entries.length || (phase !== "voting" && phase !== "done")) return "";
   const done = phase === "done";
@@ -44,6 +90,7 @@ export function entriesSection(s: Settings, entries: EntryRow[], phase: Phase): 
           </div>`
         : ""}
     </div>
+    ${done ? resultsChart(s, entries, cats) : ""}
     <ul class="t-entry-grid">
       ${entries.map((e) => {
         const name = fill(s.comp_entry_code, { kod: e.code });

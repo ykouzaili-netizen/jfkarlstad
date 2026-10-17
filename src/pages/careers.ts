@@ -5,7 +5,7 @@ import { formatDay, isoDate, stockholmToday, truncate } from "../lib/format.js";
 import { plainText, renderInline, renderMarkdown } from "../lib/markdown.js";
 import { fill } from "../lib/texts.js";
 import { htmlResponse } from "../lib/http.js";
-import { countStat, isCountable, type StatKind } from "../lib/stats.js";
+import { countLink, countStat, isCountable, type StatKind } from "../lib/stats.js";
 import type { RequestContext } from "../router.js";
 import { layout, mediaUrl } from "../views/layout.js";
 import { arrowLink, emptyState } from "../views/components.js";
@@ -172,9 +172,14 @@ export async function outboundHandler(c: RequestContext): Promise<Response> {
     stat = kind === "webb" ? "partner_website" : "partner_career";
   } else if (kind === "lank") {
     const p = await db.prepare("SELECT links FROM partners WHERE published = 1 AND id = ?").bind(id).first<{ links: string }>();
+    const links = parsePartnerLinks(p?.links);
+    // ?l=<länkens id> (nu) eller ?nr=N (äldre adresser, N börjar på 1)
+    const lid = c.url.searchParams.get("l") ?? "";
     const nr = parseInt(c.url.searchParams.get("nr") ?? "", 10);
-    target = nr > 0 ? parsePartnerLinks(p?.links)[nr - 1]?.url : null;
+    const link = lid ? links.find((l) => l.id === lid) : nr > 0 ? links[nr - 1] : undefined;
+    target = link?.url;
     stat = "partner_link";
+    if (link && isCountable(c.req)) c.exec.waitUntil(countLink(c.env, id, link.id));
   } else if (kind === "ansok") {
     const j = await jobQuery.byId(db, id).first<JobRow>();
     target = j?.apply_url;

@@ -3,6 +3,7 @@ import { formatDay, stockholmToday } from "../lib/format.js";
 import type { RequestContext } from "../router.js";
 import type { Session } from "./auth.js";
 import { adminHead, adminLayout, newMessageCount } from "./layout.js";
+import { parsePartnerLinks } from "../lib/partner-links.js";
 import { PARTNER_TABS, resourceTabs } from "./resources.js";
 
 /**
@@ -51,10 +52,48 @@ interface PartnerStats {
   applies: number;
 }
 
+interface LinkStat {
+  partnerId: number;
+  partner: string;
+  label: string;
+  host: string;
+  clicks: number;
+}
+
+/** Klick per länk under terminen (stats_links). Länkar som tagits bort visas som "Borttagen länk". Tål att tabellen saknas. */
+async function linkStats(db: D1Database, term: Term, partners: { id: number; name: string; links: string }[]): Promise<LinkStat[]> {
+  let sums: { partner_id: number; link_id: string; n: number }[] = [];
+  try {
+    sums = (
+      await db
+        .prepare("SELECT partner_id, link_id, SUM(count) AS n FROM stats_links WHERE day BETWEEN ? AND ? GROUP BY partner_id, link_id")
+        .bind(term.from, term.to)
+        .all<{ partner_id: number; link_id: string; n: number }>()
+    ).results;
+  } catch {
+    return [];
+  }
+  const host = (u: string) => {
+    try {
+      return new URL(u).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  };
+  const out: LinkStat[] = [];
+  for (const p of partners) {
+    const links = parsePartnerLinks(p.links);
+    for (const l of links) out.push({ partnerId: p.id, partner: p.name, label: l.label, host: host(l.url), clicks: sums.find((x) => x.partner_id === p.id && x.link_id === l.id)?.n ?? 0 });
+    const gone = sums.filter((x) => x.partner_id === p.id && !links.some((l) => l.id === x.link_id)).reduce((a, x) => a + x.n, 0);
+    if (gone) out.push({ partnerId: p.id, partner: p.name, label: "Borttagen länk", host: "", clicks: gone });
+  }
+  return out;
+}
+
 async function collect(db: D1Database, term: Term) {
   const [sums, partners, jobs, first] = await db.batch([
     db.prepare("SELECT kind, ref_id, SUM(count) AS n FROM stats_daily WHERE day BETWEEN ? AND ? GROUP BY kind, ref_id").bind(term.from, term.to),
-    db.prepare("SELECT id, name FROM partners ORDER BY CASE tier WHEN 'huvud' THEN 0 ELSE 1 END, sort_order, name"),
+    db.prepare("SELECT id, name, links FROM partners ORDER BY CASE tier WHEN 'huvud' THEN 0 ELSE 1 END, sort_order, name"),
     db.prepare("SELECT id, title, employer, partner_id FROM jobs"),
     db.prepare("SELECT MIN(day) AS d FROM stats_daily"),
   ]);
@@ -79,13 +118,14 @@ async function collect(db: D1Database, term: Term) {
     .filter((j) => j.partner_id !== null && (j.views || j.applies))
     .sort((a, b) => b.views - a.views);
   const since = ((first!.results[0] as { d?: string } | undefined)?.d ?? null) as string | null;
-  return { rows, jobStats, since };
+  const links = await linkStats(db, term, partners!.results as { id: number; name: string; links: string }[]);
+  return { rows, jobStats, since, links };
 }
 
 export async function partnerStatsPage(c: RequestContext, session: Session): Promise<Response> {
   const terms = recentTerms(6);
   const term = terms.find((t) => t.id === c.url.searchParams.get("termin")) ?? terms[0]!;
-  const { rows, jobStats, since } = await collect(c.env.DB, term);
+  const { rows, jobStats, since, links } = await collect(c.env.DB, term);
   const max = Math.max(1, ...rows.map((r) => r.views));
   const total = rows.reduce((s, r) => s + r.views + r.website + r.career + r.links + r.jobViews + r.applies, 0);
   const num = (v: number) => v.toLocaleString("sv-SE");
@@ -125,6 +165,18 @@ export async function partnerStatsPage(c: RequestContext, session: Session): Pro
             </tbody>
           </table>
         </div>
+        ${links.length
+          ? html`<h2 class="card-heading stats-subhead">Klick per länk</h2>
+              <p class="field-help stats-note">Partnernas övriga länkar (Partners → partnern → Fler länkar), en rad per länk. Räknas per länk sedan 17 oktober 2026 – äldre klick finns bara i summan ovan.</p>
+              <div class="admin-card admin-card-flush">
+                <table class="admin-table stats-table">
+                  <thead><tr><th scope="col">Partner</th><th scope="col">Länk</th><th scope="col">Klick</th></tr></thead>
+                  <tbody>${links.map(
+                    (l) => html`<tr><td data-label="Partner"><a class="row-title" href="/admin/partners/${l.partnerId}">${l.partner}</a></td><td data-label="Länk">${l.label}${l.host ? html`<span class="muted stats-host"> · ${l.host}</span>` : ""}</td><td data-label="Klick" class="num">${num(l.clicks)}</td></tr>`,
+                  )}</tbody>
+                </table>
+              </div>`
+          : ""}
         ${jobStats.length
           ? html`<h2 class="card-heading stats-subhead">Jobbannonser</h2>
               <div class="admin-card admin-card-flush">
@@ -142,7 +194,7 @@ export async function partnerStatsPage(c: RequestContext, session: Session): Pro
 export async function partnerStatsCsv(c: RequestContext): Promise<Response> {
   const terms = recentTerms(6);
   const term = terms.find((t) => t.id === c.url.searchParams.get("termin")) ?? terms[0]!;
-  const { rows } = await collect(c.env.DB, term);
+  const { rows, links } = await collect(c.env.DB, term);
   const cell = (v: unknown) => {
     let s = v == null ? "" : String(v);
     if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
@@ -150,7 +202,10 @@ export async function partnerStatsCsv(c: RequestContext): Promise<Response> {
   };
   const header = ["Partner", "Visningar av partnersidan", "Klick till webbplatsen", "Klick till karriärsidan", "Klick på övriga länkar", "Visningar av jobbannonser", "Klick till ansökan"];
   const lines = rows.map((r) => [r.name, r.views, r.website, r.career, r.links, r.jobViews, r.applies].map(cell).join(";"));
-  const csv = "﻿" + [cell(term.label), header.map(cell).join(";"), ...lines].join("\r\n");
+  const linkLines = links.length
+    ? ["", [cell("Klick per länk"), cell("Länk"), cell("Adress"), cell("Klick")].join(";"), ...links.map((l) => [l.partner, l.label, l.host, l.clicks].map(cell).join(";"))]
+    : [];
+  const csv = "﻿" + [cell(term.label), header.map(cell).join(";"), ...lines, ...linkLines].join("\r\n");
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

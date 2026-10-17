@@ -22,7 +22,7 @@ import { eventDate, formatDate, isoDate, localToIso, stockholmNow, stockholmToda
 import { fill } from "../lib/texts.js";
 import { icsResponse, icsText, icsTime, nowStamp, VTIMEZONE } from "../lib/ics.js";
 import { partnerImageStyle, type PartnerImageStyle } from "../lib/partner-image.js";
-import { parsePartnerLinks } from "../lib/partner-links.js";
+import { linkIcon, parsePartnerLinks } from "../lib/partner-links.js";
 
 /** "https://www.linkedin.com/company/vinge" → "linkedin.com" – visas under länktexten så att man ser vart man hamnar. */
 function hostOf(url: string): string {
@@ -114,7 +114,7 @@ export async function partnerDetailPage(c: RequestContext): Promise<Response> {
         ${links.length
           ? html`<ul class="partner-links${p.career_url || p.website_url ? " has-buttons" : ""}">
               ${links.map(
-                (l, i) => html`<li><a href="/ut/lank/${p.id}?nr=${i + 1}" target="_blank" rel="noopener nofollow"><span class="partner-link-text">${l.label}<span class="partner-link-host">${hostOf(l.url)}</span></span>${icon("external", "icon icon-sm")}${newTab}</a></li>`,
+                (l) => html`<li><a href="/ut/lank/${p.id}?l=${l.id}" target="_blank" rel="noopener nofollow"><span class="partner-link-kind" aria-hidden="true">${icon(linkIcon(l.url), "icon icon-sm")}</span><span class="partner-link-text">${l.label}<span class="partner-link-host">${hostOf(l.url)}</span></span>${icon("external", "icon icon-sm")}${newTab}</a></li>`,
               )}
             </ul>`
           : ""}
@@ -285,6 +285,10 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
   if (slug.endsWith(".ics")) return eventIcsHandler(c, slug.slice(0, -4));
   const [s, e] = await Promise.all([loadSettings(db, c.preview), eventQuery.bySlug(db, slug).first<EventRow>()]);
   if (!e) return notFoundPage(c);
+  // Studentnätverket som eventet arrangeras tillsammans med (bara om nätverket visas)
+  const network = e.network_id
+    ? await db.prepare("SELECT name, slug FROM networks WHERE id = ? AND published = 1").bind(e.network_id).first<{ name: string; slug: string }>().catch(() => null)
+    : null;
   const d = eventDate(e.starts_at, e.ends_at);
   const isPast = (e.ends_at ?? e.starts_at.slice(0, 10) + "T23:59") < stockholmNow();
   const img = mediaUrl(e.image_key);
@@ -316,6 +320,7 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
               ${d ? html`<li>${icon("clock", "icon")}<span>${d.time}</span></li>` : ""}
               ${e.location ? html`<li>${icon("pin", "icon")}<span>${e.location}</span></li>` : ""}
               ${e.members_only ? html`<li${ek(s, "event_members_only")}>${icon("lock", "icon")}<span>${s.event_members_only}</span></li>` : ""}
+              ${network ? html`<li${ek(s, "event_with")}>${icon("network", "icon")}<span><a href="/om-oss/${network.slug}">${fill(s.event_with, { namn: network.name })}</a></span></li>` : ""}
             </ul>
             ${!isPast
               ? html`<div class="stack-sm">
@@ -550,6 +555,43 @@ export async function documentFileHandler(c: RequestContext): Promise<Response> 
 
 // ───────────────────────── FAQ ─────────────────────────
 
+/** Frågekort: alla svar syns direkt, i två kolumner (Texter och sidor → Vanliga frågor → Utseende). */
+function faqCards(s: Settings, items: FaqRow[]): SafeHtml {
+  return html`<div class="faq-cards">
+    ${items.map(
+      (f) => html`<article class="faq-card" id="fraga-${f.id}"${ec(s, `/admin/faq/${f.id}`, `Vanliga frågor › ${f.question}`)}>
+        <h3 class="faq-card-q">${f.question}</h3>
+        <div class="faq-a">${f.answer.split(/\n{2,}/).map((p) => html`<p>${p}</p>`)}</div>
+      </article>`,
+    )}
+  </div>`;
+}
+
+/** Register: frågorna som innehållsförteckning (fastnar vid kanten) och alla svar bredvid. */
+function faqRegister(s: Settings, groups: Map<string, FaqRow[]>): SafeHtml {
+  const slug = (t: string) => t.toLocaleLowerCase("sv").replace(/[^a-z0-9åäö]+/g, "-").replace(/^-|-$/g, "");
+  return html`<div class="faq-register">
+    <nav class="faq-index" aria-labelledby="faq-index-title">
+      <p class="faq-index-title" id="faq-index-title"${ek(s, "faq_index_title")}>${s.faq_index_title}</p>
+      ${[...groups.entries()].map(
+        ([cat, list]) => html`<p class="faq-index-cat">${cat}</p>
+          <ul>${list.map((f) => html`<li><a href="#fraga-${f.id}">${f.question}</a></li>`)}</ul>`,
+      )}
+    </nav>
+    <div class="faq-answers">
+      ${[...groups.entries()].map(
+        ([cat, list], i) => html`<h2 class="subsection-title${i === 0 ? " first" : ""}" id="kategori-${slug(cat)}">${cat}</h2>
+          ${list.map(
+            (f) => html`<article class="faq-entry" id="fraga-${f.id}"${ec(s, `/admin/faq/${f.id}`, `Vanliga frågor › ${f.question}`)}>
+              <h3 class="faq-card-q">${f.question}</h3>
+              <div class="faq-a">${f.answer.split(/\n{2,}/).map((p) => html`<p>${p}</p>`)}</div>
+            </article>`,
+          )}`,
+      )}
+    </div>
+  </div>`;
+}
+
 export async function faqPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
   const [s, items] = await Promise.all([loadSettings(db, c.preview), rows<FaqRow>(faqQuery.all(db))]);
@@ -558,6 +600,7 @@ export async function faqPage(c: RequestContext): Promise<Response> {
     if (!groups.has(f.category)) groups.set(f.category, []);
     groups.get(f.category)!.push(f);
   }
+  const style = ["dragspel", "kort", "register"].includes(s.faq_style) ? s.faq_style : "dragspel";
   const faqLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -565,10 +608,12 @@ export async function faqPage(c: RequestContext): Promise<Response> {
   };
   const content = html`
     ${pageHeader(s, { kickerKey: "faq_kicker", hero: "faq", titleKey: "faq_title", leadKey: "faq_lead" })}
-    <section class="section section-tight-top">
-      <div class="container narrow">
+    <section class="section section-tight-top faq-page faq-page--${style}">
+      <div class="container${style === "register" ? "" : " narrow"}">
         ${groups.size
-          ? [...groups.entries()].map(([cat, list], i) => html`<h2 class="subsection-title${i === 0 ? " first" : ""}">${cat}</h2>${faqList(s, list)}`)
+          ? style === "register"
+            ? faqRegister(s, groups)
+            : [...groups.entries()].map(([cat, list], i) => html`<h2 class="subsection-title${i === 0 ? " first" : ""}">${cat}</h2>${style === "kort" ? faqCards(s, list) : faqList(s, list)}`)
           : emptyState(s.faq_empty, ek(s, "faq_empty"))}
         <div class="cta-inline">
           <div>

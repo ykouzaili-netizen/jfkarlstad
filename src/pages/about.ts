@@ -1,5 +1,5 @@
 import { loadCommittees, type CommitteeRow } from "../lib/committees.js";
-import { blockOrder, isBlockHidden } from "../lib/pagelayout.js";
+import { blockOrder, isBlockHidden, isLinkVisible } from "../lib/pagelayout.js";
 import { html, paragraphs, type SafeHtml } from "../lib/html.js";
 import { ec, ek, loadSettings, type SettingKey, type Settings, siteLayout, withBlockColors } from "../lib/settings.js";
 import { boardQuery, honorQuery, partnerQuery, type BoardRow, type HonorRow, type PartnerRow } from "../lib/content.js";
@@ -34,7 +34,7 @@ export async function aboutPage(c: RequestContext): Promise<Response> {
     { id: "styrning", anchor: "#sa-styrs-jfk", labelKey: "governance_title", icon: "network", render: () => governance(s) },
     { id: "styrelsen", anchor: "#styrelsen", labelKey: "board_title", icon: "user", render: () => boardSection(s, board) },
     { id: "utskott", anchor: "#utskotten", labelKey: "committees_title", icon: "users", render: () => (committees.length ? committeesSection(s, committees) : "") },
-    { id: "utmarkelser", anchor: "#utmarkelser", labelKey: "honors_title", icon: "check", render: () => honorsSection(s, honorsData(honors, medals)) },
+    { id: "utmarkelser", anchor: "#utmarkelser", labelKey: "honors_title", icon: "check", render: () => html`${honorsSection(s, honorsData(honors, medals))}${nominateCta(s)}` },
     { id: "pedagog", anchor: "#arets-pedagog", labelKey: "pedagog_title", icon: "megaphone", render: () => pedagogSection(s, honors) },
     { id: "samarbeten", anchor: "#samarbeten", labelKey: "collab_title", icon: "briefcase", render: () => collabSection(s, partners, networks) },
   ];
@@ -51,6 +51,19 @@ export async function aboutPage(c: RequestContext): Promise<Response> {
   `;
 
   return htmlResponse(c, layout(c, s, { title: s.about_kicker, description: s.about_lead }, content));
+}
+
+/** Rutan under utmärkelserna som leder till /nominera – bara när sidan Nominera visas och tar emot nomineringar. */
+function nominateCta(s: Settings): SafeHtml | string {
+  if (!isLinkVisible(siteLayout(s), "/nominera") || s.nominate_open === "stangd") return "";
+  return html`<div class="container nominate-cta-wrap">
+    <div class="cta-inline cta-inline-soft nominate-cta">
+      <div>
+        <h3 class="cta-inline-title"${ek(s, "honors_nominate_title")}>${s.honors_nominate_title}</h3>
+      </div>
+      <a class="btn btn-primary" href="/nominera"${ek(s, "honors_nominate_button")}>${s.honors_nominate_button}${icon("arrowRight", "icon icon-sm")}</a>
+    </div>
+  </div>`;
 }
 
 /** Om oss har egna reservrutor med föreningens nyckeltal när bilder saknas. */

@@ -93,6 +93,7 @@ export async function adminLayout(
         { href: "/admin/texter", label: "Texter och sidor", icon: "edit" },
         { href: "/admin/utseende", label: "Utseende", icon: "sparkle", adminOnly: true },
         { href: "/admin/bildbank", label: "Bildbank", icon: "image" },
+        { href: "/admin/lankar", label: "Länkkontroll", icon: "link" },
       ],
     },
     {

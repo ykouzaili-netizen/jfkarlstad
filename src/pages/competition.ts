@@ -22,7 +22,7 @@ import {
   type Phase,
 } from "../lib/competition.js";
 import type { RequestContext } from "../router.js";
-import { entriesSection, kitSection, swatchCss } from "./competition-kit.js";
+import { barWidthCss, entriesSection, kitSection, swatchCss } from "./competition-kit.js";
 import { loadEntries, loadResources } from "../lib/competition.js";
 import { ASSET_VERSION, layout, picture } from "../views/layout.js";
 import { icon, type IconName } from "../views/icons.js";
@@ -343,7 +343,8 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
 
   const catOptions = [s.comp_cat_badge_title, s.comp_cat_merch_title];
   const fallbackSubject = fill(s.comp_subject_pattern, { kategori: `[${catOptions.join("/")}]`, namn: `[${s.comp_subject_name_label}]` });
-  const mailto = (subject: string) => `mailto:${email}?subject=${encodeURIComponent(subject)}`;
+  // Intygandet skrivs in i mejlet (tavling.js gör samma sak när ämnesraden ändras)
+  const mailto = (subject: string) => `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`${s.comp_affirm}\n\n`)}`;
 
   const submitCard = html`<article class="t-card t-card--submit" aria-labelledby="delta-rubrik"${states(SUBMIT_STATES, phase)}>
     <header class="t-card-head">
@@ -387,10 +388,12 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
         </div>
         <p class="t-hint"${ek(s, "comp_subject_hint")}>${icon("lock", "icon icon-sm")}<span>${s.comp_subject_hint}</span></p>
       </div>
+      <label class="t-affirm"><input type="checkbox" data-affirm><span${ek(s, "comp_affirm")}>${s.comp_affirm}</span></label>
     </div>
 
     <div class="t-card-foot">
-      <a class="t-btn t-btn-navy t-btn-block" href="${mailto(fallbackSubject)}" data-subject-link${when("open", submitState)}${ek(s, "comp_submit_button")}>${icon("mail", "icon icon-sm")}${s.comp_submit_button}</a>
+      <a class="t-btn t-btn-navy t-btn-block" href="${mailto(fallbackSubject)}" data-subject-link data-body="${s.comp_affirm}" data-affirm-needed="${s.comp_affirm_needed}"${when("open", submitState)}${ek(s, "comp_submit_button")}>${icon("mail", "icon icon-sm")}${s.comp_submit_button}</a>
+      <p class="t-affirm-note" data-affirm-note role="status"></p>
       <p class="t-note"${when("soon", submitState)}${ek(s, "comp_submit_before_text")}>${fill(s.comp_submit_before_text, { datum: dayMonth(d.open) })}</p>
       <p class="t-note"${when("closed", submitState)}${ek(s, "comp_submit_closed_text")}>${fill(s.comp_submit_closed_text, { datum: dayMonthClock(d.deadline) })}</p>
     </div>
@@ -442,7 +445,7 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
   const content = html`<div class="jfk-tavling" data-tavling
       data-open="${iso(t.open)}" data-deadline-end="${iso(t.deadlineEnd)}" data-vote-start="${iso(t.voteStart)}" data-vote-end-end="${iso(t.voteEndEnd)}"
       data-now="${iso(now)}" data-copied="${s.comp_copied}"${states(PHASE_STATES, phase)}>
-    <style nonce="${c.nonce}">${raw(`.jfk-tavling{--t-progress:${progress.toFixed(4)}}${swatchCss(s)}`)}</style>
+    <style nonce="${c.nonce}">${raw(`.jfk-tavling{--t-progress:${progress.toFixed(4)}}${swatchCss(s)}${phase === "done" ? barWidthCss() : ""}`)}</style>
     ${hero}
     ${tabBar}
     <div class="container t-panels">

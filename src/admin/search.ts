@@ -19,6 +19,16 @@ interface Hit {
   where: string;
   text: string;
   href: string;
+  rank?: number;
+}
+
+/** Hur väl en text matchar: 3 = hela texten, 2 = hela frasen, 1 = alla ord, 0 = bara fältnamnet. */
+function rankText(q: string, ts: string[], value: string): number {
+  const v = value.toLocaleLowerCase("sv").replace(/\s+/g, " ").trim();
+  const phrase = q.toLocaleLowerCase("sv").replace(/\s+/g, " ").trim();
+  if (v === phrase) return 3;
+  if (phrase && v.includes(phrase)) return 2;
+  return matches(ts, value) ? 1 : 0;
 }
 
 interface Group {
@@ -44,6 +54,7 @@ export async function adminSearchPage(c: RequestContext, session: Session): Prom
           const value = s[f.key as SettingKey] ?? "";
           if (!matches(ts, value, f.label, sec.title, page.title)) continue;
           textHits.push({
+            rank: rankText(q, ts, value),
             title: f.label,
             where: `${page.title} › ${sec.title}`,
             text: snippet(ts, value, 180) || "(tom)",
@@ -52,8 +63,8 @@ export async function adminSearchPage(c: RequestContext, session: Session): Prom
         }
       }
     }
-    // Träffar i själva texten före träffar i fältnamnet
-    textHits.sort((a, b) => Number(matches(ts, b.text)) - Number(matches(ts, a.text)));
+    // Exakt text först, sedan hela frasen, sedan alla ord – och träffar i själva texten före träffar i fältnamnet
+    textHits.sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0));
 
     const menuHits: Hit[] = [];
     for (const item of resolveMenu(s)) {

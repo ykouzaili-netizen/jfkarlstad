@@ -205,6 +205,7 @@ with sync_playwright() as p:
         adm.check(f"input[name=category][value={cat}]")
         adm.set_input_files("input[name=image_key]", str(test_image(OUT / f"bidrag-{code}.jpg", (900, 900), (40, 90, 160))))
         adm.fill("input[name=designer]", who)
+        adm.fill("input[name=votes]", "12" if code == "A" else "5")
         if code == "A":
             adm.check("input[name=winner]")
         adm.click("form button[type=submit] >> nth=-1")
@@ -226,6 +227,14 @@ with sync_playwright() as p:
     link = pub.locator("[data-subject-link]")
     check(link.is_visible() and link.get_attribute("href").startswith("mailto:informationsansvarig@jfkarlstad.se?subject=JFK%20T%C3%A4vling"), "mejlknappen öppnar ett mejl med ämnesraden")
     check(pub.locator(".t-step--1").get_attribute("data-state") == "now", "tidslinjen: steg 1 pågår")
+    # Intyget: mejlknappen fungerar först när rutan är ikryssad, och intyget står i mejlet
+    check(link.get_attribute("aria-disabled") == "true", "mejlknappen är spärrad tills intyget är ikryssat")
+    link.click(force=True)  # aria-disabled: Playwright väntar annars på att knappen blir aktiv
+    check("kryssa" in pub.locator("[data-affirm-note]").inner_text().lower() or pub.locator("[data-affirm-note]").inner_text().strip() != "", "klick utan intyg ger ett förklarande meddelande")
+    check(pub.url.startswith(BASE), "klick utan intyg öppnar inget mejl")
+    pub.locator("label.t-affirm").click()
+    check(link.get_attribute("aria-disabled") != "true" and "&body=" in (link.get_attribute("href") or ""), "med intyget ikryssat fungerar knappen och intyget följer med i mejlet")
+    pub.locator("label.t-affirm").screenshot(path=str(OUT / "tavling-intyg.png"))
     pub.screenshot(path=str(OUT / "tavling-oppen.png"), full_page=True)
 
     # Röstning pågår, utan länk
@@ -261,6 +270,13 @@ with sync_playwright() as p:
     check(pub.locator(".jfk-tavling").get_attribute("data-state") == "done", "läget blir ”klart”")
     check(not pub.locator(".t-clock").is_visible(), "ingen nedräkning när allt är klart")
     check("av Anna Andersson" in pub.locator(".t-entries").inner_text() and pub.locator(".t-entry.is-winner").count() == 1, "efter röstningen visas namnen och vinnaren")
+    res = pub.locator(".t-results")
+    check(res.count() == 1 and "12 röster" in res.inner_text() and "5 röster" in res.inner_text(), "efter röstningen visas röstresultatet som diagram")
+    check(pub.locator(".t-results [class*=t-bar-w-100]").count() == 2, "staplarna är relativa inom kategorin (bästa = 100 %)")
+    fresh(pub, "#delta")
+    res.scroll_into_view_if_needed()
+    pub.wait_for_timeout(900)
+    res.screenshot(path=str(OUT / "tavling-resultat.png"))
     pub.goto(f"{BASE}/")
     check(pub.locator(".comp-banner").count() == 0, "ingen banner när röstningen är klar")
 

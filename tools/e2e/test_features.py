@@ -290,7 +290,8 @@ with sync_playwright() as p:
     page.click("#texter-form .sticky-actions button[type=submit]")
     page.wait_for_url(re.compile(r"klart="))
     status, body, _ = get("/")
-    check("insta--rutnat" in body and "insta-bg-mork" in body and "data-marquee" not in body and "data-carousel" not in body, "utseende och bakgrund kan bytas")
+    insta = body[body.find("insta--rutnat"):][: max(0, body[body.find("insta--rutnat"):].find("</section>"))]
+    check("insta--rutnat" in body and "insta-bg-mork" in body and insta and "data-marquee" not in insta and "data-carousel" not in insta, "utseende och bakgrund kan bytas")
     page.goto(f"{BASE}/admin/texter?sida=startsida&falt=insta_style")
     page.locator("label:has(input[name=insta_style][value=karusell])").click()
     page.locator("label:has(input[name=insta_background][value=ljus])").click()

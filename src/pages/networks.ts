@@ -1,14 +1,16 @@
 import { html, type SafeHtml } from "../lib/html.js";
 import { ec, ek, loadSettings, type Settings } from "../lib/settings.js";
 import { networkGallery, networkQuery, loadNetworks, type NetworkRow } from "../lib/networks.js";
-import { parsePartnerLinks } from "../lib/partner-links.js";
+import { linkIcon, parsePartnerLinks } from "../lib/partner-links.js";
 import { renderMarkdown, plainText } from "../lib/markdown.js";
 import { truncate } from "../lib/format.js";
 import { fill } from "../lib/texts.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
 import { layout, mediaUrl, picture } from "../views/layout.js";
-import { arrowLink } from "../views/components.js";
+import { arrowLink, eventCard } from "../views/components.js";
+import { eventQuery, rows, type EventRow } from "../lib/content.js";
+import { stockholmNow } from "../lib/format.js";
 import { icon } from "../views/icons.js";
 import { breadcrumb } from "../views/page.js";
 import { notFoundPage } from "./errors.js";
@@ -56,7 +58,11 @@ export async function networkPage(c: RequestContext): Promise<Response> {
     n = null; // tabellen finns inte än
   }
   if (!n) return notFoundPage(c);
-  const [s, all] = await Promise.all([loadSettings(db, c.preview), loadNetworks(db)]);
+  const [s, all, events] = await Promise.all([
+    loadSettings(db, c.preview),
+    loadNetworks(db),
+    rows<EventRow>(eventQuery.upcomingForNetwork(db, n.id, stockholmNow(), 6)).catch(() => [] as EventRow[]),
+  ]);
   const vars = { namn: n.name };
   const edit = ec(s, `/admin/natverk/${n.id}`, `Studentnätverk › ${n.name}`);
   const links = parsePartnerLinks(n.links);
@@ -76,7 +82,7 @@ export async function networkPage(c: RequestContext): Promise<Response> {
         ${links.length
           ? html`<ul class="partner-links${n.website_url || n.email ? " has-buttons" : ""}">
               ${links.map(
-                (l) => html`<li><a href="${l.url}" target="_blank" rel="noopener"><span class="partner-link-text">${l.label}<span class="partner-link-host">${hostOf(l.url)}</span></span>${icon("external", "icon icon-sm")}${newTab}</a></li>`,
+                (l) => html`<li><a href="${l.url}" target="_blank" rel="noopener"><span class="partner-link-kind" aria-hidden="true">${icon(linkIcon(l.url), "icon icon-sm")}</span><span class="partner-link-text">${l.label}<span class="partner-link-host">${hostOf(l.url)}</span></span>${icon("external", "icon icon-sm")}${newTab}</a></li>`,
               )}
             </ul>`
           : ""}
@@ -125,6 +131,17 @@ export async function networkPage(c: RequestContext): Promise<Response> {
                 </figure></li>`,
               )}
             </ul>
+          </div>
+        </section>`
+      : ""}
+    ${events.length
+      ? html`<section class="section section-tight-top" aria-labelledby="natverk-evenemang">
+          <div class="container">
+            <div class="section-head">
+              <h2 class="section-title network-section-title" id="natverk-evenemang"${ek(s, "network_events_title")}>${fill(s.network_events_title, vars)}</h2>
+              ${arrowLink("/kalender", s.network_events_all, "arrow-link section-link", ek(s, "network_events_all"))}
+            </div>
+            <div class="card-grid">${events.map((e) => eventCard(s, e))}</div>
           </div>
         </section>`
       : ""}

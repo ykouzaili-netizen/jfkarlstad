@@ -28,6 +28,8 @@ export interface EventRow {
   image_alt: string;
   published: number;
   publish_at: string | null;
+  /** Studentnätverket som eventet arrangeras tillsammans med (migrering 0017), annars null. */
+  network_id?: number | null;
 }
 
 export interface PartnerRow {
@@ -241,6 +243,9 @@ export const eventQuery = {
   since: (db: D1Database, fromLocal: string) =>
     db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT 300`).bind(fromLocal),
   bySlug: (db: D1Database, slug: string) => db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND slug = ?`).bind(slug),
+  /** Kommande evenemang tillsammans med ett studentnätverk (nätverkets egen sida). */
+  upcomingForNetwork: (db: D1Database, networkId: number, nowLocal: string, limit: number) =>
+    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND network_id = ? AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(networkId, nowLocal, limit),
 };
 
 /** Logotypen kommer från partnern (om den är publicerad) eller från arbetsgivarregistret (companies). */

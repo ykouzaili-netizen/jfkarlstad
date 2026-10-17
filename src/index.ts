@@ -11,7 +11,7 @@ import { homePage } from "./pages/home.js";
 import { aboutPage } from "./pages/about.js";
 import { membershipPage } from "./pages/membership.js";
 import { studentsPage } from "./pages/students.js";
-import { companiesPage, contactPage, engagePage, paverkaPage, submitHandler, thanksPage } from "./pages/forms.js";
+import { companiesPage, contactPage, engagePage, nominatePage, paverkaPage, submitHandler, thanksPage } from "./pages/forms.js";
 import { jobDetailPage, jobsPage, outboundHandler } from "./pages/careers.js";
 import { calendarPage } from "./pages/calendar.js";
 import { searchPage } from "./pages/search.js";
@@ -90,6 +90,9 @@ const router = new Router()
   .get("/jf-paverka", (c) => paverkaPage(c))
   .post("/jf-paverka", submitHandler("paverka"))
   .get("/jf-paverka/tack", thanksPage("paverka"))
+  .get("/nominera", (c) => nominatePage(c))
+  .post("/nominera", submitHandler("nominering"))
+  .get("/nominera/tack", thanksPage("nominering"))
   .get("/tavling", competitionPage)
   .get("/tavling/kalender.ics", competitionIcsHandler)
   .get("/tavlingen", () => redirect("/tavling", 301))

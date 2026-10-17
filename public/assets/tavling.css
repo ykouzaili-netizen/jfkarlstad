@@ -809,6 +809,14 @@
 .jfk-tavling .t-hint .icon { margin-top: 2px; color: var(--t-gold-text); }
 
 .jfk-tavling .t-card-foot { display: grid; gap: 10px; margin-top: auto; }
+.jfk-tavling .t-affirm { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: var(--t-card); border: 1.5px solid var(--t-line-strong); font-size: 0.9375rem; font-weight: 600; line-height: 1.45; cursor: pointer; }
+.jfk-tavling .t-affirm input { flex: none; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--t-strong-bg); cursor: pointer; }
+.jfk-tavling .t-affirm:has(input:checked) { border-color: var(--t-green); background: var(--t-green-bg); }
+.jfk-tavling .t-affirm:has(input:focus-visible) { outline: 3px solid var(--t-gold); outline-offset: 2px; }
+.jfk-tavling .t-btn.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.jfk-tavling .t-btn.is-disabled:hover { transform: none; }
+.jfk-tavling .t-affirm-note { font-size: 0.875rem; font-weight: 600; color: var(--t-red); min-height: 0; }
+.jfk-tavling .t-affirm-note:empty { display: none; }
 .jfk-tavling .t-note { padding: 14px 16px; border-radius: 14px; background: var(--t-blue-bg); color: var(--t-text); font-size: 0.9375rem; font-weight: 500; }
 .jfk-tavling .t-card[data-state="closed"] .t-note { background: var(--t-card-2); color: var(--t-muted); border: 1px solid var(--t-line); }
 
@@ -877,6 +885,31 @@
 .jfk-tavling .t-entry-cat { font-family: var(--t-body); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--t-gold-text); }
 .jfk-tavling .t-entry-by { font-size: 0.875rem; color: var(--t-muted); }
 .jfk-tavling .t-entry-win { display: inline-flex; align-items: center; gap: 6px; justify-self: start; padding: 3px 10px; border-radius: 999px; background: var(--t-gold); color: var(--t-on-gold); font-size: 0.75rem; font-weight: 700; }
+
+/* Röstningsresultatet (efter röstningen) */
+.jfk-tavling .t-results { margin-bottom: 28px; padding: clamp(20px, 3vw, 28px); border-radius: 20px; background: var(--t-card); border: 1px solid var(--t-line); }
+.jfk-tavling .t-results > .t-kit-text { margin-top: 4px; }
+.jfk-tavling .t-results-grid { display: grid; gap: 26px; margin-top: 20px; }
+@media (min-width: 900px) { .jfk-tavling .t-results-grid { grid-template-columns: 1fr 1fr; gap: 36px; } }
+.jfk-tavling .t-result { margin: 0; }
+.jfk-tavling .t-result figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--t-line); }
+.jfk-tavling .t-result-cat { font-weight: 700; font-size: 1.0625rem; }
+.jfk-tavling .t-result-total { font-size: 0.8125rem; color: var(--t-muted); }
+.jfk-tavling .t-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.jfk-tavling .t-bar { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; }
+.jfk-tavling .t-bar-label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-weight: 600; font-size: 0.9375rem; }
+.jfk-tavling .t-bar-by { font-weight: 400; color: var(--t-muted); }
+.jfk-tavling .t-bar-win { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--t-gold); color: var(--t-on-gold); }
+.jfk-tavling .t-bar-win .icon { width: 14px; height: 14px; }
+.jfk-tavling .t-bar-value { font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.jfk-tavling .t-bar-pct { font-weight: 400; color: var(--t-muted); }
+.jfk-tavling .t-bar-track { grid-column: 1 / -1; display: block; height: 12px; border-radius: 4px; background: var(--t-card-2); border: 1px solid var(--t-line); overflow: hidden; }
+.jfk-tavling .t-bar-fill { display: block; height: 100%; border-radius: 0 4px 4px 0; background: color-mix(in srgb, var(--t-gold) 45%, var(--t-card)); transform-origin: left; }
+.jfk-tavling .t-bar.is-winner .t-bar-fill { background: var(--t-gold); }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion="av"]) .jfk-tavling .t-bar-fill { animation: t-grow 0.9s var(--t-ease) both; }
+}
+@keyframes t-grow { from { transform: scaleX(0); } }
 
 /* ── Verktyg och material ── */
 

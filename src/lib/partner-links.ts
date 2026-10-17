@@ -1,13 +1,52 @@
 import { html, type SafeHtml } from "./html.js";
+import { icon, type IconName } from "../views/icons.js";
 
 /**
  * Fler länkar på en partners egen sida (t.ex. LinkedIn, trainee­program, podd). Sparas som JSON i partners.links
- * (migrering 0014): [{ "label": "LinkedIn", "url": "https://…" }, …]. Länkarna går via /ut/lank/:id?nr=N så att
- * adressen alltid hämtas från databasen (ingen öppen omdirigering) och klicken räknas i partnerstatistiken.
+ * (migrering 0014): [{ "id": "k3x9q2", "label": "LinkedIn", "url": "https://…" }, …]. Länkarna går via
+ * /ut/lank/:id?l=<länkens id> så att adressen alltid hämtas från databasen (ingen öppen omdirigering) och klicken
+ * räknas i partnerstatistiken – totalt och per länk (stats_links). Id:t följer länken när ordningen ändras.
  */
 export interface PartnerLink {
+  id: string;
   label: string;
   url: string;
+}
+
+const ID_RE = /^[a-z0-9]{4,12}$/;
+
+/** Stabilt id för äldre länkar som sparades utan id (samma adress ger samma id). */
+function idFromUrl(url: string): string {
+  let h = 5381;
+  for (let i = 0; i < url.length; i++) h = ((h << 5) + h + url.charCodeAt(i)) >>> 0;
+  return ("l" + h.toString(36)).slice(0, 8).padEnd(4, "0");
+}
+
+function newId(): string {
+  const b = new Uint8Array(6);
+  crypto.getRandomValues(b);
+  return Array.from(b, (x) => (x % 36).toString(36)).join("");
+}
+
+/** Ikon efter vilken sorts länk det är (adressen) – generiska ikoner, inga varumärkeslogotyper. */
+export function linkIcon(url: string): IconName {
+  let host = "";
+  let path = "";
+  try {
+    const u = new URL(url);
+    host = u.hostname.replace(/^www\./, "").toLowerCase();
+    path = u.pathname.toLowerCase();
+  } catch {
+    return "external";
+  }
+  if (/(^|\.)linkedin\.com$/.test(host)) return "users";
+  if (/(^|\.)instagram\.com$/.test(host)) return "instagram";
+  if (/(^|\.)(youtube\.com|youtu\.be|vimeo\.com|tiktok\.com)$/.test(host)) return "play";
+  if (/(^|\.)(spotify\.com|podcasts\.apple\.com|acast\.com|podbean\.com)$/.test(host) || /podd|podcast/.test(path)) return "mic";
+  if (/(^|\.)(facebook\.com|fb\.me|x\.com|twitter\.com|threads\.net)$/.test(host)) return "megaphone";
+  if (/karriar|career|jobs?|teamtailor|jobb|trainee|rekryt/.test(host + path)) return "briefcase";
+  if (/\.pdf$/.test(path)) return "fileUp";
+  return "external";
 }
 
 export const MAX_PARTNER_LINKS = 10;
@@ -23,7 +62,8 @@ export function parsePartnerLinks(raw: unknown): PartnerLink[] {
     if (!Array.isArray(list)) return [];
     return list
       .filter((l): l is PartnerLink => !!l && typeof l.label === "string" && typeof l.url === "string" && URL_RE.test(l.url))
-      .slice(0, MAX_PARTNER_LINKS);
+      .slice(0, MAX_PARTNER_LINKS)
+      .map((l) => ({ id: typeof l.id === "string" && ID_RE.test(l.id) ? l.id : idFromUrl(l.url), label: l.label, url: l.url }));
   } catch {
     return [];
   }
@@ -43,6 +83,8 @@ function withScheme(url: string): string {
 export function readPartnerLinks(form: FormData): { value: string; error?: string } {
   const labels = form.getAll("link_label").map((v) => String(v).trim());
   const urls = form.getAll("link_url").map((v) => String(v).trim());
+  const ids = form.getAll("link_id").map((v) => String(v).trim());
+  const used = new Set<string>();
   const rows: PartnerLink[] = [];
   const problems: string[] = [];
   for (let i = 0; i < Math.max(labels.length, urls.length); i++) {
@@ -50,7 +92,11 @@ export function readPartnerLinks(form: FormData): { value: string; error?: strin
     const url = withScheme(urls[i] ?? "");
     if (!label && !url) continue;
     const n = rows.length + 1;
-    rows.push({ label: label.slice(0, LABEL_MAX), url: url.slice(0, URL_MAX) });
+    // Länkens id följer med när raderna flyttas – så att klicken per länk räknas rätt. Nya rader får ett nytt id.
+    let id = ids[i] && ID_RE.test(ids[i]!) && !used.has(ids[i]!) ? ids[i]! : newId();
+    while (used.has(id)) id = newId();
+    used.add(id);
+    rows.push({ id, label: label.slice(0, LABEL_MAX), url: url.slice(0, URL_MAX) });
     if (!label) problems.push(`länk ${n} saknar text`);
     else if (!url) problems.push(`länk ${n} saknar adress`);
     else if (!URL_RE.test(url)) problems.push(`adressen i länk ${n} ser inte ut som en webbadress`);
@@ -67,15 +113,20 @@ export function partnerLinksField(value: string, error?: string, help = "Visas i
   let saved: PartnerLink[] = [];
   try {
     const list = JSON.parse(value || "[]") as unknown;
-    if (Array.isArray(list)) saved = list.filter((l) => l && typeof l === "object").map((l) => ({ label: String(l.label ?? ""), url: String(l.url ?? "") }));
+    if (Array.isArray(list))
+      saved = list
+        .filter((l) => l && typeof l === "object")
+        .map((l) => ({ id: typeof l.id === "string" && ID_RE.test(l.id) ? l.id : l.url ? idFromUrl(String(l.url)) : "", label: String(l.label ?? ""), url: String(l.url ?? "") }));
   } catch {
     saved = [];
   }
-  const rows = [...saved, ...Array.from({ length: Math.min(2, MAX_PARTNER_LINKS - saved.length) }, () => ({ label: "", url: "" }))];
+  const rows = [...saved, ...Array.from({ length: Math.min(2, MAX_PARTNER_LINKS - saved.length) }, () => ({ id: "", label: "", url: "" }))];
   const row = (l: PartnerLink, i: number, template = false) => {
     const n = template ? "__N__" : String(i + 1);
-    return html`<div class="link-row" data-repeater-row>
+    return html`<div class="link-row" data-repeater-row data-sort-id="${l.id || n}">
+      <button class="link-row-handle" type="button" data-sort-handle hidden aria-label="Dra för att flytta länken (eller använd piltangenterna)" title="Dra för att flytta">${icon("grip", "icon icon-sm")}</button>
       <span class="link-row-num" aria-hidden="true">${n}</span>
+      <input type="hidden" name="link_id" value="${l.id}">
       <div class="link-row-field">
         <label class="field-label" for="${i === 0 && !template ? "falt-links" : `falt-link-label-${n}`}">Text på länken <span class="sr-only">(länk ${n})</span></label>
         <input type="text" id="${i === 0 && !template ? "falt-links" : `falt-link-label-${n}`}" name="link_label" value="${l.label}" maxlength="${LABEL_MAX}" placeholder="T.ex. LinkedIn" autocomplete="off">
@@ -89,9 +140,9 @@ export function partnerLinksField(value: string, error?: string, help = "Visas i
   };
   return html`<fieldset class="field field-links${error ? " has-error" : ""}" data-repeater data-repeater-max="${MAX_PARTNER_LINKS}" aria-describedby="links-hjalp${error ? " links-fel" : ""}">
     <legend class="field-label">Fler länkar <span class="optional">(valfritt)</span></legend>
-    <p class="field-help" id="links-hjalp">${help} Högst ${MAX_PARTNER_LINKS} länkar – töm en rad för att ta bort länken.</p>
-    <div class="link-rows" data-repeater-list>${rows.map((l, i) => row(l, i))}</div>
-    <template data-repeater-template>${row({ label: "", url: "" }, 0, true)}</template>
+    <p class="field-help" id="links-hjalp">${help} Högst ${MAX_PARTNER_LINKS} länkar – töm en rad för att ta bort länken. Dra i handtaget till vänster för att ändra ordning.</p>
+    <div class="link-rows" data-repeater-list data-sortable>${rows.map((l, i) => row(l, i))}</div>
+    <template data-repeater-template>${row({ id: "", label: "", url: "" }, 0, true)}</template>
     <button class="btn btn-outline btn-sm link-add" type="button" data-repeater-add hidden>+ Lägg till länk</button>
     ${error ? html`<p class="field-error" id="links-fel">${error}</p>` : ""}
   </fieldset>`;

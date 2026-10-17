@@ -1,5 +1,6 @@
 """Fler länkar på partnersidan: lägga till, felmeddelanden, ta bort, utlänkar via /ut/lank och läget utan JavaScript."""
 from common import *
+import re
 
 with sync_playwright() as p:
     b = p.chromium.launch()
@@ -39,7 +40,10 @@ with sync_playwright() as p:
     links = pub.locator(".partner-links a")
     check(links.count() == 3, "tre länkar på partnersidan")
     check("linkedin.com" in links.nth(0).inner_text(), "adressens domän visas under texten (https:// lades till automatiskt)")
-    check(links.nth(0).get_attribute("href") == f"/ut/lank/{pid}?nr=1", "länken går via /ut/lank")
+    href = links.nth(0).get_attribute("href") or ""
+    check(re.fullmatch(rf"/ut/lank/{pid}\?l=[a-z0-9]{{4,12}}", href) is not None, "länken går via /ut/lank med länkens id")
+    r = pub.request.get(f"{BASE}{href}", max_redirects=0)
+    check(r.status == 302 and r.headers.get("location") == "https://linkedin.com/company/vinge", "länkens id skickar vidare till rätt adress")
     check(links.nth(0).get_attribute("target") == "_blank" and "noopener" in (links.nth(0).get_attribute("rel") or ""), "öppnas i ny flik med noopener")
     pub.locator(".aside-card").screenshot(path=str(OUT / "partner-lankar-sida.png"))
     pub.screenshot(path=str(OUT / "partner-lankar-helsida.png"))

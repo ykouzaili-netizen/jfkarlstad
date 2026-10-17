@@ -39,3 +39,19 @@ export async function countStat(env: Env, kind: StatKind, refId: number): Promis
     console.error("Kunde inte räkna statistik", err instanceof Error ? err.message : err);
   }
 }
+
+/**
+ * Klick per enskild länk (partnerns "Fler länkar"): en totalsiffra per dag, partner och länk (stats_links, migrering 0017).
+ * Länkens id följer länken när ordningen ändras. Tål att tabellen saknas.
+ */
+export async function countLink(env: Env, partnerId: number, linkId: string): Promise<void> {
+  try {
+    await env.DB.prepare(
+      "INSERT INTO stats_links (day, partner_id, link_id, count) VALUES (?, ?, ?, 1) ON CONFLICT(day, partner_id, link_id) DO UPDATE SET count = count + 1",
+    )
+      .bind(stockholmToday(), partnerId, linkId)
+      .run();
+  } catch (err) {
+    console.error("Kunde inte räkna länkklick", err instanceof Error ? err.message : err);
+  }
+}

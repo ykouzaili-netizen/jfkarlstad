@@ -250,14 +250,43 @@ function newsSection(s: Settings, news: NewsRow[], tight: boolean): SafeHtml {
   </section>`;
 }
 
+/**
+ * Partnerloggorna i ett långsamt rullande band (Texter och sidor → Startsidan → Samarbetspartners → Partnerloggorna).
+ * Bandet består av två lika halvor (se site.js, [data-marquee]); varje halva fylls upp till minst åtta loggor så att
+ * den alltid är bredare än skärmen. Kopiorna döljs för skärmläsare och tangentbord.
+ */
+function partnerBand(s: Settings, partners: PartnerRow[]): SafeHtml {
+  const half: PartnerRow[] = [];
+  while (half.length < Math.max(8, partners.length)) half.push(partners[half.length % partners.length]!);
+  const item = (p: PartnerRow, i: number, copy: boolean) =>
+    html`<li class="marquee-item"${copy || i >= partners.length ? html` aria-hidden="true"` : ec(s, `/admin/partners/${p.id}`, `Partner › ${p.name}`)}>
+      <a class="partner-band-logo${p.tier === "huvud" ? " is-main" : ""}" href="/partners/${p.slug}"${copy || i >= partners.length ? html` tabindex="-1"` : ""}>${partnerLogo(p, "sm")}</a>
+    </li>`;
+  return html`<div class="partner-band marquee" data-marquee data-seconds="4">
+    <p class="partner-strip-title"${ek(s, "home_partners_band_label")}>${s.home_partners_band_label}</p>
+    <div class="marquee-viewport">
+      <ul class="marquee-track" aria-label="${s.home_partners_band_label}" data-marquee-track>
+        ${half.map((p, i) => item(p, i, false))}
+        ${half.map((p, i) => item(p, i, true))}
+      </ul>
+    </div>
+    <button type="button" class="motion-pause" data-motion-toggle aria-pressed="false" data-pause-label="${s.home_partners_pause}" data-play-label="${s.home_partners_play}">
+      <span class="motion-pause-icon" aria-hidden="true"></span><span data-motion-label${ek(s, "home_partners_pause")}>${s.home_partners_pause}</span><span class="sr-only"> partnerloggorna som rullar</span>
+    </button>
+  </div>`;
+}
+
 function partnersSection(s: Settings, partners: PartnerRow[], openJobs: number): SafeHtml {
   const main = partners.filter((p) => p.tier === "huvud");
-  const others = partners.filter((p) => p.tier !== "huvud");
+  const useBand = partners.length > 0 && (s.home_partners_band === "band" || (s.home_partners_band !== "rad" && partners.length > 3));
+  // Med bandet syns alla partners där – då behövs inte raden med övriga partners.
+  const others = useBand ? [] : partners.filter((p) => p.tier !== "huvud");
   return html`<section class="section section-surface" aria-labelledby="partner-titel">
     <div class="container">
       ${sectionHead(s, { titleKey: "home_partners_title", id: "partner-titel", leadKey: "partners_lead", link: { href: "/partners", labelKey: "home_partners_all" } })}
       ${main.length ? html`<ul class="partner-main">${main.map((p) => partnerCard(s, p))}</ul>` : ""}
-      <div class="partner-footer">
+      ${useBand ? partnerBand(s, partners) : ""}
+      <div class="partner-footer${useBand ? " has-band" : ""}">
         ${others.length
           ? html`<div class="partner-strip">
               <h3 class="partner-strip-title"${ek(s, "home_partners_strip")}>${s.home_partners_strip}</h3>

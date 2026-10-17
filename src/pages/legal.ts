@@ -11,7 +11,7 @@ import { pageHeader } from "../views/page.js";
 import { jobQuery } from "../lib/content.js";
 import { stockholmToday } from "../lib/format.js";
 
-const PURPOSES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+const PURPOSES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
 
 /** Övriga avsnitt i policyn, i ordning. Rubrik + markdowntext från textregistret. */
 const PRIVACY_SECTIONS = [
@@ -115,7 +115,7 @@ export async function sitemapXml(c: RequestContext): Promise<Response> {
   const networks = await loadNetworks(db);
   const staticPaths = [
     "/", "/om-oss", "/engagera-dig", "/bli-medlem", "/for-studenter", "/karriar", "/for-foretag", "/partners",
-    "/aktuellt", "/kalender", "/dokument", "/jf-paverka", "/tavling", "/faq", "/kontakt", "/integritetspolicy", "/cookies",
+    "/aktuellt", "/kalender", "/dokument", "/jf-paverka", "/tavling", "/nominera", "/faq", "/kontakt", "/integritetspolicy", "/cookies",
   ];
   const entry = (path: string, mod?: string) =>
     `<url><loc>${site}${path}</loc>${mod ? `<lastmod>${mod.slice(0, 10)}</lastmod>` : ""}</url>`;

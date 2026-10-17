@@ -174,6 +174,161 @@
     return input.files[0];
   }
 
+  /* ---------- Beskärning och svartvitt (porträtt) ----------
+     Fält med data-crop (bredd/höjd, t.ex. 0.75 = 3:4) öppnar en ruta där man drar och zoomar bilden under en fast ram.
+     data-gray-if="kind=hedersmedlem" gör bilden svartvit när fältet kind har det värdet. Resultatet ersätter filen
+     i formuläret – originalet lämnar aldrig datorn. Avbryter man används hela bilden (svartvit om det behövs). */
+  function grayWanted(input) {
+    var cond = input.getAttribute("data-gray-if");
+    if (!cond || !input.form) return false;
+    var parts = cond.split("="), field = input.form.elements[parts[0]];
+    if (!field) return false;
+    var value = field.value;
+    if (field.length && !field.tagName) { // RadioNodeList
+      value = "";
+      Array.prototype.forEach.call(field, function (r) { if (r.checked) value = r.value; });
+    }
+    return value === parts[1];
+  }
+
+  function toGray(canvas) {
+    var ctx = canvas.getContext("2d");
+    var img = ctx.getImageData(0, 0, canvas.width, canvas.height), d = img.data;
+    for (var i = 0; i < d.length; i += 4) {
+      var y = Math.round(0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]);
+      d[i] = d[i + 1] = d[i + 2] = y;
+    }
+    ctx.putImageData(img, 0, 0);
+    return canvas;
+  }
+
+  var MAX_CROP_SIDE = 2000;
+  function drawRegion(source, sx, sy, sw, sh, gray) {
+    var k = Math.min(1, MAX_CROP_SIDE / Math.max(sw, sh));
+    var c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(sw * k));
+    c.height = Math.max(1, Math.round(sh * k));
+    var ctx = c.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(source, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    return gray ? toGray(c) : c;
+  }
+
+  /** Visar beskärningsrutan. Svarar med en canvas (utsnittet), eller null om bilden ska användas som den är. */
+  function editImage(source, ratio, gray, fileName) {
+    var W = source.width, H = source.height;
+    if (!ratio || !window.HTMLDialogElement) {
+      return Promise.resolve(gray ? drawRegion(source, 0, 0, W, H, true) : null);
+    }
+    return new Promise(function (resolve) {
+      var dlg = document.createElement("dialog");
+      dlg.className = "crop-dialog";
+      dlg.setAttribute("aria-labelledby", "crop-title");
+      dlg.innerHTML =
+        '<form method="dialog" class="crop-inner">' +
+        '<h2 class="crop-title" id="crop-title">Beskär porträttet</h2>' +
+        '<p class="crop-help">Dra i bilden för att flytta den och zooma med reglaget (eller mushjulet). Piltangenterna flyttar, + och − zoomar.' + (gray ? " Fotot sparas svartvitt." : "") + "</p>" +
+        '<div class="crop-stage" tabindex="0" aria-label="Utsnitt – dra eller använd piltangenterna"><img class="crop-img" alt="" draggable="false"><span class="crop-grid" aria-hidden="true"></span></div>' +
+        '<label class="crop-zoom"><span>Zoom</span><input type="range" min="1" max="4" step="0.01" value="1"></label>' +
+        '<div class="crop-actions"><button class="btn btn-primary" value="ok">Använd utsnittet</button><button class="btn btn-outline" value="whole">Använd hela bilden</button></div>' +
+        "</form>";
+      document.body.appendChild(dlg);
+      var stage = dlg.querySelector(".crop-stage"), img = dlg.querySelector(".crop-img"), zoom = dlg.querySelector('input[type="range"]');
+      if (gray) img.classList.add("is-gray");
+      // Förhandsbilden: en nedskalad kopia (snabbare att flytta på mobiler)
+      var pv = document.createElement("canvas"), pk = Math.min(1, 1400 / Math.max(W, H));
+      pv.width = Math.round(W * pk); pv.height = Math.round(H * pk);
+      pv.getContext("2d").drawImage(source, 0, 0, pv.width, pv.height);
+      img.src = pv.toDataURL("image/jpeg", 0.85);
+
+      var frameW = 0, frameH = 0, base = 1, z = 1, x = 0, y = 0;
+      function layout() {
+        // Ramen får plats både på bredden och på höjden (mobil på tvären, låga laptopskärmar)
+        frameW = Math.floor(Math.min(stage.parentNode.clientWidth, window.innerHeight * 0.55 * ratio));
+        frameH = frameW / ratio;
+        stage.style.width = frameW + "px";
+        stage.style.height = frameH + "px";
+        base = Math.max(frameW / W, frameH / H); // täcker ramen
+        clamp();
+        paint();
+      }
+      function clamp() {
+        var s = base * z, iw = W * s, ih = H * s;
+        x = Math.min(0, Math.max(frameW - iw, x));
+        y = Math.min(0, Math.max(frameH - ih, y));
+      }
+      function paint() {
+        var s = base * z;
+        img.style.width = W * s + "px";
+        img.style.height = H * s + "px";
+        img.style.transform = "translate(" + x + "px," + y + "px)";
+      }
+      function zoomTo(nz, cx, cy) {
+        nz = Math.min(4, Math.max(1, nz));
+        cx = cx == null ? frameW / 2 : cx; cy = cy == null ? frameH / 2 : cy;
+        var s0 = base * z, s1 = base * nz;
+        x = cx - (cx - x) * (s1 / s0);
+        y = cy - (cy - y) * (s1 / s0);
+        z = nz;
+        zoom.value = String(z);
+        clamp(); paint();
+      }
+      dlg.showModal();
+      requestAnimationFrame(function () {
+        layout();
+        // Börja centrerat, lite uppåt (ansiktet brukar vara i övre delen)
+        var s = base * z;
+        x = (frameW - W * s) / 2; y = (frameH - H * s) / 3;
+        clamp(); paint();
+        stage.focus();
+      });
+      window.addEventListener("resize", layout);
+
+      var drag = null;
+      stage.addEventListener("pointerdown", function (e) {
+        drag = { x0: e.clientX, y0: e.clientY, x: x, y: y };
+        stage.setPointerCapture(e.pointerId);
+        stage.classList.add("is-dragging");
+      });
+      stage.addEventListener("pointermove", function (e) {
+        if (!drag) return;
+        x = drag.x + (e.clientX - drag.x0); y = drag.y + (e.clientY - drag.y0);
+        clamp(); paint();
+      });
+      var stop = function () { drag = null; stage.classList.remove("is-dragging"); };
+      stage.addEventListener("pointerup", stop);
+      stage.addEventListener("pointercancel", stop);
+      stage.addEventListener("wheel", function (e) {
+        e.preventDefault();
+        var r = stage.getBoundingClientRect();
+        zoomTo(z * (e.deltaY < 0 ? 1.08 : 1 / 1.08), e.clientX - r.left, e.clientY - r.top);
+      }, { passive: false });
+      stage.addEventListener("keydown", function (e) {
+        var step = e.shiftKey ? 40 : 10;
+        if (e.key === "ArrowLeft") x += step; else if (e.key === "ArrowRight") x -= step;
+        else if (e.key === "ArrowUp") y += step; else if (e.key === "ArrowDown") y -= step;
+        else if (e.key === "+" || e.key === "=") return zoomTo(z * 1.1);
+        else if (e.key === "-") return zoomTo(z / 1.1);
+        else return;
+        e.preventDefault();
+        clamp(); paint();
+      });
+      zoom.addEventListener("input", function () { zoomTo(parseFloat(zoom.value)); });
+
+      dlg.addEventListener("close", function () {
+        window.removeEventListener("resize", layout);
+        var s = base * z;
+        var out = dlg.returnValue === "ok"
+          ? drawRegion(source, -x / s, -y / s, frameW / s, frameH / s, gray)
+          : gray ? drawRegion(source, 0, 0, W, H, true) : null;
+        dlg.remove();
+        resolve(out);
+      });
+    });
+  }
+
   document.querySelectorAll("[data-upload]").forEach(function (input) {
     input.addEventListener("change", async function () {
       var name = input.getAttribute("data-upload");
@@ -216,6 +371,21 @@
       setBusy(form, 1);
       try {
         var source = await decode(file);
+        // Porträtt: beskär (data-crop) och/eller gör svartvit (data-gray-if) innan något annat
+        var cropRatio = parseFloat(input.getAttribute("data-crop") || "0");
+        var gray = grayWanted(input);
+        if ((cropRatio || gray) && window.DataTransfer && !/image\/gif/.test(file.type)) {
+          setStatus(name, "Beskär bilden …", "busy");
+          var edited = await editImage(source, cropRatio, gray, file.name);
+          if (edited) {
+            var eBlob = await toBlob(edited, "image/jpeg", 0.9);
+            if (eBlob) {
+              file = replaceFile(input, eBlob, file.name);
+              source = edited;
+              setStatus(name, (cropRatio ? "Bilden är beskuren" : "Bilden är klar") + (gray ? " och svartvit" : "") + " (" + edited.width + " × " + edited.height + " px).", "ok");
+            }
+          } else setStatus(name, "");
+        }
         var dims = { w: source.width, h: source.height };
         var tooBig = file.size > max;
         var tooManyPixels = Math.max(dims.w, dims.h) > RESIZE_ABOVE && file.size > RESIZE_MIN_BYTES;
@@ -1620,7 +1790,7 @@
     var max = parseInt(box.getAttribute("data-repeater-max") || "10", 10);
     var rows = function () { return Array.prototype.slice.call(list.querySelectorAll("[data-repeater-row]")); };
     var empty = function (row) {
-      return Array.prototype.every.call(row.querySelectorAll("input"), function (i) { return !i.value.trim(); });
+      return Array.prototype.every.call(row.querySelectorAll("input:not([type=hidden])"), function (i) { return !i.value.trim(); });
     };
     var renumber = function () {
       rows().forEach(function (row, i) {
@@ -1645,9 +1815,11 @@
       });
       var row = frag.querySelector("[data-repeater-row]");
       row.classList.add("is-new");
+      // Handtaget för att dra raden (se "Dra och släpp" nedan) visas bara när listan går att sortera
+      row.querySelectorAll("[data-sort-handle]").forEach(function (h) { h.hidden = !list.classList.contains("is-sortable"); });
       list.appendChild(frag);
       renumber();
-      if (focus) row.querySelector("input").focus();
+      if (focus) row.querySelector("input:not([type=hidden])").focus();
     };
     // Bara en tom rad i taget – de extra tomma raderna från servern behövs inte när det finns en knapp
     var blanks = rows().filter(empty);
@@ -1655,7 +1827,7 @@
     if (!rows().length) addRow(false);
     add.addEventListener("click", function () {
       var last = rows()[rows().length - 1];
-      if (last && empty(last)) { last.querySelector("input").focus(); return; }
+      if (last && empty(last)) { last.querySelector("input:not([type=hidden])").focus(); return; }
       addRow(true);
     });
     list.addEventListener("click", function (e) {
@@ -1666,16 +1838,233 @@
       var i = all.indexOf(row);
       if (all.length === 1) {
         row.querySelectorAll("input").forEach(function (inp) { inp.value = ""; });
-        row.querySelector("input").focus();
+        row.querySelector("input:not([type=hidden])").focus();
       } else {
         row.remove();
         var next = rows()[Math.min(i, rows().length - 1)];
-        (next ? next.querySelector("input") : add).focus();
+        (next ? next.querySelector("input:not([type=hidden])") : add).focus();
       }
       renumber();
       // Formuläret har ändrats (varningen "osparade ändringar" ska slå till)
       box.dispatchEvent(new Event("input", { bubbles: true }));
     });
+    // Raderna har flyttats med dra och släpp
+    list.addEventListener("sortable:moved", function () {
+      renumber();
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    });
     renumber();
+  });
+})();
+
+/* ---------- Dra och släpp (listor som går att sortera och partnerns länkrader) ----------
+   [data-sortable] innehåller rader med [data-sort-id] och ett handtag [data-sort-handle]. Raden dras med mus
+   eller finger, eller flyttas med piltangenterna på handtaget. Bara rader med samma data-sort-group byter plats
+   (t.ex. medaljer i samma grupp). Med data-sort-url sparas den nya ordningen direkt (POST ids=1,2,3); annars
+   (länkraderna i ett formulär) skickas händelsen "sortable:moved" och ordningen sparas med formuläret.
+   Utan JavaScript finns knapparna Flytta upp/ned kvar. */
+(function () {
+  "use strict";
+  document.querySelectorAll("[data-sortable]").forEach(function (box) {
+    var url = box.getAttribute("data-sort-url");
+    var items = function () { return Array.prototype.slice.call(box.children).filter(function (el) { return el.hasAttribute("data-sort-id"); }); };
+    var group = function (el) { return el.getAttribute("data-sort-group") || ""; };
+    var peers = function (el) { return items().filter(function (x) { return group(x) === group(el); }); };
+    box.classList.add("is-sortable");
+    box.querySelectorAll("[data-sort-handle]").forEach(function (h) { h.hidden = false; });
+
+    // Statusrad för listor som sparas direkt
+    var status = null;
+    if (url) {
+      status = document.createElement("p");
+      status.className = "sort-status";
+      status.setAttribute("role", "status");
+      var holder = box.closest(".admin-card") || box;
+      holder.parentNode.insertBefore(status, holder.nextSibling);
+    }
+    var say = function (text, bad) {
+      if (!status) return;
+      status.textContent = text;
+      status.classList.toggle("is-error", !!bad);
+    };
+
+    // Knapparna Flytta upp/ned: första och sista i gruppen kan inte flyttas längre
+    var refreshButtons = function () {
+      items().forEach(function (el) {
+        var ps = peers(el), i = ps.indexOf(el);
+        var up = el.querySelector('input[name="riktning"][value="upp"]');
+        var down = el.querySelector('input[name="riktning"][value="ned"]');
+        if (up) up.parentNode.querySelector("button").disabled = i <= 0;
+        if (down) down.parentNode.querySelector("button").disabled = i === ps.length - 1;
+      });
+    };
+
+    var timer = null;
+    var save = function (el) {
+      if (!url) {
+        box.dispatchEvent(new CustomEvent("sortable:moved", { bubbles: true }));
+        return;
+      }
+      refreshButtons();
+      clearTimeout(timer);
+      say("Sparar ordningen …");
+      timer = setTimeout(function () {
+        var body = new FormData();
+        body.append("_csrf", box.getAttribute("data-csrf") || "");
+        body.append("ids", peers(el).map(function (x) { return x.getAttribute("data-sort-id"); }).join(","));
+        fetch(url, { method: "POST", body: body, credentials: "same-origin" })
+          .then(function (res) {
+            if (res.ok) return say("Ordningen är sparad.");
+            return res.text().then(function (t) { say(t || "Ordningen kunde inte sparas. Ladda om sidan och försök igen.", true); });
+          })
+          .catch(function () { say("Ordningen kunde inte sparas – kontrollera internetanslutningen och försök igen.", true); });
+      }, 350);
+    };
+
+    var flash = function (el) {
+      el.classList.remove("is-moved");
+      void el.offsetWidth;
+      el.classList.add("is-moved");
+    };
+    var move = function (el, dir) {
+      var ps = peers(el), i = ps.indexOf(el), j = i + dir;
+      if (j < 0 || j >= ps.length) return false;
+      if (dir < 0) ps[j].before(el); else ps[j].after(el);
+      flash(el);
+      save(el);
+      return true;
+    };
+
+    box.addEventListener("keydown", function (e) {
+      var h = e.target.closest("[data-sort-handle]");
+      if (!h || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+      e.preventDefault();
+      var el = h.closest("[data-sort-id]");
+      if (move(el, e.key === "ArrowUp" ? -1 : 1)) h.focus();
+    });
+    box.addEventListener("click", function (e) {
+      if (e.target.closest("[data-sort-handle]")) e.preventDefault();
+    });
+
+    var drag = null;
+    box.addEventListener("pointerdown", function (e) {
+      var h = e.target.closest("[data-sort-handle]");
+      if (!h || e.button > 0) return;
+      var el = h.closest("[data-sort-id]");
+      drag = { el: el, h: h, startY: e.clientY, moved: false };
+      h.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    box.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      if (!drag.moved && Math.abs(e.clientY - drag.startY) < 4) return;
+      if (!drag.moved) { drag.moved = true; drag.el.classList.add("is-dragging"); box.classList.add("is-sorting"); }
+      var ps = peers(drag.el), i = ps.indexOf(drag.el);
+      var prev = ps[i - 1], next = ps[i + 1];
+      if (prev && e.clientY < prev.getBoundingClientRect().top + prev.getBoundingClientRect().height / 2) prev.before(drag.el);
+      else if (next && e.clientY > next.getBoundingClientRect().top + next.getBoundingClientRect().height / 2) next.after(drag.el);
+      if (e.clientY < 80) window.scrollBy(0, -12); else if (e.clientY > window.innerHeight - 80) window.scrollBy(0, 12);
+    });
+    var end = function () {
+      if (!drag) return;
+      drag.el.classList.remove("is-dragging");
+      box.classList.remove("is-sorting");
+      if (drag.moved) { flash(drag.el); save(drag.el); }
+      drag.h.focus();
+      drag = null;
+    };
+    box.addEventListener("pointerup", end);
+    box.addEventListener("pointercancel", end);
+  });
+})();
+
+/* Länkkontroll: kontrollera alla länkar i omgångar (servern tar högst 15 åt gången) och uppdatera tabellen direkt. */
+(function () {
+  var form = document.querySelector("[data-link-check]");
+  if (!form || !window.fetch) return;
+  var BATCH = 15;
+  var LABELS = { ok: "Fungerar", trasig: "Fungerar inte", osaker: "Kontrollera själv", ny: "Inte kontrollerad" };
+  var rows = Array.prototype.slice.call(document.querySelectorAll("[data-link-row]"));
+  var progress = document.querySelector("[data-link-progress]");
+  var bar = progress && progress.querySelector("progress");
+  var ptext = progress && progress.querySelector("[data-link-progress-text]");
+  var last = document.querySelector("[data-link-last]");
+  var button = form.querySelector("button");
+  var busy = false;
+
+  function recount() {
+    ["ok", "trasig", "osaker"].forEach(function (v) {
+      var el = document.querySelector('[data-count="' + v + '"]');
+      if (el) el.textContent = String(document.querySelectorAll(".lc-row-" + v).length);
+    });
+  }
+  function setRow(row, r) {
+    var pill = row.querySelector(".lc-pill"), msg = row.querySelector(".lc-msg");
+    row.className = "lc-row lc-row-" + r.verdict;
+    pill.className = "pill lc-pill lc-" + r.verdict;
+    pill.textContent = LABELS[r.verdict] || r.verdict;
+    msg.textContent = r.verdict === "ok" ? "" : r.message;
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (busy || !rows.length) return;
+    busy = true;
+    button.disabled = true;
+    var done = 0, failed = false;
+    if (progress) { progress.hidden = false; bar.max = rows.length; bar.value = 0; }
+    rows.forEach(function (row) {
+      var pill = row.querySelector(".lc-pill");
+      pill.classList.add("is-checking");
+      pill.textContent = "Väntar …";
+    });
+    var chunks = [];
+    for (var i = 0; i < rows.length; i += BATCH) chunks.push(rows.slice(i, i + BATCH));
+    var next = function (k) {
+      if (k >= chunks.length) return finish();
+      var chunk = chunks[k];
+      chunk.forEach(function (row) { row.querySelector(".lc-pill").textContent = "Kontrollerar …"; });
+      if (ptext) ptext.textContent = "Kontrollerar " + Math.min(done + chunk.length, rows.length) + " av " + rows.length + " …";
+      var data = new FormData();
+      data.append("_csrf", form.getAttribute("data-csrf"));
+      data.append("urls", chunk.map(function (r) { return r.getAttribute("data-link-row"); }).join("\n"));
+      if (k === chunks.length - 1) data.append("sista", "1");
+      fetch("/admin/lankar/kontroll", { method: "POST", body: data, credentials: "same-origin", headers: { Accept: "application/json" } })
+        .then(function (res) { return res.json().then(function (j) { if (!res.ok) throw new Error(j.error || "Fel"); return j; }); })
+        .then(function (j) {
+          chunk.forEach(function (row) {
+            var r = j.results[row.getAttribute("data-link-row")];
+            if (r) setRow(row, r);
+          });
+          done += chunk.length;
+          if (bar) bar.value = done;
+          recount();
+          next(k + 1);
+        })
+        .catch(function (err) {
+          failed = true;
+          if (ptext) ptext.textContent = "Kontrollen avbröts: " + (err && err.message && err.message !== "Fel" ? err.message : "försök igen om en stund.");
+          finish();
+        });
+    };
+    var finish = function () {
+      busy = false;
+      button.disabled = false;
+      rows.forEach(function (row) {
+        var pill = row.querySelector(".lc-pill");
+        if (pill.classList.contains("is-checking")) { pill.classList.remove("is-checking"); pill.className = "pill lc-pill lc-ny"; pill.textContent = LABELS.ny; }
+      });
+      if (!failed) {
+        if (progress) progress.hidden = true;
+        if (last) last.textContent = "Kontrollerad just nu – " + rows.length + " länkar.";
+        // Visa trasiga länkar överst
+        var tbody = rows[0] && rows[0].parentNode, order = { trasig: 0, osaker: 1, ny: 2, ok: 3 };
+        if (tbody) rows.slice().sort(function (a, b) {
+          var va = order[a.className.replace(/.*lc-row-/, "")], vb = order[b.className.replace(/.*lc-row-/, "")];
+          return va - vb;
+        }).forEach(function (r) { tbody.appendChild(r); });
+      }
+    };
+    next(0);
   });
 })();

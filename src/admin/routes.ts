@@ -21,13 +21,14 @@ import {
 } from "./pages.js";
 import { previewHandler, siteMapHandler } from "./preview.js";
 import { jobStatsCsv, jobStatsPage } from "./job-stats.js";
-import { RESOURCES, instagramSyncSubmit, deleteHandler, duplicateHandler, editHandler, listHandler, moveHandler, newHandler, saveHandler, toggleHandler } from "./resources.js";
+import { RESOURCES, instagramSyncSubmit, deleteHandler, duplicateHandler, editHandler, listHandler, moveHandler, newHandler, orderHandler, saveHandler, toggleHandler } from "./resources.js";
 import { historyPage, historyRestore, menuSubmit, textsPage, textsSubmit, undoSubmit, resetLayoutSubmit } from "./texts.js";
 import { mediaAdjustPage, mediaAdjustSubmit, mediaDeleteSubmit, mediaOptimizeSubmit, mediaLibraryPage, mediaPickerFragment, mediaUploadSubmit } from "./media-pages.js";
 import { partnerStatsCsv, partnerStatsPage } from "./stats-pages.js";
 import { adminSearchPage } from "./search.js";
 import { handoverPage, handoverSubmit } from "./handover.js";
 import { mailPage, mailRecipientsSubmit, mailTestSubmit } from "./mail-page.js";
+import { linkCheckBatch, linkCheckPage, linkCheckSubmit } from "./link-check.js";
 import { galleryYearsPage, galleryYearsSubmit } from "./gallery-years.js";
 
 export function registerAdminRoutes(router: Router): void {
@@ -65,6 +66,9 @@ export function registerAdminRoutes(router: Router): void {
     // Före /admin/partners/:id och /admin/jobb/:id nedan
     .get("/admin/jobb/statistik", requireUser(jobStatsPage))
     .get("/admin/jobb/statistik.csv", requireUser(jobStatsCsv))
+    .get("/admin/lankar", requireUser(linkCheckPage))
+    .post("/admin/lankar", requireUser(linkCheckSubmit))
+    .post("/admin/lankar/kontroll", requireUser(linkCheckBatch))
     .get("/admin/partners/statistik", requireUser(partnerStatsPage))
     .get("/admin/partners/statistik.csv", requireUser(partnerStatsCsv))
     .get("/admin/meddelanden", requireUser(messagesPage))
@@ -80,6 +84,8 @@ export function registerAdminRoutes(router: Router): void {
   router.post("/admin/instagram/hamta", requireUser(instagramSyncSubmit));
   router.get("/admin/galleri/ar", requireUser(galleryYearsPage)).post("/admin/galleri/ar", requireUser(galleryYearsSubmit));
   for (const r of RESOURCES) {
+    // Före /:id, annars tolkas "ordning" som ett id
+    if (r.movable) router.post(`/admin/${r.path}/ordning`, requireUser(orderHandler(r)));
     router
       .get(`/admin/${r.path}`, requireUser(listHandler(r)))
       .get(`/admin/${r.path}/ny`, requireUser(newHandler(r)))
