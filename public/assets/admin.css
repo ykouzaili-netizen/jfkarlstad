@@ -946,3 +946,38 @@ a.admin-user:hover { background: var(--c-hover); }
 .lc-places a:hover { color: var(--c-text); }
 .lc-table td { vertical-align: top; }
 @media (max-width: 720px) { .lc-last { margin-left: 0; width: 100%; } .lc-status { width: auto; } }
+
+/* ---------- Bildgalleri: kategorier, sortering, album med egen ordning (gallery-list.ts) ---------- */
+.gl-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; margin-bottom: 20px; }
+.gl-cats { min-width: 0; flex: 1 1 auto; overflow: visible; }
+.gl-cats ul { flex-wrap: wrap; gap: 8px; }
+.gl-cats a { display: inline-flex; align-items: center; gap: 8px; }
+.gl-count { min-width: 22px; padding: 1px 7px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; text-align: center; background: var(--c-hover); color: var(--c-text); }
+.gl-cats a[aria-current="page"] .gl-count { background: rgb(255 255 255 / 0.2); color: inherit; }
+.gl-sort { display: flex; align-items: center; gap: 10px; flex: none; }
+.gl-sort label { font-size: 0.875rem; font-weight: 600; color: var(--c-muted); }
+.gl-explain { display: flex; gap: 10px; align-items: flex-start; max-width: 80ch; margin: 0 0 16px; font-size: 0.9375rem; color: var(--c-muted); }
+.gl-explain .icon { flex: none; margin-top: 3px; }
+.gl-explain strong { color: var(--c-text); }
+.gl-group-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 16px 20px; border-bottom: 1px solid var(--c-border); }
+.gl-group-title { font-size: 1.0625rem; font-weight: 700; }
+.gl-year { margin-left: 6px; font-weight: 500; color: var(--c-muted); }
+.gl-group-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 4px; font-size: 0.875rem; color: var(--c-muted); }
+.gl-fresh { color: var(--c-text); }
+.gl-reset[hidden] { display: none; }
+.gl-reset-all { display: flex; justify-content: flex-end; margin: -4px 0 24px; }
+.gl-group { margin-bottom: 24px; }
+.gl-group .sort-status { margin: -16px 0 24px; }
+.gl-thumb { width: 72px; height: 54px; border-radius: 8px; }
+.gl-table td time { white-space: nowrap; }
+.gl-table .row-actions { flex-wrap: nowrap; }
+.gl-exif { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; border-color: color-mix(in srgb, var(--c-accent) 55%, var(--c-border)); background: color-mix(in srgb, var(--c-accent) 9%, var(--c-surface)); }
+.gl-exif-text { flex: 1 1 380px; max-width: 75ch; }
+.gl-exif-text p + p { margin-top: 6px; }
+.gl-exif [data-exif-status].is-error { color: #b42318; font-weight: 600; }
+@media (max-width: 760px) {
+  .gl-sort { width: 100%; }
+  .gl-sort select { flex: 1; }
+  .gl-group-head { padding: 14px 16px; }
+  .gl-table td.col-move { float: left; width: auto; margin-right: 12px; }
+}

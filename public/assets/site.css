@@ -4624,3 +4624,33 @@ button.pd-plaque:hover { transform: translateY(-2px); filter: brightness(1.06); 
 .nominate-cta { margin-top: 0; }
 .nominate-closed { display: flex; gap: 14px; align-items: flex-start; }
 .nominate-closed .icon { flex: none; margin-top: 2px; }
+
+/* Bildgalleriets bildruta (site.js). Rutan täcker hela fönstret; den mörka ytan runt bilden stänger den. */
+.gal-lb { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgb(10 10 12 / 0.96); color: #fff; overflow: hidden; }
+.gal-lb[open] { display: grid; grid-template-rows: auto 1fr; }
+.gal-lb::backdrop { background: transparent; }
+.gal-lb-open, .gal-lb-open body { overflow: hidden; }
+.gal-lb-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: max(12px, env(safe-area-inset-top)) clamp(12px, 3vw, 24px) 8px; }
+.gal-lb-count { font-size: 0.875rem; font-variant-numeric: tabular-nums; color: rgb(255 255 255 / 0.75); }
+.gal-lb-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.gal-lb-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; font-size: 0.875rem; font-weight: 600; color: #fff; text-decoration: none; background: rgb(255 255 255 / 0.12); border: 1px solid rgb(255 255 255 / 0.22); transition: background-color 0.15s ease, border-color 0.15s ease; }
+.gal-lb-btn:hover { background: rgb(255 255 255 / 0.22); border-color: rgb(255 255 255 / 0.4); }
+.gal-lb-close, .gal-lb-nav { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 999px; color: #fff; background: rgb(255 255 255 / 0.12); border: 1px solid rgb(255 255 255 / 0.22); cursor: pointer; transition: background-color 0.15s ease, transform 0.15s ease; }
+.gal-lb-close:hover, .gal-lb-nav:hover { background: rgb(255 255 255 / 0.26); }
+.gal-lb-close { margin-left: 4px; }
+.gal-lb :focus-visible { outline: 3px solid var(--c-accent); outline-offset: 2px; }
+.gal-lb-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 0; margin: 0; padding: 4px clamp(12px, 7vw, 88px) max(20px, env(safe-area-inset-bottom)); }
+.gal-lb-img { display: block; max-width: 100%; max-height: calc(100dvh - 150px); width: auto; height: auto; object-fit: contain; border-radius: 6px; box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.7); animation: gal-lb-in 0.22s ease both; }
+.gal-lb-caption { max-width: 70ch; text-align: center; font-size: 0.9375rem; color: rgb(255 255 255 / 0.85); }
+.gal-lb-nav { position: absolute; top: 50%; translate: 0 -50%; }
+.gal-lb-nav[hidden] { display: none; }
+.gal-lb-prev { left: clamp(8px, 2vw, 24px); }
+.gal-lb-next { right: clamp(8px, 2vw, 24px); }
+@keyframes gal-lb-in { from { opacity: 0; transform: scale(0.98); } }
+@media (max-width: 600px) {
+  .gal-lb-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .gal-lb-btn { width: 44px; padding: 0; justify-content: center; }
+  .gal-lb-stage { padding: 4px 8px 80px; }
+  .gal-lb-nav { top: auto; bottom: max(16px, env(safe-area-inset-bottom)); translate: none; }
+  .gal-lb-img { max-height: calc(100dvh - 190px); }
+}

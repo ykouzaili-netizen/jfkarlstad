@@ -1,6 +1,6 @@
 import { html, type SafeHtml } from "../lib/html.js";
 import { redirect } from "../lib/http.js";
-import { GALLERY_ALBUMS } from "../lib/content.js";
+import { GALLERY_ALBUMS, GALLERY_IMAGE_ORDER } from "../lib/content.js";
 import type { RequestContext } from "../router.js";
 import { mediaUrl } from "../views/layout.js";
 import { audit, checkCsrf, type Session } from "./auth.js";
@@ -21,7 +21,7 @@ interface Row {
 }
 
 export async function galleryYearsPage(c: RequestContext, session: Session): Promise<Response> {
-  const { results } = await c.env.DB.prepare("SELECT id, album, year, image_key, alt, caption FROM gallery_images ORDER BY album, year IS NOT NULL, year DESC, sort_order, id DESC").all<Row>();
+  const { results } = await c.env.DB.prepare(`SELECT id, album, year, image_key, alt, caption FROM gallery_images ORDER BY album, year IS NOT NULL, year DESC, ${GALLERY_IMAGE_ORDER}`).all<Row>();
   const albums = [...new Set([...GALLERY_ALBUMS, ...results.map((r) => r.album)])].filter((a) => results.some((r) => r.album === a));
   const missing = results.filter((r) => r.year == null).length;
   const content = html`

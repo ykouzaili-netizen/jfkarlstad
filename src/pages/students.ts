@@ -228,6 +228,36 @@ function sport(s: Settings): SafeHtml {
   </section>`;
 }
 
+/** Filnamnet när en bild laddas ned, t.ex. "jfk-inspark-2026-12.jpg". */
+function downloadName(album: string, img: GalleryRow): string {
+  const ext = /\.([a-z0-9]+)$/i.exec(img.image_key)?.[1]?.toLowerCase() ?? "jpg";
+  return `${slugify(["jfk", album, img.year ?? "", img.id].join(" "))}.${ext}`;
+}
+
+/**
+ * Bildrutan: en bild i galleriet öppnas i en ruta på sidan (site.js) med Ladda ned, Öppna i ny flik, krysset och
+ * pilar till föregående/nästa bild i samma album och år. Klick utanför bilden eller Esc stänger. Utan JavaScript
+ * öppnar bilden i ny flik som förut, och rutan visas aldrig.
+ */
+function lightbox(s: Settings): SafeHtml {
+  return html`<dialog class="gal-lb" data-gal-lb aria-label="${fillText(s.gallery_lb_count, { nr: "1", antal: "1" })}" data-count="${s.gallery_lb_count}">
+    <div class="gal-lb-bar">
+      <p class="gal-lb-count" data-gal-lb-count aria-live="polite"></p>
+      <div class="gal-lb-actions">
+        <a class="gal-lb-btn" href="#" download data-gal-lb-download${ek(s, "gallery_lb_download")}>${icon("arrowDown", "icon icon-sm")}<span>${s.gallery_lb_download}</span></a>
+        <a class="gal-lb-btn" href="#" target="_blank" rel="noopener" data-gal-lb-open${ek(s, "gallery_lb_open")}>${icon("external", "icon icon-sm")}<span>${s.gallery_lb_open}</span></a>
+        <button class="gal-lb-close" type="button" data-gal-lb-close autofocus aria-label="${s.gallery_lb_close}">${icon("close", "icon")}</button>
+      </div>
+    </div>
+    <figure class="gal-lb-stage" data-gal-lb-stage>
+      <img class="gal-lb-img" alt="" data-gal-lb-img>
+      <figcaption class="gal-lb-caption" data-gal-lb-caption hidden></figcaption>
+    </figure>
+    <button class="gal-lb-nav gal-lb-prev" type="button" data-gal-lb-step="-1" aria-label="${s.gallery_lb_prev}">${icon("chevronLeft", "icon")}</button>
+    <button class="gal-lb-nav gal-lb-next" type="button" data-gal-lb-step="1" aria-label="${s.gallery_lb_next}">${icon("chevronRight", "icon")}</button>
+  </dialog>`;
+}
+
 /**
  * Bildgalleriet: ett album i taget och, inom albumet, ett år i taget (nyast först). Valen är vanliga länkar
  * (?album=…&ar=…), så det fungerar utan JavaScript; site.js byter vy direkt utan att ladda om sidan.
@@ -254,7 +284,7 @@ function gallerySection(s: Settings, images: GalleryRow[], url: URL): SafeHtml {
   const grid = (album: string, imgs: GalleryRow[]) => html`<ul class="gallery-grid">
     ${imgs.map(
       (img) => html`<li${ec(s, `/admin/galleri/${img.id}`, `Bildgalleri › ${img.alt || album}`)}>
-        <a class="gallery-item" href="${mediaUrl(img.image_key)}" target="_blank" rel="noopener">
+        <a class="gallery-item" href="${mediaUrl(img.image_key)}" target="_blank" rel="noopener" data-gal-item data-gal-name="${downloadName(album, img)}"${img.caption ? html` data-gal-caption="${img.caption}"` : ""}>
           ${picture(img.image_key, { alt: img.alt || img.caption || `Bild från albumet ${album}${img.year ? ` ${img.year}` : ""}`, sizes: "(min-width: 1000px) 280px, 50vw", width: 480, height: 360 })}
           <span class="sr-only"> (${s.gallery_open})</span>
         </a>
@@ -301,6 +331,7 @@ function gallerySection(s: Settings, images: GalleryRow[], url: URL): SafeHtml {
                 )}
               </div>`;
             })}
+            ${lightbox(s)}
           </div>`
         : emptyState(renderInline(s.gallery_empty), ek(s, "gallery_empty"))}
     </div>

@@ -6,7 +6,7 @@ import { PARTNER_IMAGE_STYLES, type PartnerImageStyle } from "../lib/partner-ima
 import { partnerLinksField, readPartnerLinks } from "../lib/partner-links.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec, type Values } from "../lib/forms.js";
 import { documentPath } from "../pages/listings.js";
-import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, HONOR_KINDS, JOB_KINDS, documentLinkKind, isGoogleLink } from "../lib/content.js";
+import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, GALLERY_ORDER, HONOR_KINDS, JOB_KINDS, documentLinkKind, isGoogleLink } from "../lib/content.js";
 import { eventDate, formatDate, formatDateTimeShort, formatDay, localToUtcSql, stockholmToday, utcSqlToLocal } from "../lib/format.js";
 import { purgeIfUnused } from "../lib/media.js";
 import { slugify } from "../lib/slug.js";
@@ -69,7 +69,16 @@ export interface AdminField extends FieldSpec {
   crop?: number;
   /** Bildfält: gör bilden svartvit när ett annat fält har ett visst värde, t.ex. "kind=hedersmedlem". */
   grayIf?: string;
+  /**
+   * Datumfält som fylls i från bildens uppgifter (EXIF) i bildfältet med det här namnet. admin.js läser fotodatumet
+   * ur originalfilen (innan den komprimeras) och skickar det i `${namn}__tagen` ("YYYY-MM-DDTHH:MM" eller "saknas").
+   * Ett datum som skrivits in i fältet går före. Kolumnen exif_checked sätts när en ny bild har lästs.
+   */
+  exifFrom?: string;
 }
+
+/** Fotodatum ur bildens uppgifter, som admin.js skickar det. */
+const TAKEN_RE = /^(19[89]\d|20\d\d)-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d$/;
 
 const shown = (f: AdminField, v: Values) => !f.showIf || ([] as string[]).concat(f.showIf.value).includes(v[f.showIf.field] ?? "");
 
@@ -791,21 +800,31 @@ export const RESOURCES: Resource[] = [
     newLabel: "Ladda upp bilder",
     listActions: galleryYearsAction,
     tabs: GALLERY_TABS,
-    lead: "Bilderna visas under För studenter, grupperade per album. Publicera inga bilder som kan uppfattas som kränkande, och ta bort en bild direkt om någon som syns på den ber om det (GDPR).",
-    orderBy: "album, year IS NULL, year DESC, sort_order, id DESC",
+    lead: "Bilderna visas under För studenter, en kategori (album) i taget. Publicera inga bilder som kan uppfattas som kränkande, och ta bort en bild direkt om någon som syns på den ber om det (GDPR).",
+    // Listan är en egen sida (gallery-list.ts); ordningen är densamma som på webbplatsen.
+    orderBy: GALLERY_ORDER,
+    movable: true,
+    moveGroup: ["album", "year"],
     emptyText: "Inga bilder ännu.",
     fields: [
       { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, multiple: true, purge: true, help: "JPG, PNG, WebP eller HEIC. Stora foton komprimeras automatiskt. Bilden raderas helt när den tas bort ur galleriet." },
-      { name: "album", label: "Album", type: "select", required: true, options: GALLERY_ALBUMS.map((a) => ({ value: a, label: a })) },
-      { name: "year", label: "År", type: "number", min: 2000, max: 2100, nullable: true, help: "Året evenemanget hölls. På webbplatsen kan besökarna välja år inom varje album. Tomt = ”Utan årtal”." },
+      { name: "album", label: "Kategori", type: "select", required: true, options: GALLERY_ALBUMS.map((a) => ({ value: a, label: a })), help: "Visas som ett album i bildgalleriet." },
+      { name: "year", label: "År", type: "number", min: 2000, max: 2100, nullable: true, help: "Året evenemanget hölls. På webbplatsen kan besökarna välja år inom varje kategori. Tomt = ”Utan årtal”." },
+      {
+        name: "taken_at",
+        label: "Fotograferad",
+        type: "datetime-local",
+        nullable: true,
+        exifFrom: "image_key",
+        help: "Fylls i automatiskt när kameran eller mobilen har sparat datumet i bilden. Ändra om det blev fel. Tomt = bilden sorteras efter när den laddades upp. Väljer du flera bilder får varje bild sitt eget datum – skriv bara något här om alla ska få samma.",
+      },
       { name: "alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200, help: "Valfri men bra: en kort beskrivning för den som använder skärmläsare, t.ex. ”Studenter skålar på vårbanketten 2026”. Tomt = ”Bild från albumet …”." },
       { name: "caption", label: "Bildtext", type: "text", max: 200, help: "Valfri text som visas under bilden." },
-      { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999 },
     ],
     listColumns: [
       { label: "", render: (r) => thumb(r.image_key, String(r.alt ?? "")), className: "col-thumb" },
       { label: "Beskrivning", render: (r) => html`<a class="row-title" href="/admin/galleri/${r.id}">${galleryTitle(r)}</a>` },
-      { label: "Album", render: (r) => String(r.album) },
+      { label: "Kategori", render: (r) => String(r.album) },
       { label: "År", render: (r) => (r.year ? String(r.year) : "–") },
     ],
     titleOf: (r) => galleryTitle(r),
@@ -1322,6 +1341,11 @@ export function newHandler(r: Resource) {
     }
     if (r.path === "jobb") values.kind = "praktik";
     if (r.path === "partners") values.image_style = "banner";
+    if (r.path === "galleri") {
+      // "+ Ladda upp bilder" från en kategori i listan förväljer den
+      const album = GALLERY_ALBUMS.find((a) => slugify(a) === c.url.searchParams.get("kategori"));
+      if (album) values.album = album;
+    }
     if (r.path === "medaljer") Object.assign(values, { kind: "medalj", design: "01" });
     if (r.path === "utmarkelser") {
       // "Lägg till mottagare" från en medalj förväljer den
@@ -1427,6 +1451,14 @@ async function save(r: Resource, c: RequestContext, session: Session, id: number
     }
     Object.assign(errors, r.check?.(values, existing) ?? {});
     values.published = form.get("published") ? "1" : "";
+    // Fotodatum ur bildens uppgifter (exifFrom): används när fältet är tomt. Inskrivet datum går före.
+    const exifRead: string[] = [];
+    for (const f of plain.filter((f) => f.exifFrom)) {
+      const auto = String(form.get(`${f.exifFrom}__tagen`) ?? "");
+      if (!auto) continue;
+      exifRead.push(f.exifFrom!);
+      if (!values[f.name] && TAKEN_RE.test(auto)) values[f.name] = auto;
+    }
 
     // Filer
     const fileCols: Record<string, string | null> = {};
@@ -1485,6 +1517,8 @@ async function save(r: Resource, c: RequestContext, session: Session, id: number
       else data[col(f)] = v === "" && f.nullable ? null : v;
     }
     Object.assign(data, fileCols);
+    // Bildens uppgifter har lästs för en ny fil – då behöver "Läs fotodatum ur bilderna" inte göra om det.
+    if (exifRead.some((name) => fileCols[col(fields.find((f) => f.name === name)!)])) data.exif_checked = 1;
     if (r.path === "dokument" && fileSize !== null) data.file_size = fileSize;
     if (r.path === "dokument" && fileCols.file_key === null) data.file_size = null;
     if (r.publishable) data.published = values.published ? 1 : 0;
@@ -1563,7 +1597,10 @@ export function moveHandler(r: Resource) {
       [results[i], results[j]] = [results[j]!, results[i]!];
       await db.batch(results.map((x, k) => db.prepare(`UPDATE ${r.table} SET sort_order = ? WHERE id = ?`).bind((k + 1) * 10, x.id)));
     }
-    return redirect(`/admin/${r.path}?flyttad=${id}&riktning=${up ? "upp" : "ned"}`, 303);
+    // Tillbaka till samma vy (t.ex. vald kategori i bildgalleriet) – bara adresser inom listan.
+    const back = String(form.get("tillbaka") ?? "");
+    const base = new RegExp(`^/admin/${r.path}\\?[a-z0-9=&%_-]*$`, "i").test(back) ? `${back}&` : `/admin/${r.path}?`;
+    return redirect(`${base}flyttad=${id}&riktning=${up ? "upp" : "ned"}`, 303);
   };
 }
 

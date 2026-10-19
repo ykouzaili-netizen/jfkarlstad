@@ -161,7 +161,8 @@ export function uploadInput(opts: {
       ? html`<input type="file" name="${opts.name}__liten" hidden tabindex="-1" aria-hidden="true" data-small-for="${opts.name}">
           <input type="file" name="${opts.name}__mellan" hidden tabindex="-1" aria-hidden="true" data-medium-for="${opts.name}">
           <input type="hidden" name="${opts.name}__matt" value="" data-dims-for="${opts.name}">
-          <input type="hidden" name="${opts.name}__bank" value="" data-bank-for="${opts.name}">`
+          <input type="hidden" name="${opts.name}__bank" value="" data-bank-for="${opts.name}">
+          <input type="hidden" name="${opts.name}__tagen" value="" data-taken-for="${opts.name}">`
       : ""}
     <p class="upload-status" id="${statusId}" aria-live="polite" data-upload-status="${opts.name}"></p>`;
 }

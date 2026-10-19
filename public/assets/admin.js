@@ -1,4 +1,110 @@
 /* JFK adminpanel – små förbättringar. Allt fungerar även utan JavaScript. */
+
+/* ---------- Fotodatum ur bildens uppgifter (EXIF) ----------
+   window.jfkTakenAt(fil) ger "YYYY-MM-DDTHH:MM" (kamerans lokala tid) eller null. Läser DateTimeOriginal
+   (annars DateTimeDigitized) i JPG, HEIC, WebP och PNG. Bara början av filen läses – i HEIC kan uppgifterna
+   ligga längre in, därför läses hela filen för den. Används när bilder laddas upp (innan de komprimeras, eftersom
+   komprimeringen tar bort uppgifterna) och av "Läs fotodatum ur bilderna" i bildgalleriet. */
+(function () {
+  "use strict";
+  var HEAD = 512 * 1024;
+
+  function tiffDate(v, t) {
+    if (t + 8 > v.byteLength) return null;
+    var le = v.getUint16(t) === 0x4949;
+    if (!le && v.getUint16(t) !== 0x4d4d) return null;
+    var u16 = function (o) { return v.getUint16(o, le); };
+    var u32 = function (o) { return v.getUint32(o, le); };
+    var entries = function (ifd) {
+      var out = {};
+      if (ifd <= 0 || t + ifd + 2 > v.byteLength) return out;
+      var count = u16(t + ifd);
+      for (var i = 0; i < count && i < 500; i++) {
+        var e = t + ifd + 2 + i * 12;
+        if (e + 12 > v.byteLength) break;
+        out[u16(e)] = { type: u16(e + 2), count: u32(e + 4), at: e + 8 };
+      }
+      return out;
+    };
+    var ascii = function (en) {
+      if (!en || en.type !== 2 || en.count < 19) return null;
+      var o = en.count > 4 ? t + u32(en.at) : en.at;
+      if (o + 19 > v.byteLength) return null;
+      var str = "";
+      for (var i = 0; i < 19; i++) str += String.fromCharCode(v.getUint8(o + i));
+      return str;
+    };
+    var ifd0 = entries(u32(t + 4));
+    var ptr = ifd0[0x8769];
+    if (!ptr) return null;
+    var exif = entries(u32(ptr.at));
+    var raw = ascii(exif[0x9003]) || ascii(exif[0x9004]);
+    var m = raw && /^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2})/.exec(raw);
+    if (!m) return null;
+    var y = +m[1], mo = +m[2], d = +m[3], h = +m[4], mi = +m[5];
+    if (y < 1990 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null;
+    return m[1] + "-" + m[2] + "-" + m[3] + "T" + m[4] + ":" + m[5];
+  }
+
+  function find(bytes, pattern, from) {
+    outer: for (var i = from || 0; i <= bytes.length - pattern.length; i++) {
+      for (var j = 0; j < pattern.length; j++) if (bytes[i + j] !== pattern[j]) continue outer;
+      return i;
+    }
+    return -1;
+  }
+  var EXIF_HEAD = [0x45, 0x78, 0x69, 0x66, 0, 0]; // "Exif\0\0"
+
+  function parse(buf) {
+    var v = new DataView(buf), bytes = new Uint8Array(buf);
+    if (v.byteLength < 12) return null;
+    // JPG: gå igenom segmenten till APP1 med "Exif\0\0"
+    if (v.getUint16(0) === 0xffd8) {
+      var o = 2;
+      while (o + 4 <= v.byteLength && v.getUint8(o) === 0xff) {
+        var marker = v.getUint8(o + 1), len = v.getUint16(o + 2);
+        if (marker === 0xda || marker === 0xd9) break;
+        if (marker === 0xe1 && find(bytes.subarray(o + 4, o + 10), EXIF_HEAD) === 0) return tiffDate(v, o + 10);
+        o += 2 + len;
+      }
+      return null;
+    }
+    // WebP: chunken "EXIF" (med eller utan "Exif\0\0" först)
+    if (find(bytes.subarray(0, 4), [0x52, 0x49, 0x46, 0x46]) === 0) {
+      var w = find(bytes, [0x45, 0x58, 0x49, 0x46], 12);
+      if (w > 0) {
+        var start = w + 8;
+        if (find(bytes.subarray(start, start + 6), EXIF_HEAD) === 0) start += 6;
+        return tiffDate(v, start);
+      }
+      return null;
+    }
+    // PNG (eXIf) och HEIC: leta upp "Exif\0\0" följt av en TIFF-början, annars eXIf-chunken direkt
+    var at = 0;
+    while ((at = find(bytes, EXIF_HEAD, at)) >= 0) {
+      var r = tiffDate(v, at + 6);
+      if (r) return r;
+      at += 6;
+    }
+    var png = find(bytes, [0x65, 0x58, 0x49, 0x66]); // "eXIf"
+    return png > 0 ? tiffDate(v, png + 4) : null;
+  }
+
+  window.jfkTakenAt = function (blob) {
+    if (!blob || !blob.slice || !blob.arrayBuffer && !window.FileReader) return Promise.resolve(null);
+    var heic = /heic|heif/i.test(blob.type || "") || /\.(heic|heif)$/i.test(blob.name || "");
+    var part = heic ? blob : blob.slice(0, HEAD);
+    var read = part.arrayBuffer ? part.arrayBuffer() : new Promise(function (ok, fail) {
+      var fr = new FileReader();
+      fr.onload = function () { ok(fr.result); };
+      fr.onerror = fail;
+      fr.readAsArrayBuffer(part);
+    });
+    return read.then(function (buf) { try { return parse(buf); } catch (e) { return null; } }, function () { return null; });
+  };
+  window.jfkParseTaken = function (buf) { try { return parse(buf); } catch (e) { return null; } };
+})();
+
 (function () {
   "use strict";
 
@@ -159,6 +265,25 @@
   }
   function setSmall(name, blob, originalName) { setVariant(name, "data-small-for", blob, "liten", originalName); }
   function setMedium(name, blob, originalName) { setVariant(name, "data-medium-for", blob, "mellan", originalName); }
+
+  /* Fotodatum: det dolda fältet `${namn}__tagen` får datumet (eller "saknas") så att servern vet att bilden är läst.
+     Ett synligt datumfält i samma formulär (Fotograferad) fylls i om det är tomt eller fylldes i härifrån förut. */
+  function setTaken(input, name, value, read) {
+    var hidden = companion(name, "data-taken-for");
+    if (!hidden) return;
+    hidden.value = read ? value || "saknas" : "";
+    var form = input.form, field = form && form.querySelector('input[type="datetime-local"][name="taken_at"]');
+    if (!field) return;
+    var auto = field.hasAttribute("data-taken-auto");
+    if (value && (!field.value || auto)) {
+      field.value = value;
+      field.setAttribute("data-taken-auto", "");
+    } else if (!value && auto) {
+      field.value = "";
+      field.removeAttribute("data-taken-auto");
+    }
+    field.addEventListener("input", function () { field.removeAttribute("data-taken-auto"); }, { once: true });
+  }
 
   function setDims(name, w, h) {
     var input = companion(name, "data-dims-for");
@@ -339,6 +464,7 @@
       setSmall(name, null, "");
       setMedium(name, null, "");
       setDims(name, 0, 0);
+      setTaken(input, name, null, false);
       var bank = companion(name, "data-bank-for");
       if (bank && file) bank.value = "";
       if (!file) return;
@@ -370,6 +496,8 @@
       var form = input.form;
       setBusy(form, 1);
       try {
+        // Fotodatumet läses ur originalet – komprimering och beskärning tar bort det
+        if (companion(name, "data-taken-for") && window.jfkTakenAt) setTaken(input, name, await window.jfkTakenAt(file), true);
         var source = await decode(file);
         // Porträtt: beskär (data-crop) och/eller gör svartvit (data-gray-if) innan något annat
         var cropRatio = parseFloat(input.getAttribute("data-crop") || "0");
@@ -485,7 +613,9 @@
         try {
           var prep = await prepareImage(f, max);
           var fd = new FormData(form);
-          fd.delete(name); fd.delete(name + "__liten"); fd.delete(name + "__mellan"); fd.delete(name + "__matt"); fd.delete(name + "__bank");
+          var taken = window.jfkTakenAt ? await window.jfkTakenAt(f) : null;
+          fd.delete(name); fd.delete(name + "__liten"); fd.delete(name + "__mellan"); fd.delete(name + "__matt"); fd.delete(name + "__bank"); fd.delete(name + "__tagen");
+          if (companion(name, "data-taken-for")) fd.append(name + "__tagen", taken || "saknas");
           fd.append(name, prep.file, prep.file.name);
           if (prep.small) fd.append(name + "__liten", variantFile(prep.small, "liten", prep.file.name));
           if (prep.medium) fd.append(name + "__mellan", variantFile(prep.medium, "mellan", prep.file.name));
@@ -1914,7 +2044,7 @@
         body.append("ids", peers(el).map(function (x) { return x.getAttribute("data-sort-id"); }).join(","));
         fetch(url, { method: "POST", body: body, credentials: "same-origin" })
           .then(function (res) {
-            if (res.ok) return say("Ordningen är sparad.");
+            if (res.ok) { box.dispatchEvent(new CustomEvent("sortable:saved", { bubbles: true })); return say("Ordningen är sparad."); }
             return res.text().then(function (t) { say(t || "Ordningen kunde inte sparas. Ladda om sidan och försök igen.", true); });
           })
           .catch(function () { say("Ordningen kunde inte sparas – kontrollera internetanslutningen och försök igen.", true); });
@@ -2066,5 +2196,97 @@
       }
     };
     next(0);
+  });
+})();
+
+/* Bildgalleriet: när en bild har dragits får albumet "Egen ordning" och knappen Återställ visas direkt. */
+(function () {
+  document.querySelectorAll("[data-gl-group]").forEach(function (group) {
+    group.addEventListener("sortable:saved", function () {
+      var pill = group.querySelector("[data-gl-mode]");
+      if (pill) { pill.textContent = "Egen ordning"; pill.className = "pill pill-plan"; }
+      var reset = group.querySelector("[data-gl-reset]");
+      if (reset) reset.hidden = false;
+      var fresh = group.querySelector(".gl-fresh");
+      if (fresh) fresh.remove();
+    });
+  });
+})();
+
+/* Bildgalleriet: "Läs fotodatum ur bilderna" för äldre bilder. Början av varje originalbild hämtas (samma sajt),
+   datumet läses med jfkTakenAt och skickas i omgångar om tio. Inget annat ändras. */
+(function () {
+  var box = document.querySelector("[data-exif-backfill]");
+  if (!box || !window.fetch || !window.jfkParseTaken) return;
+  var start = box.querySelector("[data-exif-start]");
+  var status = box.querySelector("[data-exif-status]");
+  var items = Array.prototype.slice.call(box.querySelectorAll("[data-exif-id]"));
+  if (!start || !items.length) return;
+  start.hidden = false;
+  var LIMIT = 512 * 1024;
+
+  // Läs högst LIMIT byte av bilden och avbryt sedan hämtningen (uppgifterna ligger i början av filen).
+  function head(url) {
+    var ctrl = window.AbortController ? new AbortController() : null;
+    return fetch(url, { credentials: "same-origin", signal: ctrl ? ctrl.signal : undefined, headers: { Range: "bytes=0-" + (LIMIT - 1) } }).then(function (res) {
+      if (!res.ok) throw new Error("http");
+      if (!res.body || !res.body.getReader) return res.arrayBuffer();
+      var reader = res.body.getReader(), parts = [], size = 0;
+      function pump() {
+        return reader.read().then(function (r) {
+          if (r.value) { parts.push(r.value); size += r.value.length; }
+          if (r.done || size >= LIMIT) {
+            if (!r.done) { try { reader.cancel(); } catch (e) {} if (ctrl) ctrl.abort(); }
+            var out = new Uint8Array(size), o = 0;
+            parts.forEach(function (p) { out.set(p, o); o += p.length; });
+            return out.buffer;
+          }
+          return pump();
+        });
+      }
+      return pump();
+    });
+  }
+
+  function send(batch) {
+    var body = new FormData();
+    body.append("_csrf", box.getAttribute("data-csrf") || "");
+    batch.forEach(function (b) { body.append("id", b.id); body.append("tagen", b.taken || ""); });
+    return fetch("/admin/galleri/fotodatum", { method: "POST", body: body, credentials: "same-origin" }).then(function (res) {
+      if (!res.ok) throw new Error("server");
+      return res.json();
+    });
+  }
+
+  start.addEventListener("click", async function () {
+    start.disabled = true;
+    var found = 0, failed = 0, batch = [];
+    for (var i = 0; i < items.length; i++) {
+      status.textContent = "Läser bild " + (i + 1) + " av " + items.length + " …";
+      var id = items[i].getAttribute("data-exif-id"), src = items[i].getAttribute("data-exif-src");
+      try {
+        var taken = window.jfkParseTaken(await head(src));
+        if (taken) found++;
+        batch.push({ id: id, taken: taken });
+      } catch (e) {
+        failed++; // Bilden gick inte att hämta – den hoppas över och kan läsas nästa gång.
+      }
+      if (batch.length === 10 || (i === items.length - 1 && batch.length)) {
+        try { await send(batch); } catch (e) {
+          status.textContent = "Datumen kunde inte sparas. Ladda om sidan och försök igen.";
+          status.classList.add("is-error");
+          start.disabled = false;
+          return;
+        }
+        batch = [];
+      }
+    }
+    var checked = items.length - failed;
+    status.textContent = (found
+      ? "Klart! " + (found === 1 ? "1 bild" : found + " bilder") + " fick sitt fotodatum"
+      : "Klart! Ingen av bilderna hade något fotodatum sparat") +
+      (checked - found > 0 ? ", " + (checked - found) + " saknade datum och sorteras efter när de laddades upp" : "") +
+      (failed ? ". " + failed + " gick inte att läsa" : "") + ". Sidan laddas om …";
+    setTimeout(function () { location.reload(); }, 2200);
   });
 })();

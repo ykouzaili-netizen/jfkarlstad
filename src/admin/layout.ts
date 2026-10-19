@@ -36,6 +36,8 @@ const FLASH: Record<string, { kind: "ok" | "error"; text: string }> = {
   uppladdning: { kind: "error", text: "Filen kunde inte laddas upp. Kontrollera filtyp och storlek." },
   "ar-satt": { kind: "ok", text: "Året är sparat på de markerade bilderna och syns direkt i bildgalleriet." },
   "ar-inga": { kind: "error", text: "Bocka i minst en bild först." },
+  "ordning-aterstalld": { kind: "ok", text: "Ordningen är återställd. Bilderna visas nu efter när de fotograferades – nyast först." },
+  "ordning-fel": { kind: "error", text: "Ordningen kunde inte återställas. Ladda om sidan och försök igen." },
   "ar-ogiltigt": { kind: "error", text: "Skriv ett år mellan 2000 och 2100 – eller lämna fältet tomt för att ta bort året." },
   oforandrat: { kind: "ok", text: "Inget hade ändrats, så det fanns inget att spara." },
   schemalagt: { kind: "ok", text: "Sparat och schemalagt – det dyker upp på webbplatsen vid den tid du valde." },

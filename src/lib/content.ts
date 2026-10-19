@@ -91,6 +91,10 @@ export interface GalleryRow {
   caption: string;
   sort_order: number;
   year: number | null;
+  /** När bilden togs: kamerans lokala tid "YYYY-MM-DDTHH:MM" (EXIF) eller inskrivet av styrelsen. */
+  taken_at: string | null;
+  exif_checked: number;
+  created_at: string;
 }
 
 export interface InstagramPostRow {
@@ -314,8 +318,19 @@ export const videoQuery = {
   all: (db: D1Database) => db.prepare("SELECT * FROM gallery_videos WHERE published = 1 ORDER BY year IS NULL, year DESC, sort_order, id DESC"),
 };
 
+/**
+ * Bildernas ordning inom ett album och år (samma på webbplatsen och i adminpanelen):
+ * 1. egen ordning (sort_order > 0, dragen i adminpanelen) först,
+ * 2. sedan bilder med fotodatum, nyast tagen först,
+ * 3. sist bilder utan fotodatum, senast uppladdad först.
+ * "Återställ" i adminpanelen sätter sort_order = 0, så att albumet går tillbaka till datumordning.
+ */
+export const GALLERY_IMAGE_ORDER = "sort_order = 0, sort_order, taken_at IS NULL, taken_at DESC, created_at DESC, id DESC";
+/** Album, sedan år (nyast först, utan år sist), sedan bilderna enligt GALLERY_IMAGE_ORDER. */
+export const GALLERY_ORDER = `album, year IS NULL, year DESC, ${GALLERY_IMAGE_ORDER}`;
+
 export const galleryQuery = {
-  all: (db: D1Database) => db.prepare("SELECT * FROM gallery_images ORDER BY album, year IS NULL, year DESC, sort_order, id DESC"),
+  all: (db: D1Database) => db.prepare(`SELECT * FROM gallery_images ORDER BY ${GALLERY_ORDER}`),
 };
 
 /** Startsidans Instagram-avsnitt: de senaste publicerade inläggen (fastnålade först via sortering). */
