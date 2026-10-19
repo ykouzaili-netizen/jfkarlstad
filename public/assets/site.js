@@ -914,7 +914,8 @@ document.addEventListener("click", function (e) {
   var shareBtn = dlg.querySelector("[data-gal-lb-share]"), note = dlg.querySelector("[data-gal-lb-note]");
   var playBtn = dlg.querySelector("[data-gal-lb-play]"), playLabel = dlg.querySelector("[data-gal-lb-play-label]");
   var progress = dlg.querySelector("[data-gal-lb-progress]");
-  var list = [], index = 0, opener = null, timer = null, noteTimer = null;
+  var fsBtn = dlg.querySelector("[data-gal-lb-fs]"), fsLabel = dlg.querySelector("[data-gal-lb-fs-label]");
+  var list = [], index = 0, opener = null, timer = null, noteTimer = null, savedY = 0;
   var SLIDE_MS = 5000;
 
   // Adressen till bilden som visas: samma sida med album, år och bild (servern väljer rätt album, site.js öppnar bilden)
@@ -951,6 +952,38 @@ document.addEventListener("click", function (e) {
   }
   playBtn.addEventListener("click", function () { setPlaying(!dlg.classList.contains("is-playing")); });
   document.addEventListener("visibilitychange", function () { if (document.hidden && dlg.classList.contains("is-playing")) setPlaying(false); });
+
+  // Helskärm (t.ex. bildspel på en projektor). Knappen visas bara där webbläsaren kan det – inte på iPhone.
+  // Det är bildrutans innehåll som går i helskärm: en dialogruta får inte göra det själv, och går hela sidan i
+  // helskärm hamnar sidan ovanpå bildrutan. I helskärm tonas knapparna bort efter tre sekunder utan rörelse.
+  var root = dlg.querySelector("[data-gal-lb-inner]");
+  var canFs = !!(document.fullscreenEnabled && root && root.requestFullscreen);
+  var isFs = function () { return document.fullscreenElement === root; };
+  fsBtn.hidden = !canFs;
+  var idleTimer = null;
+  function wake() {
+    dlg.classList.remove("is-idle");
+    clearTimeout(idleTimer);
+    if (isFs()) idleTimer = setTimeout(function () { dlg.classList.add("is-idle"); }, 3000);
+  }
+  function syncFs() {
+    var on = isFs();
+    dlg.classList.toggle("is-fullscreen", on);
+    fsBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    var text = fsBtn.getAttribute(on ? "data-exit" : "data-enter");
+    fsLabel.textContent = text;
+    fsBtn.title = text;
+    wake();
+  }
+  if (canFs) {
+    fsBtn.addEventListener("click", function () {
+      if (document.fullscreenElement) document.exitFullscreen().catch(function () {});
+      else root.requestFullscreen().catch(function () {});
+    });
+    document.addEventListener("fullscreenchange", syncFs);
+    dlg.addEventListener("pointermove", wake);
+    dlg.addEventListener("keydown", wake);
+  }
 
   shareBtn.addEventListener("click", function () {
     var a = list[index], url = imageUrl(a);
@@ -997,10 +1030,17 @@ document.addEventListener("click", function (e) {
   }
   function close() { if (dlg.open) dlg.close(); }
 
+  // Sidans läge sparas när rutan öppnas och återställs exakt när den stängs. Vissa webbläsare (t.ex. Safari)
+  // flyttar annars sidan när fokus lämnas tillbaka eller när skrollspärren släpps. Utan animation, även om sidan
+  // annars skrollar mjukt.
+  function restoreScroll() {
+    if (Math.abs(window.scrollY - savedY) > 1) window.scrollTo({ top: savedY, left: 0, behavior: "instant" });
+  }
   function openAt(a) {
     var panel = a.closest("[data-gal-year-panel]") || gal;
     list = Array.prototype.slice.call(panel.querySelectorAll("a[data-gal-item]"));
     opener = a;
+    savedY = window.scrollY;
     document.documentElement.classList.add("gal-lb-open");
     dlg.showModal();
     show(list.indexOf(a));
@@ -1015,11 +1055,14 @@ document.addEventListener("click", function (e) {
   var wanted = new URLSearchParams(location.search).get("bild");
   var target = wanted && gal.querySelector('a[data-gal-item][data-gal-id="' + wanted.replace(/[^0-9]/g, "") + '"]');
   if (target) {
-    target.scrollIntoView({ block: "center" });
+    target.scrollIntoView({ block: "center", behavior: "instant" });
     openAt(target);
   }
   dlg.addEventListener("close", function () {
     setPlaying(false);
+    if (document.fullscreenElement === root) document.exitFullscreen().catch(function () {});
+    clearTimeout(idleTimer);
+    dlg.classList.remove("is-idle");
     if (history.replaceState) {
       var q = new URLSearchParams(location.search);
       q.delete("bild");
@@ -1028,7 +1071,9 @@ document.addEventListener("click", function (e) {
     document.documentElement.classList.remove("gal-lb-open");
     img.removeAttribute("srcset");
     img.removeAttribute("src");
-    if (opener) opener.focus();
+    if (opener) opener.focus({ preventScroll: true });
+    restoreScroll();
+    requestAnimationFrame(function () { restoreScroll(); setTimeout(restoreScroll, 60); });
   });
   dlg.addEventListener("click", function (e) {
     var step = e.target.closest("[data-gal-lb-step]");
@@ -1039,6 +1084,7 @@ document.addEventListener("click", function (e) {
   });
   dlg.addEventListener("keydown", function (e) {
     if (list.length < 2) return;
+    if ((e.key === "f" || e.key === "F") && canFs && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); fsBtn.click(); return; }
     if (e.key === "ArrowLeft") { e.preventDefault(); show(index - 1); }
     else if (e.key === "ArrowRight") { e.preventDefault(); show(index + 1); }
   });

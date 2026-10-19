@@ -3,7 +3,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-from common import BASE, OUT, check, done, login, test_image, sync_playwright
+from common import BASE, OUT, check, done, expect, login, test_image, sync_playwright
 
 DB = Path(__file__).resolve().parents[1] / "local-preview/.data/local.sqlite"
 FILES = Path(__file__).resolve().parents[1] / "local-preview/.data/r2"
@@ -69,6 +69,8 @@ with sync_playwright() as p:
     many = [str(test_image(OUT / f"flera{i}.jpg", (1800, 1200), (60 + i * 40, 90, 120))) for i in range(3)]
     before = media_keys()
     page.set_input_files("#falt-image_key", many)
+    # Först letar sidan efter dubbletter, sedan visas antalet
+    expect(page.locator("[data-upload-status=image_key]")).to_contain_text("3 bilder valda", timeout=20000)
     check("3 bilder valda" in page.locator("[data-upload-status=image_key]").inner_text(), "antalet valda bilder visas")
     page.select_option("[name=album]", index=1)
     page.fill("[name=caption]", "Flera på en gång")

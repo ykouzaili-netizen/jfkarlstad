@@ -656,6 +656,8 @@ export const PAGES = [
       text("gallery_lb_copied", "Bildrutan – när länken har kopierats", "Länken är kopierad", small),
       text("gallery_lb_play", "Bildrutan – starta bildspelet", "Bildspel", small),
       text("gallery_lb_pause", "Bildrutan – pausa bildspelet", "Pausa", small),
+      text("gallery_lb_fullscreen", "Bildrutan – helskärm", "Helskärm", small),
+      text("gallery_lb_fullscreen_exit", "Bildrutan – avsluta helskärm", "Avsluta helskärm", small),
       text("gallery_lb_remove", "Bildrutan – länk för att be om att en bild tas bort", "Är du med på bilden och vill att den tas bort?", small),
       email("gallery_remove_email", "Bildrutan – e-post för borttagning", "informationsansvarig@jfkarlstad.se", { required: true, more: true, help: "Länken öppnar ett färdigt mejl till den här adressen med bildens adress ifylld." }),
       text("gallery_remove_subject", "Bildrutan – mejlets ämne", "Ta bort bild från bildgalleriet", small),

@@ -96,6 +96,8 @@ export interface GalleryRow {
   exif_checked: number;
   /** Visas i bildrutan som "Foto: …". */
   photographer: string;
+  /** Bildavtryck (dHash, 16 hex-tecken) för dubblettvarningen. NULL = inte räknat ännu. */
+  phash: string | null;
   created_at: string;
 }
 

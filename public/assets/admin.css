@@ -999,5 +999,9 @@ a.admin-user:hover { background: var(--c-hover); }
 .upload-dup { margin-top: 10px; padding: 12px 14px; border-radius: 12px; font-size: 0.875rem; background: #fef0c7; color: #7a2e0e; border: 1px solid #f5c26b; }
 .upload-dup[hidden] { display: none; }
 .upload-dup p + p, .upload-dup ul, .upload-dup label { margin-top: 6px; }
-.upload-dup ul { padding-left: 18px; }
 .upload-dup a { color: inherit; font-weight: 600; }
+.upload-dup-row { display: flex; align-items: center; gap: 10px; }
+.upload-dup-row input[type="checkbox"] { flex: none; width: 18px; height: 18px; accent-color: #7a2e0e; }
+.upload-dup-thumb { flex: none; width: 56px; height: 42px; border-radius: 6px; object-fit: cover; background: #fff; }
+.upload-dup-list { list-style: none; padding: 0 !important; display: grid; gap: 6px; }
+.upload-dup-help { font-size: 0.8125rem; opacity: 0.85; }

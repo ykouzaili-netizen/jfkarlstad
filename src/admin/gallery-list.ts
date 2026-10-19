@@ -98,7 +98,11 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
   const rows = album ? all.filter((r) => r.album === album) : all;
   const moved = Number(params.get("flyttad")) || 0;
   const movedDir = params.get("riktning") === "upp" ? "upp" : "ned";
-  const unread = all.filter((r) => !r.taken_at && !r.exif_checked);
+  // Äldre bilder som behöver gås igenom: fotodatum som aldrig har lästs och/eller bildavtryck som saknas
+  const needDate = (r: Row) => !r.taken_at && !r.exif_checked;
+  const needPrint = (r: Row) => !r.phash;
+  const pending = all.filter((r) => needDate(r) || needPrint(r));
+  const pendingDates = pending.filter(needDate).length;
   const withDate = rows.filter((r) => r.taken_at).length;
 
   // ── Verktygsraden: kategorier och sortering ──
@@ -122,16 +126,21 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
   </div>`;
 
   // ── Äldre bilder som aldrig har lästs ──
-  const backfill = unread.length
+  const backfill = pending.length
     ? html`<div class="admin-card gl-exif" data-exif-backfill data-csrf="${session.csrf}">
         <div class="gl-exif-text">
-          <p><strong>${unread.length === 1 ? "1 bild" : `${unread.length} bilder`} har inget fotodatum ännu.</strong>
-          De laddades upp innan datumet lästes automatiskt. Låt sajten leta efter datumet i själva bildfilerna – det tar en liten stund och ändrar inget annat.</p>
-          <p class="field-help" data-exif-status role="status">Bilder som komprimerades vid uppladdningen har ofta förlorat datumet – de sorteras då efter när de laddades upp, och du kan skriva in datumet själv under Redigera.</p>
+          <p><strong>${n(pending.length)} behöver gås igenom en gång.</strong>
+          ${pendingDates
+            ? "Sajten letar efter fotodatumet i bildfilerna, så att bilderna sorteras efter när de togs, och gör ett avtryck av varje bild, så att du blir varnad om samma foto laddas upp igen."
+            : "Sajten gör ett avtryck av varje bild, så att du blir varnad om samma foto laddas upp igen."}
+          Det tar en liten stund och ändrar inget annat.</p>
+          <p class="field-help" data-exif-status role="status">${pendingDates ? "Bilder som komprimerades vid uppladdningen har ofta förlorat datumet – de sorteras då efter när de laddades upp, och du kan skriva in datumet själv under Redigera." : ""}</p>
           <noscript><p class="field-help">Det här kräver JavaScript i webbläsaren.</p></noscript>
         </div>
-        <button class="btn btn-primary" type="button" data-exif-start hidden>${icon("calendar", "icon icon-sm")}Läs fotodatum ur bilderna</button>
-        <ul hidden>${unread.map((r) => html`<li data-exif-id="${r.id}" data-exif-src="${mediaUrl(r.image_key) ?? ""}"></li>`)}</ul>
+        <button class="btn btn-primary" type="button" data-exif-start hidden>${icon("check", "icon icon-sm")}Gå igenom äldre bilder</button>
+        <ul hidden>${pending.map(
+          (r) => html`<li data-exif-id="${r.id}" data-exif-src="${mediaUrl(r.image_key) ?? ""}" data-exif-small="${mediaUrl(r.image_key, "sm") ?? ""}"${needDate(r) ? html` data-need-date` : ""}${needPrint(r) ? html` data-need-print` : ""}></li>`,
+        )}</ul>
       </div>`
     : "";
 
@@ -338,31 +347,36 @@ export async function galleryResetSubmit(c: RequestContext, session: Session): P
 }
 
 /**
- * Fotodatum för äldre bilder, lästa ur bildfilerna i webbläsaren (admin.js). Tar emot `id` och `tagen` i par
- * (tagen = "YYYY-MM-DDTHH:MM" eller tomt om bilden saknar datum). Bara bilder som saknar datum och inte har
- * lästs förut ändras – ett datum som någon har skrivit in skrivs aldrig över.
+ * "Gå igenom äldre bilder" (admin.js): fotodatum och bildavtryck som webbläsaren har räknat fram. Tar emot `id`,
+ * `tagen` och `avtryck` i lika långa listor. tagen = "YYYY-MM-DDTHH:MM", tomt (inget datum i bilden) eller "hoppa"
+ * (datumet behövde inte läsas). Ett datum eller avtryck som redan finns skrivs aldrig över.
  */
 export async function galleryExifSubmit(c: RequestContext, session: Session): Promise<Response> {
   const form = await c.req.formData();
   if (!checkCsrf(c, session, form)) return new Response("Sessionen har gått ut. Ladda om sidan.", { status: 403 });
   const ids = form.getAll("id").map((v) => Number(v));
   const dates = form.getAll("tagen").map((v) => String(v));
-  if (ids.length !== dates.length || ids.length > 50) return new Response("Fel format.", { status: 400 });
+  const prints = form.getAll("avtryck").map((v) => String(v));
+  if (ids.length !== dates.length || ids.length > 50 || (prints.length && prints.length !== ids.length)) return new Response("Fel format.", { status: 400 });
   const db = c.env.DB;
-  const stmts = [];
+  const stmts: D1PreparedStatement[] = [];
   let found = 0;
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i]!;
     if (!Number.isInteger(id) || id <= 0) continue;
-    const date = TAKEN_RE.test(dates[i]!) ? dates[i]! : null;
-    if (date) found++;
-    // År från fotodatumet om bilden saknar år
-    stmts.push(
-      db.prepare("UPDATE gallery_images SET taken_at = COALESCE(taken_at, ?1), year = COALESCE(year, CAST(substr(?1, 1, 4) AS INTEGER)), exif_checked = 1 WHERE id = ?2 AND exif_checked = 0").bind(date, id),
-    );
+    if (dates[i] !== "hoppa") {
+      const date = TAKEN_RE.test(dates[i]!) ? dates[i]! : null;
+      if (date) found++;
+      // År från fotodatumet om bilden saknar år
+      stmts.push(
+        db.prepare("UPDATE gallery_images SET taken_at = COALESCE(taken_at, ?1), year = COALESCE(year, CAST(substr(?1, 1, 4) AS INTEGER)), exif_checked = 1 WHERE id = ?2 AND exif_checked = 0").bind(date, id),
+      );
+    }
+    const print = prints[i] ?? "";
+    if (/^[0-9a-f]{16}$/.test(print)) stmts.push(db.prepare("UPDATE gallery_images SET phash = ? WHERE id = ? AND phash IS NULL").bind(print, id));
   }
   if (stmts.length) await db.batch(stmts);
-  if (found) await audit(c.env, session, "läste fotodatum för", "bildgalleri", null, `${found} av ${stmts.length} bilder`);
+  if (found) await audit(c.env, session, "läste fotodatum för", "bildgalleri", null, `${found} bilder`);
   return new Response(JSON.stringify({ ok: true, found }), { headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
 }
 
@@ -520,25 +534,62 @@ export async function galleryCoverSubmit(c: RequestContext, session: Session): P
   return redirect(`/admin/galleri-kategorier?klart=${cover ? "omslag-sparat" : "omslag-borttaget"}`, 303);
 }
 
+/** Så många av bildavtryckets 64 bitar får skilja för att två bilder ska räknas som samma foto. */
+const SIMILAR_BITS = 4;
+
+/** Ett avtryck med nästan bara nollor eller ettor kommer från en nästan enfärgad bild – för lite att jämföra. */
+function informative(p: string): boolean {
+  const ones = bitsApart(p, "0000000000000000");
+  return ones >= 6 && ones <= 58;
+}
+
+function bitsApart(a: string, b: string): number {
+  let d = 0;
+  for (let i = 0; i < 16; i += 4) {
+    let x = parseInt(a.slice(i, i + 4), 16) ^ parseInt(b.slice(i, i + 4), 16);
+    while (x) {
+      d += x & 1;
+      x >>= 1;
+    }
+  }
+  return d;
+}
+
 /**
- * Dubblettvarningen vid uppladdning: tar emot fingeravtryck (SHA-256 av originalfilen, `h` flera gånger) och svarar
- * med de bilder i galleriet som har samma. Bilder från före fingeravtrycken saknar ett och kan inte kännas igen.
+ * Dubblettvarningen vid uppladdning. Tar emot fingeravtryck av originalfilerna (`h`, SHA-256) och bildavtryck
+ * (`p`, dHash) och svarar med de bilder i galleriet som är samma fil (found) eller ser likadana ut (similar) –
+ * det senare känner igen ett foto även när den sparade bilden har komprimerats eller förminskats.
  */
 export async function galleryDuplicates(c: RequestContext, session: Session): Promise<Response> {
   const form = await c.req.formData();
   if (!checkCsrf(c, session, form)) return new Response("Sessionen har gått ut. Ladda om sidan.", { status: 403 });
   const hashes = [...new Set(form.getAll("h").map(String).filter((h) => /^[0-9a-f]{64}$/.test(h)))].slice(0, 500);
+  const prints = [...new Set(form.getAll("p").map(String).filter((p) => /^[0-9a-f]{16}$/.test(p) && informative(p)))].slice(0, 500);
   const db = c.env.DB;
-  const found: Record<string, { id: number; title: string; album: string; year: number | null; thumb: string | null }> = {};
+  type Match = { id: number; title: string; album: string; year: number | null; thumb: string | null };
+  const match = (r: Row): Match => ({ id: r.id, title: r.alt || r.caption || "", album: r.album, year: r.year, thumb: mediaUrl(r.image_key, "sm") });
+  const found: Record<string, Match> = {};
   for (let i = 0; i < hashes.length; i += 90) {
     const chunk = hashes.slice(i, i + 90);
     const { results } = await db
       .prepare(`SELECT * FROM gallery_images WHERE file_hash IN (${chunk.map(() => "?").join(",")}) ORDER BY id`)
       .bind(...chunk)
       .all<Row & { file_hash: string }>();
-    for (const r of results) {
-      if (!found[r.file_hash]) found[r.file_hash] = { id: r.id, title: r.alt || r.caption || "", album: r.album, year: r.year, thumb: mediaUrl(r.image_key, "sm") };
+    for (const r of results) if (!found[r.file_hash]) found[r.file_hash] = match(r);
+  }
+  const similar: Record<string, Match> = {};
+  if (prints.length) {
+    const { results } = await db.prepare("SELECT * FROM gallery_images WHERE phash IS NOT NULL ORDER BY id").all<Row & { phash: string }>();
+    for (const p of prints) {
+      let best: (Row & { phash: string }) | null = null;
+      let bestBits = SIMILAR_BITS + 1;
+      for (const r of results) {
+        if (!informative(r.phash)) continue;
+        const d = bitsApart(p, r.phash);
+        if (d < bestBits) [best, bestBits] = [r, d];
+      }
+      if (best) similar[p] = match(best);
     }
   }
-  return new Response(JSON.stringify({ found }), { headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+  return new Response(JSON.stringify({ found, similar }), { headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
 }

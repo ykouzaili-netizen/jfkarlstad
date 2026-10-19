@@ -4629,7 +4629,10 @@ button.pd-plaque:hover { transform: translateY(-2px); filter: brightness(1.06); 
 
 /* Bildgalleriets bildruta (site.js). Rutan täcker hela fönstret; den mörka ytan runt bilden stänger den. */
 .gal-lb { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgb(10 10 12 / 0.96); color: #fff; overflow: hidden; }
-.gal-lb[open] { display: grid; grid-template-rows: auto 1fr; }
+.gal-lb[open] { display: block; }
+.gal-lb-inner { position: relative; display: grid; grid-template-rows: auto 1fr; width: 100%; height: 100%; }
+.gal-lb-inner:fullscreen { background: #000; }
+.gal-lb-inner::backdrop { background: #000; }
 .gal-lb::backdrop { background: transparent; }
 .gal-lb-open, .gal-lb-open body { overflow: hidden; }
 .gal-lb-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: max(12px, env(safe-area-inset-top)) clamp(12px, 3vw, 24px) 8px; }
@@ -4649,6 +4652,12 @@ button.pd-plaque:hover { transform: translateY(-2px); filter: brightness(1.06); 
 .gal-lb-progress span.is-running { animation: gal-lb-progress 5s linear forwards; }
 @keyframes gal-lb-progress { to { transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) { .gal-lb-progress span.is-running { animation: none; transform: scaleX(1); opacity: 0.5; } }
+.gal-lb-i-shrink, .gal-lb.is-fullscreen .gal-lb-i-expand { display: none; }
+.gal-lb.is-fullscreen .gal-lb-i-shrink { display: inline-block; }
+.gal-lb.is-fullscreen .gal-lb-img { max-height: calc(100dvh - 120px); }
+.gal-lb .gal-lb-bar, .gal-lb .gal-lb-nav, .gal-lb .gal-lb-remove, .gal-lb .gal-lb-caption { transition: opacity 0.4s ease; }
+.gal-lb.is-idle { cursor: none; }
+.gal-lb.is-idle .gal-lb-bar, .gal-lb.is-idle .gal-lb-nav, .gal-lb.is-idle .gal-lb-remove { opacity: 0; pointer-events: none; }
 .gal-lb-close, .gal-lb-nav { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 999px; color: #fff; background: rgb(255 255 255 / 0.12); border: 1px solid rgb(255 255 255 / 0.22); cursor: pointer; transition: background-color 0.15s ease, transform 0.15s ease; }
 .gal-lb-close:hover, .gal-lb-nav:hover { background: rgb(255 255 255 / 0.26); }
 .gal-lb-close { margin-left: 4px; }
@@ -4667,7 +4676,9 @@ button.pd-plaque:hover { transform: translateY(-2px); filter: brightness(1.06); 
 .gal-lb-next { right: clamp(8px, 2vw, 24px); }
 @keyframes gal-lb-in { from { opacity: 0; transform: scale(0.98); } }
 @media (max-width: 600px) {
-  .gal-lb-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .gal-lb-fs { display: none !important; }
+  .gal-lb-actions { gap: 6px; }
+  .gal-lb-btn span:not(.gal-lb-pause-i) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .gal-lb-btn { width: 44px; padding: 0; justify-content: center; }
   .gal-lb-stage { padding: 4px 8px 92px; }
   .gal-lb-remove { bottom: max(70px, calc(env(safe-area-inset-bottom) + 64px)); max-width: calc(100% - 32px); }

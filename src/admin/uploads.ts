@@ -165,7 +165,7 @@ export function uploadInput(opts: {
           <input type="hidden" name="${opts.name}__matt" value="" data-dims-for="${opts.name}">
           <input type="hidden" name="${opts.name}__bank" value="" data-bank-for="${opts.name}">
           <input type="hidden" name="${opts.name}__tagen" value="" data-taken-for="${opts.name}">
-          ${opts.dupCheck ? html`<input type="hidden" name="${opts.name}__hash" value="" data-hash-for="${opts.name}">` : ""}`
+          ${opts.dupCheck ? html`<input type="hidden" name="${opts.name}__hash" value="" data-hash-for="${opts.name}"><input type="hidden" name="${opts.name}__phash" value="" data-phash-for="${opts.name}">` : ""}`
       : ""}
     <p class="upload-status" id="${statusId}" aria-live="polite" data-upload-status="${opts.name}"></p>
     ${opts.dupCheck ? html`<div class="upload-dup" data-dup-for="${opts.name}" role="status" hidden></div>` : ""}`;

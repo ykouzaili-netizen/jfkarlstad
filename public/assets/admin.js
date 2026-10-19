@@ -105,6 +105,64 @@
   window.jfkParseTaken = function (buf) { try { return parse(buf); } catch (e) { return null; } };
 })();
 
+/* ---------- Bildavtryck (dHash) ----------
+   window.jfkPrint(bild) ger 16 hex-tecken (64 bitar) som beskriver bildens ljusa och mörka partier. Samma foto ger
+   (nästan) samma avtryck även efter komprimering eller förminskning – så känner dubblettvarningen igen en bild
+   oavsett om originalet eller den mindre versionen jämförs. Bilden halveras stegvis först, annars blir en stor bild
+   kornig när den krymps till 9 × 8 punkter och avtrycket beror på upplösningen. */
+(function () {
+  "use strict";
+  window.jfkPrint = function (source) {
+    try {
+      var w = source.width, h = source.height;
+      if (!w || !h) return "";
+      // 1. Krymp stegvis (halvering) till högst 256 px, så att ingen detalj hoppas över
+      var cur = source, cw = w, ch = h;
+      while (cw > 256 || ch > 256) {
+        var nw = Math.max(9, Math.round(cw / 2)), nh = Math.max(8, Math.round(ch / 2));
+        var step = document.createElement("canvas");
+        step.width = nw; step.height = nh;
+        var sctx = step.getContext("2d");
+        sctx.imageSmoothingEnabled = true; sctx.imageSmoothingQuality = "high";
+        sctx.drawImage(cur, 0, 0, cw, ch, 0, 0, nw, nh);
+        cur = step; cw = nw; ch = nh;
+      }
+      var c = document.createElement("canvas");
+      c.width = cw; c.height = ch;
+      var ctx = c.getContext("2d");
+      ctx.drawImage(cur, 0, 0);
+      var d = ctx.getImageData(0, 0, cw, ch).data;
+      // 2. Medelvärdet av ljusheten i ett rutnät på 9 × 8 lika stora rutor (oberoende av upplösningen)
+      var gray = new Array(72);
+      for (var gy = 0; gy < 8; gy++) {
+        for (var gx = 0; gx < 9; gx++) {
+          var x0 = Math.floor(gx * cw / 9), x1 = Math.max(x0 + 1, Math.floor((gx + 1) * cw / 9));
+          var y0 = Math.floor(gy * ch / 8), y1 = Math.max(y0 + 1, Math.floor((gy + 1) * ch / 8));
+          var sum = 0, n = 0;
+          for (var y = y0; y < y1; y++) {
+            for (var x = x0; x < x1; x++) {
+              var k = (y * cw + x) * 4;
+              sum += d[k] * 0.299 + d[k + 1] * 0.587 + d[k + 2] * 0.114;
+              n++;
+            }
+          }
+          gray[gy * 9 + gx] = sum / n;
+        }
+      }
+      // 3. En bit per ruta: är den ljusare än rutan till höger?
+      var hex = "";
+      for (var r = 0; r < 8; r++) {
+        var byte = 0;
+        for (var q = 0; q < 8; q++) byte = (byte << 1) | (gray[r * 9 + q] > gray[r * 9 + q + 1] ? 1 : 0);
+        hex += ("0" + byte.toString(16)).slice(-2);
+      }
+      return hex;
+    } catch (e) {
+      return "";
+    }
+  };
+})();
+
 (function () {
   "use strict";
 
@@ -285,21 +343,25 @@
     field.addEventListener("input", function () { field.removeAttribute("data-taken-auto"); }, { once: true });
   }
 
-  /* ---------- Dubbletter (galleriet): fingeravtryck av originalfilen och fråga servern om samma bild redan finns ---------- */
+  /* ---------- Dubbletter (galleriet) ----------
+     Två avtryck per bild: SHA-256 av originalfilen (exakt samma fil) och bildavtrycket jfkPrint (samma foto, även
+     komprimerat eller förminskat). Servern svarar med bilder som redan finns; varningen får aldrig stoppa uppladdningen. */
   async function sha256(file) {
     if (!window.crypto || !crypto.subtle) return "";
     var buf = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
     return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
   }
-  async function findDuplicates(input, hashes) {
+  async function findDuplicates(input, hashes, prints) {
     var url = input.getAttribute("data-dup-check"), csrf = input.form && input.form.querySelector('[name="_csrf"]');
     var body = new FormData();
     body.append("_csrf", csrf ? csrf.value : "");
     hashes.forEach(function (h) { if (h) body.append("h", h); });
+    prints.forEach(function (p) { if (p) body.append("p", p); });
     try {
       var res = await fetch(url, { method: "POST", body: body, credentials: "same-origin" });
-      return res.ok ? (await res.json()).found || {} : {};
-    } catch (e) { return {}; } // varningen är en hjälp – den får aldrig stoppa uppladdningen
+      var out = res.ok ? await res.json() : {};
+      return { found: out.found || {}, similar: out.similar || {} };
+    } catch (e) { return { found: {}, similar: {} }; }
   }
   function where(m) { return m.album + (m.year ? " " + m.year : ""); }
   function dupLink(m) {
@@ -308,6 +370,12 @@
     a.textContent = m.title ? m.title + " (" + where(m) + ")" : "en bild i " + where(m);
     return a;
   }
+  function dupThumb(m) {
+    if (!m.thumb) return null;
+    var img = document.createElement("img");
+    img.className = "upload-dup-thumb"; img.src = m.thumb; img.alt = ""; img.width = 56; img.height = 42;
+    return img;
+  }
   function showDup(name, build) {
     var box = companion(name, "data-dup-for");
     if (!box) return;
@@ -315,52 +383,87 @@
     box.hidden = !build;
     if (build) build(box);
   }
-  async function checkSingle(input, name, file) {
-    var hidden = companion(name, "data-hash-for");
+  async function printOf(file) {
+    if (!window.jfkPrint) return "";
+    try {
+      var src = await decode(file), p = window.jfkPrint(src);
+      if (src.close) src.close();
+      return p;
+    } catch (e) { return ""; }
+  }
+  async function checkSingle(input, name, file, source) {
+    var hidden = companion(name, "data-hash-for"), phidden = companion(name, "data-phash-for");
     if (!hidden) return;
-    var hash = await sha256(file);
+    var hash = await sha256(file), print = source && window.jfkPrint ? window.jfkPrint(source) : "";
     hidden.value = hash;
-    if (!hash) return;
-    var m = (await findDuplicates(input, [hash]))[hash];
+    if (phidden) phidden.value = print;
+    if (!hash && !print) return;
+    var res = await findDuplicates(input, [hash], [print]);
+    var m = res.found[hash] || res.similar[print], exact = !!res.found[hash];
     if (!m) return;
     showDup(name, function (box) {
+      var row = document.createElement("div");
+      row.className = "upload-dup-row";
+      var t = dupThumb(m);
+      if (t) row.appendChild(t);
+      var text = document.createElement("div");
       var p = document.createElement("p");
-      p.innerHTML = "<strong>Den här bilden finns redan i galleriet:</strong> ";
+      p.innerHTML = exact ? "<strong>Den här bilden finns redan i galleriet:</strong> " : "<strong>En nästan likadan bild finns redan i galleriet:</strong> ";
       p.appendChild(dupLink(m));
       var q = document.createElement("p");
-      q.textContent = "Du kan ladda upp den ändå, men då visas den två gånger.";
-      box.appendChild(p); box.appendChild(q);
+      q.textContent = exact ? "Du kan ladda upp den ändå, men då visas den två gånger." : "Kontrollera att det inte är samma foto. Är det en annan bild kan du ladda upp den som vanligt.";
+      text.appendChild(p); text.appendChild(q);
+      row.appendChild(text);
+      box.appendChild(row);
     });
   }
   async function checkMany(input, name, files) {
     showDup(name, null);
-    var hashes = [];
-    for (var i = 0; i < files.length; i++) hashes.push(await sha256(files[i]));
-    var found = hashes.some(Boolean) ? await findDuplicates(input, hashes) : {};
+    var hashes = [], prints = [];
+    for (var i = 0; i < files.length; i++) {
+      setStatus(name, "Letar efter dubbletter … (" + (i + 1) + " av " + files.length + ")", "busy");
+      hashes.push(await sha256(files[i]));
+      prints.push(await printOf(files[i]));
+    }
+    setStatus(name, files.length + " bilder valda. De laddas upp en i taget när du klickar på Skapa – bildbeskrivning, bildtext och album gäller alla.", "ok");
+    var res = hashes.some(Boolean) || prints.some(Boolean) ? await findDuplicates(input, hashes, prints) : { found: {}, similar: {} };
     var seen = {}, dups = [];
-    hashes.forEach(function (h, i) {
-      if (!h) return;
-      if (found[h]) dups.push({ i: i, m: found[h] });
-      else if (seen[h] !== undefined) dups.push({ i: i, twin: files[seen[h]].name });
-      else seen[h] = i;
+    files.forEach(function (f, i) {
+      var h = hashes[i], p = prints[i];
+      if (h && res.found[h]) dups.push({ i: i, m: res.found[h], exact: true });
+      else if (h && seen[h] !== undefined) dups.push({ i: i, twin: files[seen[h]].name, exact: true });
+      else if (p && res.similar[p]) dups.push({ i: i, m: res.similar[p], exact: false });
+      if (h && seen[h] === undefined) seen[h] = i;
     });
-    input._dup = { hashes: hashes, skip: dups.map(function (d) { return d.i; }) };
+    input._dup = { hashes: hashes, prints: prints };
     if (!dups.length) return;
     showDup(name, function (box) {
       var p = document.createElement("p");
-      p.innerHTML = "<strong>" + (dups.length === 1 ? "1 av bilderna" : dups.length + " av bilderna") + " finns redan</strong> och hoppas över när du klickar på Skapa:";
+      p.innerHTML = "<strong>" + (dups.length === 1 ? "1 av bilderna" : dups.length + " av bilderna") + " finns redan.</strong> De markerade hoppas över när du klickar på Skapa:";
       var ul = document.createElement("ul");
+      ul.className = "upload-dup-list";
       dups.forEach(function (d) {
         var li = document.createElement("li");
-        li.appendChild(document.createTextNode(files[d.i].name + " – "));
-        if (d.m) { li.appendChild(document.createTextNode("finns som ")); li.appendChild(dupLink(d.m)); }
-        else li.appendChild(document.createTextNode("samma bild som " + d.twin + " i ditt urval"));
+        var label = document.createElement("label");
+        label.className = "upload-dup-row";
+        var cb = document.createElement("input");
+        cb.type = "checkbox"; cb.checked = true; cb.setAttribute("data-dup-skip", String(d.i));
+        cb.setAttribute("aria-label", "Hoppa över " + files[d.i].name);
+        label.appendChild(cb);
+        var t = d.m && dupThumb(d.m);
+        if (t) label.appendChild(t);
+        var span = document.createElement("span");
+        span.appendChild(document.createTextNode(files[d.i].name + " – "));
+        if (d.twin) span.appendChild(document.createTextNode("samma bild som " + d.twin + " i ditt urval"));
+        else { span.appendChild(document.createTextNode(d.exact ? "finns som " : "liknar ")); span.appendChild(dupLink(d.m)); }
+        label.appendChild(span);
+        li.appendChild(label);
         ul.appendChild(li);
       });
-      var label = document.createElement("label");
-      label.className = "check-field check-small";
-      label.innerHTML = '<input type="checkbox" data-dup-anyway><span>Ladda upp dem ändå</span>';
-      box.appendChild(p); box.appendChild(ul); box.appendChild(label);
+      var help = document.createElement("p");
+      help.className = "upload-dup-help";
+      help.textContent = "Bocka ur en bild för att ladda upp den ändå.";
+      box.appendChild(p); box.appendChild(ul); box.appendChild(help);
     });
   }
 
@@ -546,8 +649,9 @@
       setTaken(input, name, null, false);
       showDup(name, null);
       input._dup = null;
-      var hashIn = companion(name, "data-hash-for");
+      var hashIn = companion(name, "data-hash-for"), phashIn = companion(name, "data-phash-for");
       if (hashIn) hashIn.value = "";
+      if (phashIn) phashIn.value = "";
       var bank = companion(name, "data-bank-for");
       if (bank && file) bank.value = "";
       if (!file) return;
@@ -582,8 +686,8 @@
       try {
         // Fotodatumet läses ur originalet – komprimering och beskärning tar bort det
         if (companion(name, "data-taken-for") && window.jfkTakenAt) setTaken(input, name, await window.jfkTakenAt(file), true);
-        if (input.hasAttribute("data-dup-check")) await checkSingle(input, name, file);
         var source = await decode(file);
+        if (input.hasAttribute("data-dup-check")) await checkSingle(input, name, file, source);
         // Porträtt: beskär (data-crop) och/eller gör svartvit (data-gray-if) innan något annat
         var cropRatio = parseFloat(input.getAttribute("data-crop") || "0");
         var gray = grayWanted(input);
@@ -693,10 +797,12 @@
       var text = box.querySelector(".bulk-progress-text"), bar = box.querySelector("progress"), errs = box.querySelector(".bulk-progress-errors");
       if (input._dupReady) { text.textContent = "Letar efter dubbletter …"; await input._dupReady; }
       var ok = 0, failed = 0, skipped = 0;
-      var dup = input._dup, anyway = form.querySelector("[data-dup-anyway]");
+      var dup = input._dup;
+      var skipSet = {};
+      form.querySelectorAll("[data-dup-skip]").forEach(function (cb) { if (cb.checked) skipSet[cb.getAttribute("data-dup-skip")] = true; });
       for (var i = 0; i < files.length; i++) {
         var f = files[i];
-        if (dup && dup.skip.indexOf(i) >= 0 && !(anyway && anyway.checked)) { skipped++; bar.value = i + 1; continue; }
+        if (skipSet[String(i)]) { skipped++; bar.value = i + 1; continue; }
         text.textContent = "Laddar upp bild " + (i + 1) + " av " + files.length + " – " + f.name + " …";
         try {
           var prep = await prepareImage(f, max);
@@ -704,8 +810,9 @@
           var taken = window.jfkTakenAt ? await window.jfkTakenAt(f) : null;
           fd.delete(name); fd.delete(name + "__liten"); fd.delete(name + "__mellan"); fd.delete(name + "__matt"); fd.delete(name + "__bank"); fd.delete(name + "__tagen");
           if (companion(name, "data-taken-for")) fd.append(name + "__tagen", taken || "saknas");
-          fd.delete(name + "__hash");
+          fd.delete(name + "__hash"); fd.delete(name + "__phash");
           if (dup && dup.hashes[i]) fd.append(name + "__hash", dup.hashes[i]);
+          if (dup && dup.prints[i]) fd.append(name + "__phash", dup.prints[i]);
           fd.append(name, prep.file, prep.file.name);
           if (prep.small) fd.append(name + "__liten", variantFile(prep.small, "liten", prep.file.name));
           if (prep.medium) fd.append(name + "__mellan", variantFile(prep.medium, "mellan", prep.file.name));
@@ -2280,11 +2387,12 @@
   });
 })();
 
-/* Bildgalleriet: "Läs fotodatum ur bilderna" för äldre bilder. Början av varje originalbild hämtas (samma sajt),
-   datumet läses med jfkTakenAt och skickas i omgångar om tio. Inget annat ändras. */
+/* Bildgalleriet: "Gå igenom äldre bilder". För bilder utan fotodatum hämtas början av originalet och datumet läses
+   (jfkParseTaken); för bilder utan bildavtryck hämtas den lilla versionen och avtrycket räknas (jfkPrint).
+   Resultatet skickas i omgångar om tio. Inget annat ändras. */
 (function () {
   var box = document.querySelector("[data-exif-backfill]");
-  if (!box || !window.fetch || !window.jfkParseTaken) return;
+  if (!box || !window.fetch || !window.jfkParseTaken || !window.jfkPrint) return;
   var start = box.querySelector("[data-exif-start]");
   var status = box.querySelector("[data-exif-status]");
   var items = Array.prototype.slice.call(box.querySelectorAll("[data-exif-id]"));
@@ -2318,29 +2426,49 @@
   function send(batch) {
     var body = new FormData();
     body.append("_csrf", box.getAttribute("data-csrf") || "");
-    batch.forEach(function (b) { body.append("id", b.id); body.append("tagen", b.taken || ""); });
+    batch.forEach(function (b) { body.append("id", b.id); body.append("tagen", b.taken); body.append("avtryck", b.print || ""); });
     return fetch("/admin/galleri/fotodatum", { method: "POST", body: body, credentials: "same-origin" }).then(function (res) {
       if (!res.ok) throw new Error("server");
       return res.json();
     });
   }
 
+  async function printFrom(url) {
+    var res = await fetch(url, { credentials: "same-origin" });
+    if (!res.ok) throw new Error("http");
+    var blob = await res.blob();
+    var src = window.createImageBitmap ? await createImageBitmap(blob) : await new Promise(function (ok, fail) {
+      var im = new Image(); im.onload = function () { ok(im); }; im.onerror = fail; im.src = URL.createObjectURL(blob);
+    });
+    var p = window.jfkPrint(src);
+    if (src.close) src.close();
+    return p;
+  }
+
   start.addEventListener("click", async function () {
     start.disabled = true;
-    var found = 0, failed = 0, batch = [];
+    var found = 0, dated = 0, printed = 0, failed = 0, batch = [];
     for (var i = 0; i < items.length; i++) {
-      status.textContent = "Läser bild " + (i + 1) + " av " + items.length + " …";
-      var id = items[i].getAttribute("data-exif-id"), src = items[i].getAttribute("data-exif-src");
+      status.textContent = "Går igenom bild " + (i + 1) + " av " + items.length + " …";
+      var it = items[i], id = it.getAttribute("data-exif-id");
       try {
-        var taken = window.jfkParseTaken(await head(src));
-        if (taken) found++;
-        batch.push({ id: id, taken: taken });
+        var entry = { id: id, taken: "hoppa", print: "" };
+        if (it.hasAttribute("data-need-date")) {
+          entry.taken = window.jfkParseTaken(await head(it.getAttribute("data-exif-src"))) || "";
+          dated++;
+          if (entry.taken) found++;
+        }
+        if (it.hasAttribute("data-need-print")) {
+          entry.print = await printFrom(it.getAttribute("data-exif-small") || it.getAttribute("data-exif-src"));
+          if (entry.print) printed++;
+        }
+        batch.push(entry);
       } catch (e) {
-        failed++; // Bilden gick inte att hämta – den hoppas över och kan läsas nästa gång.
+        failed++; // Bilden gick inte att hämta – den hoppas över och kan gås igenom nästa gång.
       }
       if (batch.length === 10 || (i === items.length - 1 && batch.length)) {
         try { await send(batch); } catch (e) {
-          status.textContent = "Datumen kunde inte sparas. Ladda om sidan och försök igen.";
+          status.textContent = "Det gick inte att spara. Ladda om sidan och försök igen – det som redan är klart behöver inte göras om.";
           status.classList.add("is-error");
           start.disabled = false;
           return;
@@ -2348,12 +2476,10 @@
         batch = [];
       }
     }
-    var checked = items.length - failed;
-    status.textContent = (found
-      ? "Klart! " + (found === 1 ? "1 bild" : found + " bilder") + " fick sitt fotodatum"
-      : "Klart! Ingen av bilderna hade något fotodatum sparat") +
-      (checked - found > 0 ? ", " + (checked - found) + " saknade datum och sorteras efter när de laddades upp" : "") +
-      (failed ? ". " + failed + " gick inte att läsa" : "") + ". Sidan laddas om …";
+    var parts = [];
+    if (dated) parts.push(found ? (found === 1 ? "1 bild" : found + " bilder") + " fick sitt fotodatum" + (dated - found ? " (" + (dated - found) + " saknade datum och sorteras efter när de laddades upp)" : "") : "ingen av bilderna hade något fotodatum sparat");
+    if (printed) parts.push((printed === 1 ? "1 bild" : printed + " bilder") + " fick ett avtryck för dubblettvarningen");
+    status.textContent = "Klart! " + (parts.join(", ") || "Inget behövde ändras") + (failed ? ". " + failed + " gick inte att läsa och kan gås igenom senare" : "") + ". Sidan laddas om …";
     setTimeout(function () { location.reload(); }, 2200);
   });
 })();

@@ -1592,6 +1592,8 @@ async function save(r: Resource, c: RequestContext, session: Session, id: number
     for (const f of fields.filter((f) => f.dupCheck && fileCols[col(f)])) {
       const hash = String(form.get(`${f.name}__hash`) ?? "");
       if (/^[0-9a-f]{64}$/.test(hash)) data.file_hash = hash;
+      const print = String(form.get(`${f.name}__phash`) ?? "");
+      if (/^[0-9a-f]{16}$/.test(print)) data.phash = print;
     }
     // Bildens uppgifter har lästs för en ny fil – då behöver "Läs fotodatum ur bilderna" inte göra om det.
     if (exifRead.some((name) => fileCols[col(fields.find((f) => f.name === name)!)])) data.exif_checked = 1;

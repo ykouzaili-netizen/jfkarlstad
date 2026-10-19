@@ -249,24 +249,27 @@ function downloadName(album: string, img: GalleryRow): string {
  */
 function lightbox(s: Settings): SafeHtml {
   return html`<dialog class="gal-lb" data-gal-lb aria-label="${fillText(s.gallery_lb_count, { nr: "1", antal: "1" })}" data-count="${s.gallery_lb_count}" data-share-title="${s.gallery_lb_share_title}" data-copied="${s.gallery_lb_copied}" data-play="${s.gallery_lb_play}" data-pause="${s.gallery_lb_pause}">
-    <div class="gal-lb-bar">
-      <p class="gal-lb-count"><span data-gal-lb-count aria-live="polite"></span><span class="gal-lb-note" data-gal-lb-note role="status"></span></p>
-      <div class="gal-lb-actions">
-        <button class="gal-lb-btn" type="button" data-gal-lb-play hidden aria-pressed="false">${icon("play", "icon icon-sm gal-lb-i-play")}<span class="gal-lb-pause-i" aria-hidden="true"></span><span data-gal-lb-play-label>${s.gallery_lb_play}</span></button>
-        <button class="gal-lb-btn" type="button" data-gal-lb-share${ek(s, "gallery_lb_share")}>${icon("link", "icon icon-sm")}<span>${s.gallery_lb_share}</span></button>
-        <a class="gal-lb-btn" href="#" download data-gal-lb-download${ek(s, "gallery_lb_download")}>${icon("arrowDown", "icon icon-sm")}<span>${s.gallery_lb_download}</span></a>
-        <a class="gal-lb-btn" href="#" target="_blank" rel="noopener" data-gal-lb-open${ek(s, "gallery_lb_open")}>${icon("external", "icon icon-sm")}<span>${s.gallery_lb_open}</span></a>
-        <button class="gal-lb-close" type="button" data-gal-lb-close autofocus aria-label="${s.gallery_lb_close}">${icon("close", "icon")}</button>
+    <div class="gal-lb-inner" data-gal-lb-inner>
+      <div class="gal-lb-bar">
+        <p class="gal-lb-count"><span data-gal-lb-count aria-live="polite"></span><span class="gal-lb-note" data-gal-lb-note role="status"></span></p>
+        <div class="gal-lb-actions">
+          <button class="gal-lb-btn" type="button" data-gal-lb-play hidden aria-pressed="false">${icon("play", "icon icon-sm gal-lb-i-play")}<span class="gal-lb-pause-i" aria-hidden="true"></span><span data-gal-lb-play-label>${s.gallery_lb_play}</span></button>
+          <button class="gal-lb-btn gal-lb-fs" type="button" data-gal-lb-fs hidden aria-pressed="false" data-enter="${s.gallery_lb_fullscreen}" data-exit="${s.gallery_lb_fullscreen_exit}" title="${s.gallery_lb_fullscreen}">${icon("expand", "icon icon-sm gal-lb-i-expand")}${icon("shrink", "icon icon-sm gal-lb-i-shrink")}<span data-gal-lb-fs-label>${s.gallery_lb_fullscreen}</span></button>
+          <button class="gal-lb-btn" type="button" data-gal-lb-share${ek(s, "gallery_lb_share")}>${icon("link", "icon icon-sm")}<span>${s.gallery_lb_share}</span></button>
+          <a class="gal-lb-btn" href="#" download data-gal-lb-download${ek(s, "gallery_lb_download")}>${icon("arrowDown", "icon icon-sm")}<span>${s.gallery_lb_download}</span></a>
+          <a class="gal-lb-btn" href="#" target="_blank" rel="noopener" data-gal-lb-open${ek(s, "gallery_lb_open")}>${icon("external", "icon icon-sm")}<span>${s.gallery_lb_open}</span></a>
+          <button class="gal-lb-close" type="button" data-gal-lb-close autofocus aria-label="${s.gallery_lb_close}">${icon("close", "icon")}</button>
+        </div>
       </div>
+      <div class="gal-lb-progress" data-gal-lb-progress hidden aria-hidden="true"><span></span></div>
+      <figure class="gal-lb-stage" data-gal-lb-stage>
+        <img class="gal-lb-img" alt="" data-gal-lb-img>
+        <figcaption class="gal-lb-caption" data-gal-lb-caption hidden><span data-gal-lb-text></span><span class="gal-lb-photo" data-gal-lb-photo></span></figcaption>
+      </figure>
+      <a class="gal-lb-remove" href="mailto:${s.gallery_remove_email}" data-gal-lb-remove data-subject="${s.gallery_remove_subject}" data-body="${s.gallery_remove_body}"${ek(s, "gallery_lb_remove")}>${s.gallery_lb_remove}</a>
+      <button class="gal-lb-nav gal-lb-prev" type="button" data-gal-lb-step="-1" aria-label="${s.gallery_lb_prev}">${icon("chevronLeft", "icon")}</button>
+      <button class="gal-lb-nav gal-lb-next" type="button" data-gal-lb-step="1" aria-label="${s.gallery_lb_next}">${icon("chevronRight", "icon")}</button>
     </div>
-    <div class="gal-lb-progress" data-gal-lb-progress hidden aria-hidden="true"><span></span></div>
-    <figure class="gal-lb-stage" data-gal-lb-stage>
-      <img class="gal-lb-img" alt="" data-gal-lb-img>
-      <figcaption class="gal-lb-caption" data-gal-lb-caption hidden><span data-gal-lb-text></span><span class="gal-lb-photo" data-gal-lb-photo></span></figcaption>
-    </figure>
-    <a class="gal-lb-remove" href="mailto:${s.gallery_remove_email}" data-gal-lb-remove data-subject="${s.gallery_remove_subject}" data-body="${s.gallery_remove_body}"${ek(s, "gallery_lb_remove")}>${s.gallery_lb_remove}</a>
-    <button class="gal-lb-nav gal-lb-prev" type="button" data-gal-lb-step="-1" aria-label="${s.gallery_lb_prev}">${icon("chevronLeft", "icon")}</button>
-    <button class="gal-lb-nav gal-lb-next" type="button" data-gal-lb-step="1" aria-label="${s.gallery_lb_next}">${icon("chevronRight", "icon")}</button>
   </dialog>`;
 }
 
