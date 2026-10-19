@@ -1,7 +1,7 @@
 import { blockOrder, isBlockHidden } from "../lib/pagelayout.js";
 import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
 import { ec, ek, lines, loadSettings, type Settings, arrange, siteLayout, type SettingKey } from "../lib/settings.js";
-import { GALLERY_ALBUMS, galleryQuery, repQuery, videoQuery, type CourseRepRow, type GalleryRow, type VideoRow } from "../lib/content.js";
+import { albumOrder, galleryQuery, loadAlbums, repQuery, videoQuery, type CourseRepRow, type GalleryRow, type VideoRow } from "../lib/content.js";
 import { filmsSection } from "./films.js";
 import { slugify } from "../lib/slug.js";
 import { fill as fillText } from "../lib/texts.js";
@@ -15,7 +15,7 @@ import { contentPhoto, pageHeader } from "../views/page.js";
 
 export async function studentsPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, [repRes, galRes, vidRes]] = await Promise.all([loadSettings(db, c.preview), db.batch([repQuery.all(db), galleryQuery.all(db), videoQuery.all(db)])]);
+  const [s, [repRes, galRes, vidRes], albumNames] = await Promise.all([loadSettings(db, c.preview), db.batch([repQuery.all(db), galleryQuery.all(db), videoQuery.all(db)]), loadAlbums(db)]);
   const reps = repRes!.results as unknown as CourseRepRow[];
   const gallery = galRes!.results as unknown as GalleryRow[];
   const films = (vidRes?.results ?? []) as unknown as VideoRow[];
@@ -42,7 +42,7 @@ export async function studentsPage(c: RequestContext): Promise<Response> {
       kursombud: () => repsSection(s, reps),
       idrott: () => sport(s),
       filmer: () => filmsSection(s, films, c.url),
-      galleri: () => gallerySection(s, gallery, c.url),
+      galleri: () => gallerySection(s, gallery, c.url, albumNames),
     })}
   `;
   return htmlResponse(c, layout(c, s, { title: s.students_kicker, description: s.students_lead }, content));
@@ -251,7 +251,7 @@ function lightbox(s: Settings): SafeHtml {
     </div>
     <figure class="gal-lb-stage" data-gal-lb-stage>
       <img class="gal-lb-img" alt="" data-gal-lb-img>
-      <figcaption class="gal-lb-caption" data-gal-lb-caption hidden></figcaption>
+      <figcaption class="gal-lb-caption" data-gal-lb-caption hidden><span data-gal-lb-text></span><span class="gal-lb-photo" data-gal-lb-photo></span></figcaption>
     </figure>
     <button class="gal-lb-nav gal-lb-prev" type="button" data-gal-lb-step="-1" aria-label="${s.gallery_lb_prev}">${icon("chevronLeft", "icon")}</button>
     <button class="gal-lb-nav gal-lb-next" type="button" data-gal-lb-step="1" aria-label="${s.gallery_lb_next}">${icon("chevronRight", "icon")}</button>
@@ -262,7 +262,7 @@ function lightbox(s: Settings): SafeHtml {
  * Bildgalleriet: ett album i taget och, inom albumet, ett år i taget (nyast först). Valen är vanliga länkar
  * (?album=…&ar=…), så det fungerar utan JavaScript; site.js byter vy direkt utan att ladda om sidan.
  */
-function gallerySection(s: Settings, images: GalleryRow[], url: URL): SafeHtml {
+function gallerySection(s: Settings, images: GalleryRow[], url: URL, albumNames: string[]): SafeHtml {
   const albums = new Map<string, Map<string, GalleryRow[]>>();
   for (const img of images) {
     if (!albums.has(img.album)) albums.set(img.album, new Map());
@@ -271,8 +271,8 @@ function gallerySection(s: Settings, images: GalleryRow[], url: URL): SafeHtml {
     if (!years.has(y)) years.set(y, []);
     years.get(y)!.push(img);
   }
-  // Albumen i den fasta ordningen, därefter eventuella andra. Åren nyast först, "Utan årtal" sist.
-  const order = [...GALLERY_ALBUMS, ...[...albums.keys()].filter((a) => !GALLERY_ALBUMS.includes(a))].filter((a) => albums.has(a));
+  // Kategorierna i den ordning styrelsen har valt (Bildgalleri → Kategorier). Åren nyast först, "Utan årtal" sist.
+  const order = albumOrder(albumNames, albums.keys()).filter((a) => albums.has(a));
   const yearsOf = (a: string) => [...albums.get(a)!.keys()].sort((x, y) => (x === "" ? 1 : y === "" ? -1 : Number(y) - Number(x)));
   const wantedAlbum = order.find((a) => slugify(a) === url.searchParams.get("album")) ?? order[0];
   // Året i adressen: ett årtal eller "utan" (bilder utan år). Saknas det visas albumets senaste år.
@@ -284,7 +284,7 @@ function gallerySection(s: Settings, images: GalleryRow[], url: URL): SafeHtml {
   const grid = (album: string, imgs: GalleryRow[]) => html`<ul class="gallery-grid">
     ${imgs.map(
       (img) => html`<li${ec(s, `/admin/galleri/${img.id}`, `Bildgalleri › ${img.alt || album}`)}>
-        <a class="gallery-item" href="${mediaUrl(img.image_key)}" target="_blank" rel="noopener" data-gal-item data-gal-name="${downloadName(album, img)}"${img.caption ? html` data-gal-caption="${img.caption}"` : ""}>
+        <a class="gallery-item" href="${mediaUrl(img.image_key)}" target="_blank" rel="noopener" data-gal-item data-gal-name="${downloadName(album, img)}"${img.caption ? html` data-gal-caption="${img.caption}"` : ""}${img.photographer ? html` data-gal-photo="${fillText(s.gallery_lb_photo, { namn: img.photographer })}"` : ""}>
           ${picture(img.image_key, { alt: img.alt || img.caption || `Bild från albumet ${album}${img.year ? ` ${img.year}` : ""}`, sizes: "(min-width: 1000px) 280px, 50vw", width: 480, height: 360 })}
           <span class="sr-only"> (${s.gallery_open})</span>
         </a>

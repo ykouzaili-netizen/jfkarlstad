@@ -643,29 +643,6 @@
     });
   });
 
-  /* ---------- Bildgalleri → Sätt år på flera bilder: markera alla i en grupp och räkna de markerade ---------- */
-  (function () {
-    var form = document.querySelector("form.gy");
-    if (!form) return;
-    var count = form.querySelector("[data-gy-count]");
-    function update() {
-      var n = form.querySelectorAll('input[name="id"]:checked').length;
-      if (count) count.textContent = n ? (n === 1 ? "1 bild markerad." : n + " bilder markerade.") : "Inga bilder markerade ännu.";
-      form.querySelectorAll(".gy-group").forEach(function (g) {
-        var boxes = g.querySelectorAll('input[name="id"]'), on = g.querySelectorAll('input[name="id"]:checked').length, all = g.querySelector("[data-gy-all]");
-        if (all) { all.checked = on === boxes.length && on > 0; all.indeterminate = on > 0 && on < boxes.length; }
-      });
-    }
-    form.querySelectorAll(".gy-all").forEach(function (l) { l.hidden = false; });
-    form.addEventListener("change", function (e) {
-      if (e.target.matches("[data-gy-all]")) {
-        e.target.closest(".gy-group").querySelectorAll('input[name="id"]').forEach(function (b) { b.checked = e.target.checked; });
-      }
-      update();
-    });
-    update();
-  })();
-
   /* ---------- Bildbanken → Gör bilderna snabbare ----------
      Gör de mindre versionerna (800 och 1600 px breda) av befintliga bilder: hämtar originalet, skalar om det här
      och skickar versionerna till servern en bild i taget. Avbryts det (sidan stängs) fortsätter man där man slutade. */
@@ -2289,4 +2266,34 @@
       (failed ? ". " + failed + " gick inte att läsa" : "") + ". Sidan laddas om …";
     setTimeout(function () { location.reload(); }, 2200);
   });
+})();
+
+/* Bildgalleriet: Ändra flera. Räknar de markerade, "Markera alla" per album, och raden längst ned följer med
+   när man skrollar så fort något är markerat. Utan JS fungerar formuläret som vanligt. */
+(function () {
+  var form = document.querySelector("[data-gl-bulk]");
+  if (!form) return;
+  var count = form.querySelector("[data-gl-count]");
+  var picks = function () { return Array.prototype.slice.call(document.querySelectorAll('input.gl-pick[form="gl-bulk"]')); };
+  document.querySelectorAll("[data-gl-all]").forEach(function (b) { b.hidden = false; });
+  function update() {
+    var n = picks().filter(function (b) { return b.checked; }).length;
+    form.classList.toggle("is-active", n > 0);
+    count.innerHTML = n ? "<strong>" + (n === 1 ? "1 bild markerad" : n + " bilder markerade") + "</strong> – välj vad som ska ändras." : "<strong>Ändra flera bilder:</strong> markera dem i listan.";
+    form.querySelectorAll('button[name="atgard"]').forEach(function (btn) { btn.disabled = n === 0; });
+    document.querySelectorAll("[data-gl-all]").forEach(function (all) {
+      var boxes = all.closest("table").querySelectorAll("input.gl-pick"), on = 0;
+      boxes.forEach(function (b) { if (b.checked) on++; });
+      all.checked = on > 0 && on === boxes.length;
+      all.indeterminate = on > 0 && on < boxes.length;
+    });
+    document.querySelectorAll("input.gl-pick").forEach(function (b) { b.closest("tr").classList.toggle("is-picked", b.checked); });
+  }
+  document.addEventListener("change", function (e) {
+    if (e.target.matches("[data-gl-all]")) {
+      e.target.closest("table").querySelectorAll("input.gl-pick").forEach(function (b) { b.checked = e.target.checked; });
+    }
+    if (e.target.matches("[data-gl-all], input.gl-pick")) update();
+  });
+  update();
 })();

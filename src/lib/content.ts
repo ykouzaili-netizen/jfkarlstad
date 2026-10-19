@@ -94,6 +94,8 @@ export interface GalleryRow {
   /** När bilden togs: kamerans lokala tid "YYYY-MM-DDTHH:MM" (EXIF) eller inskrivet av styrelsen. */
   taken_at: string | null;
   exif_checked: number;
+  /** Visas i bildrutan som "Foto: …". */
+  photographer: string;
   created_at: string;
 }
 
@@ -218,6 +220,7 @@ export const HONOR_KINDS: Record<HonorRow["kind"], string> = {
   arets_pedagog: "Årets pedagog",
 };
 
+/** Standardkategorierna – bara reserv om tabellen gallery_albums saknas. Kategorierna redigeras under Bildgalleri → Kategorier. */
 export const GALLERY_ALBUMS = ["Banketter", "Arbetsmarknadsmässor", "Halvtidsmiddagar", "Inspark", "Övriga evenemang"];
 
 /** Visas ett evenemang utan sluttid till dagens slut. */
@@ -328,6 +331,21 @@ export const videoQuery = {
 export const GALLERY_IMAGE_ORDER = "sort_order = 0, sort_order, taken_at IS NULL, taken_at DESC, created_at DESC, id DESC";
 /** Album, sedan år (nyast först, utan år sist), sedan bilderna enligt GALLERY_IMAGE_ORDER. */
 export const GALLERY_ORDER = `album, year IS NULL, year DESC, ${GALLERY_IMAGE_ORDER}`;
+
+/** Bildgalleriets kategorier i den ordning styrelsen har valt (Bildgalleri → Kategorier). */
+export async function loadAlbums(db: D1Database): Promise<string[]> {
+  try {
+    const { results } = await db.prepare("SELECT name FROM gallery_albums ORDER BY sort_order, name").all<{ name: string }>();
+    return results.length ? results.map((r) => r.name) : [...GALLERY_ALBUMS];
+  } catch {
+    return [...GALLERY_ALBUMS];
+  }
+}
+
+/** Kategorierna i vald ordning, och efter dem eventuella namn som bara finns på bilderna (så att inget försvinner). */
+export function albumOrder(albums: string[], used: Iterable<string>): string[] {
+  return [...albums, ...[...new Set(used)].filter((a) => a && !albums.includes(a))];
+}
 
 export const galleryQuery = {
   all: (db: D1Database) => db.prepare(`SELECT * FROM gallery_images ORDER BY ${GALLERY_ORDER}`),

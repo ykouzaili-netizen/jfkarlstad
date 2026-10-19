@@ -1,6 +1,7 @@
 import { html, type SafeHtml } from "../lib/html.js";
 import { redirect } from "../lib/http.js";
-import { GALLERY_ALBUMS, GALLERY_ORDER, type GalleryRow } from "../lib/content.js";
+import { GALLERY_ORDER, albumOrder, loadAlbums, type GalleryRow } from "../lib/content.js";
+import { purgeIfUnused } from "../lib/media.js";
 import { MONTHS_SHORT, formatDateTimeShort, parseLocal } from "../lib/format.js";
 import { slugify } from "../lib/slug.js";
 import type { RequestContext } from "../router.js";
@@ -8,8 +9,7 @@ import { mediaUrl } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton } from "./layout.js";
-import { resourceTabs } from "./resources.js";
-import { galleryYearsAction } from "./gallery-years.js";
+import { GALLERY_TABS, resourceTabs } from "./resources.js";
 
 /**
  * Bildgalleri i adminpanelen (ersätter den generiska listan för galleri).
@@ -35,6 +35,9 @@ export const SORTS = {
 } as const;
 type Sort = keyof typeof SORTS;
 
+/** Så många bilder visas åt gången i listan (per album och år, eller i en sorterad lista). */
+const PAGE = 100;
+
 const TAKEN_RE = /^(19[89]\d|20\d\d)-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d$/;
 
 /** "12 okt 2026 19:42" (kamerans lokala tid). */
@@ -49,10 +52,11 @@ const titleOf = (r: Row) => r.alt || r.caption || `Bild utan beskrivning (${r.al
 const n = (count: number) => (count === 1 ? "1 bild" : `${count} bilder`);
 
 /** Adressen till listan med samma kategori och sortering. */
-function listHref(album: string | null, sort: Sort): string {
+function listHref(album: string | null, sort: Sort, extra: Record<string, string> = {}): string {
   const q = new URLSearchParams();
   if (album) q.set("kategori", slugify(album));
   if (sort !== "webbplats") q.set("sortera", sort);
+  for (const [k, v] of Object.entries(extra)) q.set(k, v);
   const s = q.toString();
   return `/admin/galleri${s ? `?${s}` : ""}`;
 }
@@ -80,7 +84,9 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
   const { results: all } = await db.prepare(`SELECT * FROM gallery_images ORDER BY ${GALLERY_ORDER}`).all<Row>();
   const params = c.url.searchParams;
   const sort: Sort = (Object.keys(SORTS) as Sort[]).find((k) => k === params.get("sortera")) ?? "webbplats";
-  const albums = [...GALLERY_ALBUMS, ...[...new Set(all.map((r) => r.album))].filter((a) => !GALLERY_ALBUMS.includes(a))];
+  const albums = albumOrder(await loadAlbums(db), all.map((r) => r.album));
+  const showAll = params.get("visa") === "alla";
+  const limit = Math.min(10000, Math.max(PAGE, Number(params.get("antal")) || PAGE));
   const album = albums.find((a) => slugify(a) === params.get("kategori")) ?? null;
   const rows = album ? all.filter((r) => r.album === album) : all;
   const moved = Number(params.get("flyttad")) || 0;
@@ -131,7 +137,9 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
       ${postButton(session, `/admin/galleri/${r.id}/radera`, "Ta bort", { confirm: `Vill du ta bort ”${titleOf(r)}”? Bilden raderas helt och det går inte att ångra.`, className: "btn btn-danger-ghost btn-sm" })}
     </div></td>`;
   const thumbCell = (r: Row) => html`<td class="col-thumb"><a href="/admin/galleri/${r.id}" tabindex="-1" aria-hidden="true"><img class="thumb gl-thumb" src="${mediaUrl(r.image_key, "sm") ?? ""}" alt="" width="72" height="54" loading="lazy" decoding="async"></a></td>`;
-  const titleCell = (r: Row, extra?: SafeHtml) => html`<td data-label="Beskrivning"><a class="row-title" href="/admin/galleri/${r.id}">${titleOf(r)}</a>${extra ?? ""}</td>`;
+  const titleCell = (r: Row) => html`<td data-label="Beskrivning"><a class="row-title" href="/admin/galleri/${r.id}">${titleOf(r)}</a>${r.photographer ? html`<span class="gl-photo">Foto: ${r.photographer}</span>` : ""}</td>`;
+  // Kryssrutorna hör till formuläret "Ändra flera" längst ned (form="gl-bulk"), så att de kan ligga i raderna
+  const selectCell = (r: Row) => html`<td class="col-select"><input class="gl-pick" type="checkbox" name="id" value="${r.id}" form="gl-bulk" aria-label="Markera ${titleOf(r)}"></td>`;
   const moveCell = (r: Row, pos: number, count: number) => {
     const btn = (dir: "upp" | "ned", disabled: boolean) => html`<form class="inline-form" method="post" action="/admin/galleri/${r.id}/flytta">
         ${csrfField(session)}<input type="hidden" name="riktning" value="${dir}">${album ? html`<input type="hidden" name="tillbaka" value="${listHref(album, "webbplats")}">` : ""}
@@ -139,7 +147,8 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
       </form>`;
     return html`<td class="col-move"><div class="move-buttons"><button class="btn btn-outline btn-sm btn-move drag-handle" type="button" data-sort-handle hidden aria-label="Dra för att flytta ${titleOf(r)} (eller använd piltangenterna)" title="Dra för att flytta">${icon("grip", "icon icon-sm")}</button>${btn("upp", pos === 0)}${btn("ned", pos === count - 1)}</div></td>`;
   };
-  const head = (move: boolean, withAlbum: boolean) => html`<thead><tr>
+  const head = (move: boolean, withAlbum: boolean, label: string) => html`<thead><tr>
+      <th scope="col" class="col-select"><input type="checkbox" data-gl-all hidden aria-label="Markera alla ${label}"><span class="sr-only">Markera</span></th>
       ${move ? html`<th scope="col" class="col-move">Ordning</th>` : ""}
       <th scope="col" class="col-thumb"><span class="sr-only">Bild</span></th>
       <th scope="col">Beskrivning</th>
@@ -173,6 +182,9 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
         const custom = g.rows.some((r) => r.sort_order > 0);
         const fresh = custom ? g.rows.filter((r) => r.sort_order === 0).length : 0;
         const yearLabel = g.year == null ? "Utan årtal" : String(g.year);
+        // Långa album visas i början; ordningen kan bara dras när hela albumet syns (servern behöver alla bilder).
+        const cut = !showAll && g.rows.length > PAGE;
+        const shown = cut ? g.rows.slice(0, PAGE) : g.rows;
         const resetForm = postButton(session, "/admin/galleri/aterstall", "Återställ till datumordning", {
           confirm: `Vill du återställa ordningen i ${g.album} ${yearLabel}? Bilderna visas då efter när de fotograferades, och den ordning du har dragit fram försvinner.`,
           className: "btn btn-outline btn-sm",
@@ -190,15 +202,19 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
             <div class="gl-reset" data-gl-reset${custom ? "" : html` hidden`}>${resetForm}</div>
           </header>
           <table class="admin-table gl-table">
-            ${head(true, false)}
-            <tbody data-sortable data-sort-url="/admin/galleri/ordning" data-csrf="${session.csrf}">
-              ${g.rows.map(
+            ${head(true, false, `i ${g.album} ${yearLabel}`)}
+            <tbody${cut ? "" : html` data-sortable data-sort-url="/admin/galleri/ordning" data-csrf="${session.csrf}"`}>
+              ${shown.map(
                 (r, i) => html`<tr id="rad-${r.id}"${moved === r.id ? html` class="is-moved"` : ""} data-sort-id="${r.id}" data-sort-group="${r.album}|${r.year ?? ""}">
-                  ${moveCell(r, i, g.rows.length)}${thumbCell(r)}${titleCell(r)}${dateCells(r)}${actions(r)}
+                  ${selectCell(r)}${moveCell(r, i, g.rows.length)}${thumbCell(r)}${titleCell(r)}${dateCells(r)}${actions(r)}
                 </tr>`,
               )}
             </tbody>
           </table>
+          ${cut
+            ? html`<p class="gl-more">Visar ${PAGE} av ${g.rows.length} bilder. <a class="btn btn-outline btn-sm" href="${listHref(g.album, sort, { visa: "alla" })}#gl-${slugify(g.album)}-${yearLabel}">Visa alla ${g.rows.length}</a>
+                <span class="field-help">För att dra bilderna i ny ordning behöver hela albumet visas.</span></p>`
+            : ""}
         </section>`;
       })}
       ${anyCustom && groups.length > 1
@@ -221,11 +237,11 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
       </p>
       <div class="admin-card admin-card-flush">
         <table class="admin-table gl-table">
-          ${head(false, true)}
+          ${head(false, true, "i listan")}
           <tbody>
-            ${sorted.map(
+            ${sorted.slice(0, limit).map(
               (r) => html`<tr id="rad-${r.id}">
-                ${thumbCell(r)}${titleCell(r)}
+                ${selectCell(r)}${thumbCell(r)}${titleCell(r)}
                 <td data-label="Kategori">${r.album}</td>
                 <td data-label="År">${r.year ?? "–"}</td>
                 ${dateCells(r)}${actions(r)}
@@ -233,26 +249,52 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
             )}
           </tbody>
         </table>
+        ${sorted.length > limit
+          ? html`<p class="gl-more">Visar ${limit} av ${sorted.length} bilder. <a class="btn btn-outline btn-sm" href="${listHref(album, sort, { antal: String(limit + PAGE) })}#rad-${sorted[limit - 1]!.id}">Visa ${Math.min(PAGE, sorted.length - limit)} till</a></p>`
+          : ""}
       </div>`;
   }
+
+  // ── Ändra flera på en gång: kryssrutorna i listan hör till det här formuläret ──
+  const bulk = rows.length
+    ? html`<form class="gl-bulk" id="gl-bulk" method="post" action="/admin/galleri/flera" data-gl-bulk>
+        ${csrfField(session)}
+        <input type="hidden" name="tillbaka" value="${listHref(album, sort)}">
+        <p class="gl-bulk-count" data-gl-count aria-live="polite"><strong>Ändra flera bilder:</strong> markera dem i listan.</p>
+        <div class="gl-bulk-fields">
+          <label><span>Kategori</span>
+            <select name="album"><option value="">Behåll</option>${albums.map((a) => html`<option value="${a}">${a}</option>`)}</select></label>
+          <label><span>År</span>
+            <input class="input" type="text" name="year" inputmode="numeric" placeholder="Behåll" maxlength="5" pattern="(20[0-9][0-9]|2100|-)?" title="Ett år, t.ex. 2026, eller - för Utan årtal"></label>
+          <label><span>Fotograf</span>
+            <input class="input" type="text" name="photographer" maxlength="80" placeholder="Behåll"></label>
+        </div>
+        <div class="gl-bulk-actions">
+          <button class="btn btn-primary btn-sm" type="submit" name="atgard" value="andra">Spara på markerade</button>
+          <button class="btn btn-danger-ghost btn-sm" type="submit" name="atgard" value="radera" data-confirm-click="Vill du ta bort de markerade bilderna? De raderas helt och det går inte att ångra.">Ta bort markerade</button>
+        </div>
+        <p class="field-help gl-bulk-help">Lämna ett fält tomt för att behålla det som står. Skriv <strong>-</strong> under År för ”Utan årtal”. Bilder som flyttas till ett annat album eller år hamnar efter fotodatum där.</p>
+      </form>`
+    : "";
 
   const content = html`
     ${adminHead("Bildgalleri", {
       lead: "Bilderna visas under För studenter, en kategori i taget. Publicera inga bilder som kan uppfattas som kränkande, och ta bort en bild direkt om någon som syns på den ber om det (GDPR).",
-      actions: html`${galleryYearsAction}<a class="btn btn-primary" href="/admin/galleri/ny${album ? `?kategori=${slugify(album)}` : ""}">+ Ladda upp bilder</a>`,
+      actions: html`<a class="btn btn-primary" href="/admin/galleri/ny${album ? `?kategori=${slugify(album)}` : ""}">+ Ladda upp bilder</a>`,
     })}
-    ${resourceTabs([{ href: "/admin/galleri", label: "Bilder" }, { href: "/admin/filmer", label: "Filmer" }], "/admin/galleri")}
+    ${resourceTabs(GALLERY_TABS, "/admin/galleri")}
     ${all.length ? toolbar : ""}
     ${backfill}
-    ${body}`;
+    ${body}
+    ${bulk}`;
   return adminLayout(c, session, { title: "Bildgalleri", active: "/admin/galleri", newCount: await newMessageCount(db), wide: true }, content);
 }
 
 /** Tillbaka till listan med samma kategori och sortering (bara adresser inom /admin/galleri). */
-function backTo(form: FormData, code: string): string {
+function backTo(form: FormData, code: string, kind: "klart" | "fel" = "klart"): string {
   const raw = String(form.get("tillbaka") ?? "");
   const base = /^\/admin\/galleri(\?[a-z0-9=&%_-]*)?$/i.test(raw) ? raw : "/admin/galleri";
-  return `${base}${base.includes("?") ? "&" : "?"}klart=${code}`;
+  return `${base}${base.includes("?") ? "&" : "?"}${kind}=${code}`;
 }
 
 /** Återställ: tar bort den egna ordningen i ett album och år, i alla år i ett album, eller i hela galleriet. */
@@ -301,9 +343,65 @@ export async function galleryExifSubmit(c: RequestContext, session: Session): Pr
     if (!Number.isInteger(id) || id <= 0) continue;
     const date = TAKEN_RE.test(dates[i]!) ? dates[i]! : null;
     if (date) found++;
-    stmts.push(db.prepare("UPDATE gallery_images SET taken_at = COALESCE(taken_at, ?), exif_checked = 1 WHERE id = ? AND exif_checked = 0").bind(date, id));
+    // År från fotodatumet om bilden saknar år
+    stmts.push(
+      db.prepare("UPDATE gallery_images SET taken_at = COALESCE(taken_at, ?1), year = COALESCE(year, CAST(substr(?1, 1, 4) AS INTEGER)), exif_checked = 1 WHERE id = ?2 AND exif_checked = 0").bind(date, id),
+    );
   }
   if (stmts.length) await db.batch(stmts);
   if (found) await audit(c.env, session, "läste fotodatum för", "bildgalleri", null, `${found} av ${stmts.length} bilder`);
   return new Response(JSON.stringify({ ok: true, found }), { headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
+/**
+ * Ändra flera bilder på en gång (formuläret under listan): byt kategori, år och/eller fotograf, eller ta bort.
+ * Tomt fält = behåll. År "-" = Utan årtal. En bild som byter album eller år förlorar sin plats i den egna ordningen
+ * (sort_order = 0) och hamnar efter fotodatum i sitt nya album.
+ */
+export async function galleryBulkSubmit(c: RequestContext, session: Session): Promise<Response> {
+  const form = await c.req.formData();
+  if (!checkCsrf(c, session, form)) return redirect("/admin/galleri?fel=csrf", 303);
+  const ids = [...new Set(form.getAll("id").map((v) => Number(v)).filter((x) => Number.isInteger(x) && x > 0))].slice(0, 2000);
+  if (!ids.length) return redirect(backTo(form, "flera-inga", "fel"), 303);
+  const db = c.env.DB;
+  const chunks: number[][] = [];
+  for (let i = 0; i < ids.length; i += 90) chunks.push(ids.slice(i, i + 90)); // D1: högst 100 parametrar per fråga
+  const inList = (chunk: number[]) => chunk.map(() => "?").join(",");
+
+  if (form.get("atgard") === "radera") {
+    const keys: string[] = [];
+    for (const chunk of chunks) {
+      const { results } = await db.prepare(`SELECT image_key FROM gallery_images WHERE id IN (${inList(chunk)})`).bind(...chunk).all<{ image_key: string }>();
+      keys.push(...results.map((r) => r.image_key));
+    }
+    await db.batch(chunks.map((chunk) => db.prepare(`DELETE FROM gallery_images WHERE id IN (${inList(chunk)})`).bind(...chunk)));
+    for (const key of keys) await purgeIfUnused(c.env, key);
+    await audit(c.env, session, "tog bort", "bilder", null, `${ids.length} galleribilder`);
+    return redirect(backTo(form, "flera-borttagna"), 303);
+  }
+
+  const sets: string[] = [];
+  const binds: unknown[] = [];
+  const set = (sql: string, value?: unknown) => {
+    sets.push(sql);
+    if (value !== undefined) binds.push(value);
+  };
+  const albums = await loadAlbums(db);
+  const album = String(form.get("album") ?? "");
+  if (album && albums.includes(album)) set("album = ?", album);
+  const yearRaw = String(form.get("year") ?? "").trim();
+  if (yearRaw === "-") set("year = NULL");
+  else if (yearRaw) {
+    const year = Number(yearRaw);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) return redirect(backTo(form, "ar-ogiltigt", "fel"), 303);
+    set("year = ?", year);
+  }
+  const photographer = String(form.get("photographer") ?? "").trim().slice(0, 80);
+  if (photographer) set("photographer = ?", photographer);
+  if (!sets.length) return redirect(backTo(form, "flera-inget", "fel"), 303);
+  // Byter bilden album eller år följer den datumordningen där
+  if (sets.some((x) => x.startsWith("album") || x.startsWith("year"))) set("sort_order = 0");
+  await db.batch(chunks.map((chunk) => db.prepare(`UPDATE gallery_images SET ${sets.join(", ")} WHERE id IN (${inList(chunk)})`).bind(...binds, ...chunk)));
+  await audit(c.env, session, "ändrade", "bilder", null, `${ids.length} galleribilder`);
+  return redirect(backTo(form, "flera-andrade"), 303);
 }

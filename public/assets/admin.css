@@ -820,25 +820,6 @@ a.admin-user:hover { background: var(--c-hover); }
 .bulk-progress .btn { justify-self: start; }
 
 /* Bildgalleri → Sätt år på flera bilder */
-.gy { display: grid; gap: 18px; }
-.gy-note { padding: 12px 16px; border-radius: 12px; background: color-mix(in srgb, var(--c-accent) 22%, var(--c-surface)); }
-.gy-album-title { font-family: var(--font-display); font-size: 1.375rem; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.gy-count { font-family: inherit; font-size: 0.875rem; font-weight: 500; color: color-mix(in srgb, var(--c-text) 60%, transparent); }
-.gy-group { border: 0; padding: 0; margin: 18px 0 0; }
-.gy-group legend { font-weight: 700; margin-bottom: 8px; }
-.gy-group--missing legend { color: #9a6700; }
-.gy-all { margin-bottom: 10px; }
-.gy-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-.gy-item { position: relative; display: block; border-radius: 10px; overflow: hidden; cursor: pointer; aspect-ratio: 4 / 3; background: var(--c-bg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-text) 12%, transparent); }
-.gy-item img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.15s; }
-.gy-item input { position: absolute; top: 8px; left: 8px; width: 22px; height: 22px; margin: 0; accent-color: var(--c-primary); z-index: 1; }
-.gy-item:has(input:checked) { box-shadow: 0 0 0 3px var(--c-primary); }
-.gy-item:has(input:checked) img { opacity: 0.75; }
-.gy-item:has(input:focus-visible) { outline: 3px solid var(--c-primary); outline-offset: 3px; }
-.gy-bar { position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; padding: 16px 20px; border-radius: 16px; background: var(--c-surface); box-shadow: 0 -8px 24px -12px rgb(0 0 0 / 0.25), 0 0 0 1px color-mix(in srgb, var(--c-text) 10%, transparent); }
-.gy-year { display: grid; gap: 6px; font-weight: 600; font-size: 0.9375rem; }
-.gy-year .input { width: 140px; }
-.gy-bar .field-help { flex-basis: 100%; margin: 0; }
 
 /* ---------- Skisser för "Hur ska bilden visas?" (partnersidan, src/admin/resources.ts) ---------- */
 .field-layouts .choice-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
@@ -980,4 +961,23 @@ a.admin-user:hover { background: var(--c-hover); }
   .gl-sort select { flex: 1; }
   .gl-group-head { padding: 14px 16px; }
   .gl-table td.col-move { float: left; width: auto; margin-right: 12px; }
+}
+.gl-photo { display: block; margin-top: 2px; font-size: 0.8125rem; color: var(--c-muted); }
+.gl-table .col-select { width: 44px; padding-right: 0; }
+.gl-table .col-select input { width: 18px; height: 18px; accent-color: var(--c-text); cursor: pointer; }
+.gl-table tr.is-picked > td { background: color-mix(in srgb, var(--c-accent) 12%, var(--c-surface)); }
+.gl-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 14px 20px; border-top: 1px solid var(--c-border); font-size: 0.875rem; color: var(--c-muted); }
+.gl-bulk { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 12px 20px; margin-top: 8px; padding: 16px 20px; border-radius: 18px; background: var(--c-surface); border: 1px solid var(--c-border); }
+.gl-bulk.is-active { position: sticky; bottom: 12px; z-index: 4; border-color: var(--c-text); box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.35); }
+.gl-bulk-count { grid-column: 1 / -1; font-size: 0.9375rem; }
+.gl-bulk-fields { display: flex; flex-wrap: wrap; gap: 10px 14px; }
+.gl-bulk-fields label { display: grid; gap: 4px; font-size: 0.8125rem; font-weight: 600; color: var(--c-muted); }
+.gl-bulk-fields select, .gl-bulk-fields .input { min-height: 40px; padding-block: 6px; min-width: 150px; }
+.gl-bulk-fields input[name="year"] { width: 110px; min-width: 0; }
+.gl-bulk-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.gl-bulk-help { grid-column: 1 / -1; }
+.gl-bulk.is-active .gl-bulk-help { display: none; }
+@media (max-width: 760px) {
+  .gl-bulk { grid-template-columns: 1fr; }
+  .gl-table td.col-select { float: left; width: auto; margin-right: 10px; }
 }

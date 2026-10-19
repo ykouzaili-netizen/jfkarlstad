@@ -33,7 +33,9 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   tar emot `namn__liten` (800 px-version från webbläsaren → `nyckel.sm`), `namn__bank` (vald befintlig bild) och `namn__matt`.
   Utbytta bilder ligger kvar; fält med `purge: true` (personfoton, galleri, PDF) raderas med `purgeIfUnused`.
   Bilder visas med `picture()` (srcset med `.sm`); `/media/x.sm` faller tillbaka på originalet.
-- **Bildgalleriet** (`src/admin/gallery-list.ts`, egen lista i stället för den generiska): kategorier (= albumen), sortering
+- **Bildgalleriet** (`src/admin/gallery-list.ts`, egen lista i stället för den generiska): kategorier (= albumen, tabellen
+  `gallery_albums`, redigeras under fliken Kategorier – `loadAlbums()`; namnbyte uppdaterar bilder och filmer), Ändra flera
+  (kategori, år, fotograf, ta bort), 100 bilder åt gången med Visa fler/Visa alla, sortering
   efter fotodatum/tillagd (bara i listan), dra och släpp inom album+år och Återställ (sort_order = 0). Ordningen är
   `GALLERY_ORDER` i `content.ts`: egen ordning, sedan fotodatum (`taken_at`, EXIF ur originalet i admin.js `jfkTakenAt`, nyast först),
   sist utan datum efter uppladdning. På webbplatsen öppnas bilderna i en bildruta (`<dialog data-gal-lb>`, site.js).

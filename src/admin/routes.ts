@@ -1,4 +1,5 @@
 import type { Router } from "../router.js";
+import { redirect } from "../lib/http.js";
 import { requireUser } from "./auth.js";
 import { forgotPage, forgotSubmit, loginPage, loginSubmit, logoutSubmit, resetPage, resetSubmit, setupPage, setupSubmit } from "./auth-pages.js";
 import {
@@ -29,8 +30,7 @@ import { adminSearchPage } from "./search.js";
 import { handoverPage, handoverSubmit } from "./handover.js";
 import { mailPage, mailRecipientsSubmit, mailTestSubmit } from "./mail-page.js";
 import { linkCheckBatch, linkCheckPage, linkCheckSubmit } from "./link-check.js";
-import { galleryYearsPage, galleryYearsSubmit } from "./gallery-years.js";
-import { galleryExifSubmit, galleryListPage, galleryResetSubmit } from "./gallery-list.js";
+import { galleryBulkSubmit, galleryExifSubmit, galleryListPage, galleryResetSubmit } from "./gallery-list.js";
 
 export function registerAdminRoutes(router: Router): void {
   // Utan inloggning
@@ -83,12 +83,14 @@ export function registerAdminRoutes(router: Router): void {
 
   // Före de generiska adresserna, annars tolkas "hamta" som ett id
   router.post("/admin/instagram/hamta", requireUser(instagramSyncSubmit));
-  router.get("/admin/galleri/ar", requireUser(galleryYearsPage)).post("/admin/galleri/ar", requireUser(galleryYearsSubmit));
+  // "Sätt år på flera bilder" är ersatt av Ändra flera i listan
+  router.get("/admin/galleri/ar", requireUser(async () => redirect("/admin/galleri", 301)));
   // Bildgalleriets egen lista (kategorier, sortering, dra och släpp, återställ) i stället för den generiska
   router
     .get("/admin/galleri", requireUser(galleryListPage))
     .post("/admin/galleri/aterstall", requireUser(galleryResetSubmit))
-    .post("/admin/galleri/fotodatum", requireUser(galleryExifSubmit));
+    .post("/admin/galleri/fotodatum", requireUser(galleryExifSubmit))
+    .post("/admin/galleri/flera", requireUser(galleryBulkSubmit));
   for (const r of RESOURCES) {
     // Före /:id, annars tolkas "ordning" som ett id
     if (r.movable) router.post(`/admin/${r.path}/ordning`, requireUser(orderHandler(r)));

@@ -1,4 +1,3 @@
-import { galleryYearsAction } from "./gallery-years.js";
 import { isShortsUrl, youtubeId } from "../lib/youtube.js";
 import { instagramConfigured, parseStatus, STATUS_SETTING, syncInstagram } from "../lib/instagram.js";
 import { html, raw, type SafeHtml } from "../lib/html.js";
@@ -6,7 +5,7 @@ import { PARTNER_IMAGE_STYLES, type PartnerImageStyle } from "../lib/partner-ima
 import { partnerLinksField, readPartnerLinks } from "../lib/partner-links.js";
 import { renderField, validate, errorSummary, type Errors, type FieldSpec, type Values } from "../lib/forms.js";
 import { documentPath } from "../pages/listings.js";
-import { DOCUMENT_CATEGORIES, GALLERY_ALBUMS, GALLERY_ORDER, HONOR_KINDS, JOB_KINDS, documentLinkKind, isGoogleLink } from "../lib/content.js";
+import { DOCUMENT_CATEGORIES, GALLERY_ORDER, loadAlbums, HONOR_KINDS, JOB_KINDS, documentLinkKind, isGoogleLink } from "../lib/content.js";
 import { eventDate, formatDate, formatDateTimeShort, formatDay, localToUtcSql, stockholmToday, utcSqlToLocal } from "../lib/format.js";
 import { purgeIfUnused } from "../lib/media.js";
 import { slugify } from "../lib/slug.js";
@@ -119,21 +118,28 @@ export interface Resource {
   /** Formulärvärden som inte är egna kolumner (t.ex. jobbets snabbval av arbetsgivare), räknade från raden. */
   toValues?: (row: Row) => Values;
   /** Körs efter valideringen och före sparning: kan fylla i värden och kolumner från databasen eller ge fel. */
-  beforeSave?: (db: D1Database, values: Values, data: Record<string, unknown>) => Promise<Errors>;
+  beforeSave?: (db: D1Database, values: Values, data: Record<string, unknown>, existing: Row | null) => Promise<Errors>;
   /** Listan hämtas med en egen fråga (t.ex. med antal jobb per arbetsgivare). */
   listQuery?: string;
   /** Extra ruta överst på redigeringssidan för en befintlig post (t.ex. annonsens statistik). */
   editIntro?: (db: D1Database, row: Row) => Promise<SafeHtml | string>;
   /** Ruta överst i formuläret som följer de osparade värdena (t.ex. förhandsvisningen av en medalj). */
   formIntro?: (values: Values) => SafeHtml;
+  /** Körs efter att posten har sparats (t.ex. byter namn på kategorin även på bilderna). existing = posten före ändringen. */
+  afterSave?: (db: D1Database, existing: Row | null, data: Record<string, unknown>) => Promise<void>;
+  /** Körs innan posten tas bort. Ger en kvittokod (FLASH i layout.ts) om den inte får tas bort, annars null. */
+  beforeDelete?: (db: D1Database, row: Row) => Promise<string | null>;
   /** Körs efter sparning. true = stanna kvar på redigeringssidan (där editIntro visar en varning) i stället för listan. */
   stayAfterSave?: (data: Record<string, unknown>) => Promise<boolean>;
 }
 
-const GALLERY_TABS = [
+export const GALLERY_TABS = [
   { href: "/admin/galleri", label: "Bilder" },
   { href: "/admin/filmer", label: "Filmer" },
+  { href: "/admin/galleri-kategorier", label: "Kategorier" },
 ];
+/** Kategorierna som val i bild- och filmformulären (Bildgalleri → Kategorier). */
+const albumOptions = async (db: D1Database) => (await loadAlbums(db)).map((a) => ({ value: a, label: a }));
 const BOARD_TABS = [
   { href: "/admin/styrelsen", label: "Styrelsen" },
   { href: "/admin/utskott", label: "Utskott" },
@@ -798,7 +804,6 @@ export const RESOURCES: Resource[] = [
     title: "Bildgalleri",
     singular: "bild",
     newLabel: "Ladda upp bilder",
-    listActions: galleryYearsAction,
     tabs: GALLERY_TABS,
     lead: "Bilderna visas under För studenter, en kategori (album) i taget. Publicera inga bilder som kan uppfattas som kränkande, och ta bort en bild direkt om någon som syns på den ber om det (GDPR).",
     // Listan är en egen sida (gallery-list.ts); ordningen är densamma som på webbplatsen.
@@ -808,8 +813,8 @@ export const RESOURCES: Resource[] = [
     emptyText: "Inga bilder ännu.",
     fields: [
       { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, multiple: true, purge: true, help: "JPG, PNG, WebP eller HEIC. Stora foton komprimeras automatiskt. Bilden raderas helt när den tas bort ur galleriet." },
-      { name: "album", label: "Kategori", type: "select", required: true, options: GALLERY_ALBUMS.map((a) => ({ value: a, label: a })), help: "Visas som ett album i bildgalleriet." },
-      { name: "year", label: "År", type: "number", min: 2000, max: 2100, nullable: true, help: "Året evenemanget hölls. På webbplatsen kan besökarna välja år inom varje kategori. Tomt = ”Utan årtal”." },
+      { name: "album", label: "Kategori", type: "select", required: true, optionsFrom: albumOptions, help: "Visas som ett album i bildgalleriet. Kategorierna ändrar du under fliken Kategorier." },
+      { name: "year", label: "År", type: "number", min: 2000, max: 2100, nullable: true, help: "Året evenemanget hölls. På webbplatsen kan besökarna välja år inom varje kategori. Tomt = året bilden togs (om fotodatumet finns), annars ”Utan årtal”." },
       {
         name: "taken_at",
         label: "Fotograferad",
@@ -820,7 +825,10 @@ export const RESOURCES: Resource[] = [
       },
       { name: "alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200, help: "Valfri men bra: en kort beskrivning för den som använder skärmläsare, t.ex. ”Studenter skålar på vårbanketten 2026”. Tomt = ”Bild från albumet …”." },
       { name: "caption", label: "Bildtext", type: "text", max: 200, help: "Valfri text som visas under bilden." },
+      { name: "photographer", label: "Fotograf", type: "text", max: 80, help: "Valfritt. Visas som ”Foto: …” när bilden öppnas på webbplatsen. Skriv namnet som fotografen vill bli krediterad med." },
     ],
+    // År från fotodatumet när fältet År är tomt
+    extraColumns: (v) => (!v.year && TAKEN_RE.test(v.taken_at ?? "") ? { year: Number(v.taken_at!.slice(0, 4)) } : {}),
     listColumns: [
       { label: "", render: (r) => thumb(r.image_key, String(r.alt ?? "")), className: "col-thumb" },
       { label: "Beskrivning", render: (r) => html`<a class="row-title" href="/admin/galleri/${r.id}">${galleryTitle(r)}</a>` },
@@ -855,7 +863,7 @@ export const RESOURCES: Resource[] = [
           { value: "1", label: "Stående (9:16)", hint: "Filmad med mobilen på höjden – t.ex. YouTube Shorts. Visas som en hög duk i stället för bredbild" },
         ],
       },
-      { name: "album", label: "Album", type: "select", options: [{ value: "", label: "Inget album" }, ...GALLERY_ALBUMS.map((a) => ({ value: a, label: a }))] },
+      { name: "album", label: "Kategori", type: "select", optionsFrom: async (db) => [{ value: "", label: "Ingen kategori" }, ...(await albumOptions(db))] },
       { name: "year", label: "År", type: "number", min: 2000, max: 2100, nullable: true },
       { name: "description", label: "Kort text", type: "text", max: 160, help: "Valfri rad under titeln, t.ex. ”Aftermovie” eller ”Filmat av Kommunikationsutskottet”." },
       { name: "poster_key", label: "Egen stillbild", type: "text", upload: "image", nullable: true, help: "Valfri. Annars används filmens stillbild från YouTube. För stående filmer blir en egen stående bild snyggast." },
@@ -871,6 +879,56 @@ export const RESOURCES: Resource[] = [
       { label: "Status", render: (r) => publishPill(r, "published", ["Visas", "Dold"]) },
     ],
     titleOf: (r) => String(r.title),
+  },
+  {
+    path: "galleri-kategorier",
+    table: "gallery_albums",
+    title: "Kategorier",
+    singular: "kategori",
+    newLabel: "Ny kategori",
+    navActive: "/admin/galleri",
+    tabs: GALLERY_TABS,
+    lead: "Kategorierna är albumen i bildgalleriet och i Biografen. Dra dem i den ordning de ska visas på webbplatsen. Byter du namn följer bilderna och filmerna med. En kategori utan bilder syns inte för besökarna.",
+    orderBy: "sort_order, name",
+    movable: true,
+    listQuery: "SELECT a.*, (SELECT COUNT(*) FROM gallery_images g WHERE g.album = a.name) AS images, (SELECT COUNT(*) FROM gallery_videos v WHERE v.album = a.name) AS videos FROM gallery_albums a ORDER BY a.sort_order, a.name",
+    emptyText: "Inga kategorier ännu. Lägg till den första – t.ex. Banketter.",
+    fields: [{ name: "name", label: "Namn", type: "text", required: true, max: 60, placeholder: "T.ex. Sittningar", help: "Visas som knapp i bildgalleriet. Kort och tydligt fungerar bäst." }],
+    beforeSave: async (db, values, _data, existing): Promise<Errors> => {
+      const name = (values.name ?? "").trim().replace(/\s+/g, " ");
+      values.name = name;
+      // En ny kategori hamnar sist
+      if (!existing) _data.sort_order = ((await db.prepare("SELECT MAX(sort_order) AS m FROM gallery_albums").first<{ m: number | null }>())?.m ?? 0) + 10;
+      const twin = await db.prepare("SELECT id FROM gallery_albums WHERE lower(name) = lower(?)").bind(name).first<{ id: number }>();
+      return twin && twin.id !== existing?.id ? { name: "Det finns redan en kategori med det namnet." } : {};
+    },
+    afterSave: async (db, existing, data) => {
+      const before = existing ? String(existing.name) : "";
+      const after = String(data.name ?? "");
+      if (!existing || !after || before === after) return;
+      await db.batch([
+        db.prepare("UPDATE gallery_images SET album = ? WHERE album = ?").bind(after, before),
+        db.prepare("UPDATE gallery_videos SET album = ? WHERE album = ?").bind(after, before),
+      ]);
+    },
+    beforeDelete: async (db, row) => {
+      const n = await db.prepare("SELECT COUNT(*) AS n FROM gallery_images WHERE album = ?").bind(String(row.name)).first<{ n: number }>();
+      if (n && n.n > 0) return "kategori-har-bilder";
+      await db.prepare("UPDATE gallery_videos SET album = '' WHERE album = ?").bind(String(row.name)).run();
+      return null;
+    },
+    listColumns: [
+      { label: "Namn", render: (r) => html`<a class="row-title" href="/admin/galleri-kategorier/${r.id}">${String(r.name)}</a>` },
+      {
+        label: "Innehåll",
+        render: (r) => {
+          const i = Number(r.images), v = Number(r.videos);
+          const parts = [i ? `${i} ${i === 1 ? "bild" : "bilder"}` : "", v ? `${v} ${v === 1 ? "film" : "filmer"}` : ""].filter(Boolean);
+          return parts.length ? html`<a href="/admin/galleri?kategori=${slugify(String(r.name))}">${parts.join(" · ")}</a>` : html`<span class="muted">Tom – syns inte på webbplatsen</span>`;
+        },
+      },
+    ],
+    titleOf: (r) => String(r.name),
   },
   {
     path: "instagram",
@@ -1343,8 +1401,8 @@ export function newHandler(r: Resource) {
     if (r.path === "partners") values.image_style = "banner";
     if (r.path === "galleri") {
       // "+ Ladda upp bilder" från en kategori i listan förväljer den
-      const album = GALLERY_ALBUMS.find((a) => slugify(a) === c.url.searchParams.get("kategori"));
-      if (album) values.album = album;
+      const album = fields.find((f) => f.name === "album")?.options?.find((o) => slugify(o.value) === c.url.searchParams.get("kategori"));
+      if (album) values.album = album.value;
     }
     if (r.path === "medaljer") Object.assign(values, { kind: "medalj", design: "01" });
     if (r.path === "utmarkelser") {
@@ -1502,7 +1560,7 @@ async function save(r: Resource, c: RequestContext, session: Session, id: number
 
     const data: Record<string, unknown> = {};
     if (r.beforeSave) {
-      Object.assign(errors, await r.beforeSave(db, values, data));
+      Object.assign(errors, await r.beforeSave(db, values, data, existing));
       if (Object.keys(errors).length) {
         for (const f of fields.filter((f) => f.upload)) values[f.name] = existing ? String(existing[col(f)] ?? "") : "";
         return renderEdit(c, session, r, fields, existing, values, errors, 422);
@@ -1535,6 +1593,7 @@ async function save(r: Resource, c: RequestContext, session: Session, id: number
       newId = res.meta.last_row_id;
       await audit(c.env, session, "skapade", r.singular, newId, values[r.slugFrom ?? r.fields[0]!.name]);
     }
+    if (r.afterSave) await r.afterSave(db, existing, data);
     for (const f of released) if (f.purge) await purgeIfUnused(c.env, f.key);
     const scheduled = fields.some((f) => f.schedule && data[col(f)] && String(data[col(f)]) > nowUtc()) && values.published;
     if (r.stayAfterSave && (await r.stayAfterSave(data))) return redirect(`/admin/${r.path}/${newId}?klart=sparat`, 303);
@@ -1548,6 +1607,8 @@ export function deleteHandler(r: Resource) {
     const id = Number(c.params.id);
     const row = await c.env.DB.prepare(`SELECT * FROM ${r.table} WHERE id = ?`).bind(id).first<Row>();
     if (row) {
+      const refused = r.beforeDelete ? await r.beforeDelete(c.env.DB, row) : null;
+      if (refused) return redirect(`/admin/${r.path}?fel=${refused}`, 303);
       await c.env.DB.prepare(`DELETE FROM ${r.table} WHERE id = ?`).bind(id).run();
       // Personfoton, galleribilder och PDF:er raderas helt. Övriga bilder ligger kvar i bildbanken.
       for (const f of r.fields.filter((f) => f.upload && f.purge)) await purgeIfUnused(c.env, row[col(f)] as string | null);

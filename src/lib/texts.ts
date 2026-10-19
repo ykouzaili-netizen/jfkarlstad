@@ -650,6 +650,7 @@ export const PAGES = [
       text("gallery_lb_close", "Bildrutan – stängknappen (för skärmläsare)", "Stäng bilden", small),
       text("gallery_lb_prev", "Bildrutan – föregående bild (för skärmläsare)", "Föregående bild", small),
       text("gallery_lb_next", "Bildrutan – nästa bild (för skärmläsare)", "Nästa bild", small),
+      text("gallery_lb_photo", "Bildrutan – fotografen ({namn} byts mot namnet)", "Foto: {namn}", small),
       text("gallery_lb_count", "Bildrutan – räknare ({nr} och {antal} byts mot siffror)", "Bild {nr} av {antal}", small),
       text("gallery_no_year", "Knapp för bilder utan år", "Utan årtal", small),
       text("gallery_albums_label", "Albumvalet (för skärmläsare)", "Välj album", small),

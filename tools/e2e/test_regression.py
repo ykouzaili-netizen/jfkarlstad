@@ -91,18 +91,17 @@ with sync_playwright() as p:
     p2.wait_for_url(re.compile(r"klart=flera"))
     check("2 bilder har laddats upp" in p2.content(), "flera bilder fungerar även utan JavaScript")
     nojs.close()
-    # År: sätt år på flera bilder och välj år på webbplatsen
+    # År: ändra flera bilder på en gång (Bildgalleri → markera → År) och välj år på webbplatsen
     page.goto(f"{BASE}/admin/galleri")
-    page.click("a[href='/admin/galleri/ar']")
-    group = page.locator(".gy-group--missing").first
-    check(group.count() == 1 and "Utan årtal" in group.inner_text(), "bilderna utan år ligger i en egen grupp")
-    group.locator("[data-gy-all]").check()
-    check("5 bilder markerade" in page.locator("[data-gy-count]").inner_text(), "Markera alla markerar gruppen och räknar")
-    group.locator("input[name=id]").first.uncheck()
-    page.fill("input[name=year]", "2025")
-    page.click(".gy-bar button[type=submit]")
-    page.wait_for_url(re.compile(r"klart=ar-satt"))
-    check(page.locator(".gy-group legend", has_text="2025").count() >= 1 and page.locator(".gy-group--missing").count() == 1, "året sparas på de markerade bilderna")
+    group = page.locator("section.gl-group", has=page.locator(".gl-year", has_text="Utan årtal")).first
+    check(group.count() == 1, "bilderna utan år ligger i en egen grupp")
+    group.locator("[data-gl-all]").check()
+    check("5 bilder markerade" in page.locator("[data-gl-count]").inner_text(), "Markera alla markerar gruppen och räknar")
+    group.locator("input.gl-pick").first.uncheck()
+    page.fill("form.gl-bulk input[name=year]", "2025")
+    page.click("form.gl-bulk button[value=andra]")
+    page.wait_for_url(re.compile(r"klart=flera-andrade"))
+    check(page.locator(".gl-year", has_text="2025").count() >= 1 and page.locator(".gl-year", has_text="Utan årtal").count() == 1, "året sparas på de markerade bilderna")
     page.goto(f"{BASE}/for-studenter#bildgalleri")
     panel = page.locator("[data-gal-panel]:not([hidden])")
     check(panel.locator("a[data-gal-year='2025']").count() == 1 and panel.locator("a[data-gal-year='utan']").count() == 1, "albumet har ett val per år och ”Utan årtal”")

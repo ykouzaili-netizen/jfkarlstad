@@ -906,6 +906,7 @@ document.addEventListener("click", function (e) {
   var dlg = gal && gal.querySelector("[data-gal-lb]");
   if (!dlg || typeof dlg.showModal !== "function") return;
   var img = dlg.querySelector("[data-gal-lb-img]"), cap = dlg.querySelector("[data-gal-lb-caption]");
+  var capText = dlg.querySelector("[data-gal-lb-text]"), capPhoto = dlg.querySelector("[data-gal-lb-photo]");
   var count = dlg.querySelector("[data-gal-lb-count]"), dl = dlg.querySelector("[data-gal-lb-download]"), open = dlg.querySelector("[data-gal-lb-open]");
   var prev = dlg.querySelector('[data-gal-lb-step="-1"]'), next = dlg.querySelector('[data-gal-lb-step="1"]');
   var template = dlg.getAttribute("data-count") || "{nr} / {antal}";
@@ -921,9 +922,10 @@ document.addEventListener("click", function (e) {
       img.srcset = thumb.getAttribute("srcset");
     }
     img.alt = thumb ? thumb.alt : "";
-    var text = a.getAttribute("data-gal-caption") || "";
-    cap.textContent = text;
-    cap.hidden = !text;
+    var text = a.getAttribute("data-gal-caption") || "", photo = a.getAttribute("data-gal-photo") || "";
+    capText.textContent = text;
+    capPhoto.textContent = photo;
+    cap.hidden = !text && !photo;
     dl.href = a.href;
     dl.setAttribute("download", a.getAttribute("data-gal-name") || "");
     open.href = a.href;
