@@ -143,6 +143,8 @@ export function uploadInput(opts: {
   crop?: number;
   /** Gör bilden svartvit när ett annat fält har ett visst värde, t.ex. "kind=hedersmedlem". */
   grayIf?: string;
+  /** Adress som svarar på om bilden redan finns (galleriet). admin.js räknar fingeravtrycket och varnar. */
+  dupCheck?: string;
 }): SafeHtml {
   const max = opts.kind === "image" ? MAX_IMAGE_BYTES : MAX_PDF_BYTES;
   const statusId = `${opts.id}-status`;
@@ -152,7 +154,7 @@ export function uploadInput(opts: {
       <input class="upload-input" type="file" id="${opts.id}" name="${opts.name}"
         accept="${image ? IMAGE_ACCEPT : "application/pdf,.pdf"}"
         ${opts.labelledBy ? html`aria-labelledby="${opts.labelledBy}"` : ""} aria-describedby="${describedBy}"
-        data-upload="${opts.name}" data-kind="${opts.kind}" data-max="${max}"${opts.setting ? html` data-setting="${opts.setting}"` : ""}${opts.multiple ? html` multiple` : ""}${opts.crop ? html` data-crop="${String(opts.crop)}"` : ""}${opts.grayIf ? html` data-gray-if="${opts.grayIf}"` : ""}>
+        data-upload="${opts.name}" data-kind="${opts.kind}" data-max="${max}"${opts.setting ? html` data-setting="${opts.setting}"` : ""}${opts.multiple ? html` multiple` : ""}${opts.crop ? html` data-crop="${String(opts.crop)}"` : ""}${opts.grayIf ? html` data-gray-if="${opts.grayIf}"` : ""}${opts.dupCheck ? html` data-dup-check="${opts.dupCheck}"` : ""}>
       ${image && opts.bank !== false
         ? html`<button class="btn btn-outline btn-sm bank-open" type="button" hidden data-bank-open="${opts.name}">${icon("image", "icon icon-sm")}Välj från bildbanken</button>`
         : ""}
@@ -162,9 +164,11 @@ export function uploadInput(opts: {
           <input type="file" name="${opts.name}__mellan" hidden tabindex="-1" aria-hidden="true" data-medium-for="${opts.name}">
           <input type="hidden" name="${opts.name}__matt" value="" data-dims-for="${opts.name}">
           <input type="hidden" name="${opts.name}__bank" value="" data-bank-for="${opts.name}">
-          <input type="hidden" name="${opts.name}__tagen" value="" data-taken-for="${opts.name}">`
+          <input type="hidden" name="${opts.name}__tagen" value="" data-taken-for="${opts.name}">
+          ${opts.dupCheck ? html`<input type="hidden" name="${opts.name}__hash" value="" data-hash-for="${opts.name}">` : ""}`
       : ""}
-    <p class="upload-status" id="${statusId}" aria-live="polite" data-upload-status="${opts.name}"></p>`;
+    <p class="upload-status" id="${statusId}" aria-live="polite" data-upload-status="${opts.name}"></p>
+    ${opts.dupCheck ? html`<div class="upload-dup" data-dup-for="${opts.name}" role="status" hidden></div>` : ""}`;
 }
 
 export function uploadHint(kind: "image" | "pdf"): string {
@@ -188,6 +192,7 @@ export function imageUploadField(opts: {
   multiple?: boolean;
   crop?: number;
   grayIf?: string;
+  dupCheck?: string;
 }): SafeHtml {
   const kind = opts.kind ?? "image";
   const id = `falt-${opts.name}`;
@@ -203,7 +208,7 @@ export function imageUploadField(opts: {
           ? html`<p class="upload-current">${icon("lock", "icon icon-sm")} En PDF är uppladdad.</p>`
           : html`<img class="upload-preview" alt="" data-preview="${opts.name}" hidden>`}
       <div class="upload-controls">
-        ${uploadInput({ id, name: opts.name, kind, labelledBy: `${id}-etikett`, describedBy, setting: opts.setting, multiple: opts.multiple, crop: opts.crop, grayIf: opts.grayIf })}
+        ${uploadInput({ id, name: opts.name, kind, labelledBy: `${id}-etikett`, describedBy, setting: opts.setting, multiple: opts.multiple, crop: opts.crop, grayIf: opts.grayIf, dupCheck: opts.dupCheck })}
         <p class="field-help">${opts.multiple ? html`<strong>Du kan välja flera bilder på en gång</strong> – de laddas upp en i taget med samma val nedan. ` : ""}${opts.current ? "Välj en ny fil för att ersätta den nuvarande. " : ""}${kind === "image" ? uploadHint("image") : uploadHint("pdf")}</p>
         ${kind === "image" && opts.current && isFitKey(opts.current)
           ? html`<p class="fit-link"><a href="/admin/bildbank/justera?nyckel=${encodeURIComponent(opts.current)}&amp;flik=ny" target="_blank" rel="noopener">${icon("crop", "icon icon-sm")}Justera utsnitt och storlek<span class="sr-only"> (öppnas i ny flik)</span></a></p>`

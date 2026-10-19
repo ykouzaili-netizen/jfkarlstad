@@ -519,3 +519,26 @@ export async function galleryCoverSubmit(c: RequestContext, session: Session): P
   await audit(c.env, session, "ändrade omslaget för", "kategori", id, cat.name);
   return redirect(`/admin/galleri-kategorier?klart=${cover ? "omslag-sparat" : "omslag-borttaget"}`, 303);
 }
+
+/**
+ * Dubblettvarningen vid uppladdning: tar emot fingeravtryck (SHA-256 av originalfilen, `h` flera gånger) och svarar
+ * med de bilder i galleriet som har samma. Bilder från före fingeravtrycken saknar ett och kan inte kännas igen.
+ */
+export async function galleryDuplicates(c: RequestContext, session: Session): Promise<Response> {
+  const form = await c.req.formData();
+  if (!checkCsrf(c, session, form)) return new Response("Sessionen har gått ut. Ladda om sidan.", { status: 403 });
+  const hashes = [...new Set(form.getAll("h").map(String).filter((h) => /^[0-9a-f]{64}$/.test(h)))].slice(0, 500);
+  const db = c.env.DB;
+  const found: Record<string, { id: number; title: string; album: string; year: number | null; thumb: string | null }> = {};
+  for (let i = 0; i < hashes.length; i += 90) {
+    const chunk = hashes.slice(i, i + 90);
+    const { results } = await db
+      .prepare(`SELECT * FROM gallery_images WHERE file_hash IN (${chunk.map(() => "?").join(",")}) ORDER BY id`)
+      .bind(...chunk)
+      .all<Row & { file_hash: string }>();
+    for (const r of results) {
+      if (!found[r.file_hash]) found[r.file_hash] = { id: r.id, title: r.alt || r.caption || "", album: r.album, year: r.year, thumb: mediaUrl(r.image_key, "sm") };
+    }
+  }
+  return new Response(JSON.stringify({ found }), { headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+}

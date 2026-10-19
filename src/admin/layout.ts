@@ -11,8 +11,8 @@ import { ROLE_LABELS, type Session } from "./auth.js";
 function multiUploadFlash(c: RequestContext, code: string): { kind: "ok" | "error"; text: string } | undefined {
   if (code !== "flera" && code !== "flera-delvis") return undefined;
   const n = (k: string) => Math.max(0, Math.min(9999, parseInt(c.url.searchParams.get(k) ?? "0", 10) || 0));
-  const ok = n("antal"), failed = n("misslyckade");
-  const done = ok === 1 ? "1 bild har laddats upp." : `${ok} bilder har laddats upp.`;
+  const ok = n("antal"), failed = n("misslyckade"), skipped = n("hoppade");
+  const done = (ok === 1 ? "1 bild har laddats upp." : `${ok} bilder har laddats upp.`) + (skipped ? ` ${skipped === 1 ? "1 dubblett" : `${skipped} dubbletter`} hoppades över.` : "");
   if (!failed) return { kind: "ok", text: `Klart! ${done}` };
   return { kind: "error", text: `${done} ${failed === 1 ? "1 bild" : `${failed} bilder`} kunde inte laddas upp – kontrollera att de är JPG, PNG, WebP eller HEIC och försök igen med just dem.` };
 }

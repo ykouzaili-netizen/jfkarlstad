@@ -30,7 +30,7 @@ import { adminSearchPage } from "./search.js";
 import { handoverPage, handoverSubmit } from "./handover.js";
 import { mailPage, mailRecipientsSubmit, mailTestSubmit } from "./mail-page.js";
 import { linkCheckBatch, linkCheckPage, linkCheckSubmit } from "./link-check.js";
-import { galleryBulkSubmit, galleryCoverPage, galleryCoverSubmit, galleryExifSubmit, galleryListPage, galleryResetSubmit, galleryZipList } from "./gallery-list.js";
+import { galleryBulkSubmit, galleryCoverPage, galleryDuplicates, galleryCoverSubmit, galleryExifSubmit, galleryListPage, galleryResetSubmit, galleryZipList } from "./gallery-list.js";
 
 export function registerAdminRoutes(router: Router): void {
   // Utan inloggning
@@ -91,6 +91,7 @@ export function registerAdminRoutes(router: Router): void {
     .post("/admin/galleri/aterstall", requireUser(galleryResetSubmit))
     .post("/admin/galleri/fotodatum", requireUser(galleryExifSubmit))
     .post("/admin/galleri/flera", requireUser(galleryBulkSubmit))
+    .post("/admin/galleri/dubbletter", requireUser(galleryDuplicates))
     .get("/admin/galleri/zip", requireUser(galleryZipList))
     .get("/admin/galleri-kategorier/:id/omslag", requireUser(galleryCoverPage))
     .post("/admin/galleri-kategorier/:id/omslag", requireUser(galleryCoverSubmit));

@@ -911,7 +911,57 @@ document.addEventListener("click", function (e) {
   var count = dlg.querySelector("[data-gal-lb-count]"), dl = dlg.querySelector("[data-gal-lb-download]"), open = dlg.querySelector("[data-gal-lb-open]");
   var prev = dlg.querySelector('[data-gal-lb-step="-1"]'), next = dlg.querySelector('[data-gal-lb-step="1"]');
   var template = dlg.getAttribute("data-count") || "{nr} / {antal}";
-  var list = [], index = 0, opener = null;
+  var shareBtn = dlg.querySelector("[data-gal-lb-share]"), note = dlg.querySelector("[data-gal-lb-note]");
+  var playBtn = dlg.querySelector("[data-gal-lb-play]"), playLabel = dlg.querySelector("[data-gal-lb-play-label]");
+  var progress = dlg.querySelector("[data-gal-lb-progress]");
+  var list = [], index = 0, opener = null, timer = null, noteTimer = null;
+  var SLIDE_MS = 5000;
+
+  // Adressen till bilden som visas: samma sida med album, år och bild (servern väljer rätt album, site.js öppnar bilden)
+  function imageUrl(a) {
+    var panel = a.closest("[data-gal-panel]"), year = a.closest("[data-gal-year-panel]");
+    var q = "?album=" + encodeURIComponent(panel ? panel.getAttribute("data-gal-panel") : "") +
+      (year ? "&ar=" + encodeURIComponent(year.getAttribute("data-gal-year-panel")) : "") +
+      "&bild=" + encodeURIComponent(a.getAttribute("data-gal-id"));
+    return location.origin + location.pathname + q + "#bildgalleri";
+  }
+  function say(text) {
+    note.textContent = text;
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(function () { note.textContent = ""; }, 2500);
+  }
+
+  // Bildspel: nästa bild var femte sekund, med en tunn tidslinje överst. Pausas när fliken döljs eller rutan stängs.
+  function setPlaying(on) {
+    clearTimeout(timer);
+    timer = null;
+    playBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    playLabel.textContent = dlg.getAttribute(on ? "data-pause" : "data-play");
+    dlg.classList.toggle("is-playing", on);
+    progress.hidden = !on;
+    if (on) tick();
+  }
+  function tick() {
+    clearTimeout(timer);
+    var bar = progress.firstElementChild;
+    bar.classList.remove("is-running");
+    void bar.offsetWidth;
+    bar.classList.add("is-running");
+    timer = setTimeout(function () { show(index + 1); }, SLIDE_MS); // show() startar nästa varv så länge bildspelet går
+  }
+  playBtn.addEventListener("click", function () { setPlaying(!dlg.classList.contains("is-playing")); });
+  document.addEventListener("visibilitychange", function () { if (document.hidden && dlg.classList.contains("is-playing")) setPlaying(false); });
+
+  shareBtn.addEventListener("click", function () {
+    var a = list[index], url = imageUrl(a);
+    if (navigator.share) {
+      navigator.share({ title: dlg.getAttribute("data-share-title") || document.title, url: url }).catch(function () {});
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function () { say(dlg.getAttribute("data-copied") || ""); }, function () { window.prompt("", url); });
+    } else {
+      window.prompt("", url);
+    }
+  });
 
   function show(i) {
     index = (i + list.length) % list.length;
@@ -937,22 +987,44 @@ document.addEventListener("click", function (e) {
     var label = template.replace("{nr}", String(index + 1)).replace("{antal}", String(list.length));
     count.textContent = list.length > 1 ? label : "";
     dlg.setAttribute("aria-label", label);
-    prev.hidden = next.hidden = list.length < 2;
+    prev.hidden = next.hidden = playBtn.hidden = list.length < 2;
+    // Adressfältet visar bilden, så att den kan kopieras eller bokmärkas direkt
+    if (history.replaceState && dlg.open) history.replaceState(null, "", imageUrl(a));
+    // Nästa bild laddas i förväg (bildspelet och pilarna känns direkta)
+    var nextThumb = list.length > 1 && list[(index + 1) % list.length].querySelector("img");
+    if (nextThumb && nextThumb.getAttribute("srcset")) { var pre = new Image(); pre.sizes = img.sizes; pre.srcset = nextThumb.getAttribute("srcset"); }
+    if (dlg.classList.contains("is-playing")) tick();
   }
   function close() { if (dlg.open) dlg.close(); }
 
+  function openAt(a) {
+    var panel = a.closest("[data-gal-year-panel]") || gal;
+    list = Array.prototype.slice.call(panel.querySelectorAll("a[data-gal-item]"));
+    opener = a;
+    document.documentElement.classList.add("gal-lb-open");
+    dlg.showModal();
+    show(list.indexOf(a));
+  }
   gal.addEventListener("click", function (e) {
     var a = e.target.closest("a[data-gal-item]");
     if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
-    var panel = a.closest("[data-gal-year-panel]") || gal;
-    list = Array.prototype.slice.call(panel.querySelectorAll("a[data-gal-item]"));
-    opener = a;
-    show(list.indexOf(a));
-    document.documentElement.classList.add("gal-lb-open");
-    dlg.showModal();
+    openAt(a);
   });
+  // En delad länk (?bild=12) öppnar bilden direkt
+  var wanted = new URLSearchParams(location.search).get("bild");
+  var target = wanted && gal.querySelector('a[data-gal-item][data-gal-id="' + wanted.replace(/[^0-9]/g, "") + '"]');
+  if (target) {
+    target.scrollIntoView({ block: "center" });
+    openAt(target);
+  }
   dlg.addEventListener("close", function () {
+    setPlaying(false);
+    if (history.replaceState) {
+      var q = new URLSearchParams(location.search);
+      q.delete("bild");
+      history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : "") + "#bildgalleri");
+    }
     document.documentElement.classList.remove("gal-lb-open");
     img.removeAttribute("srcset");
     img.removeAttribute("src");

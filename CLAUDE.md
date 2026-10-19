@@ -39,7 +39,8 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   webbläsaren, admin.js), 100 bilder åt gången med Visa fler/Visa alla, sortering
   efter fotodatum/tillagd (bara i listan), dra och släpp inom album+år och Återställ (sort_order = 0). Ordningen är
   `GALLERY_ORDER` i `content.ts`: egen ordning, sedan fotodatum (`taken_at`, EXIF ur originalet i admin.js `jfkTakenAt`, nyast först),
-  sist utan datum efter uppladdning. På webbplatsen öppnas bilderna i en bildruta (`<dialog data-gal-lb>`, site.js).
+  sist utan datum efter uppladdning. På webbplatsen öppnas bilderna i en bildruta (`<dialog data-gal-lb>`, site.js) med
+  dela/direktlänk (`?bild=ID`, ger också og:image) och bildspel. Dubblettvarning: SHA-256 av originalet (`file_hash`).
 - **Schemaläggning:** `news.published_at`, `events.publish_at`, `jobs.publish_at` (UTC). Publika frågor filtrerar via
   `NEWS_LIVE`/`EVENT_LIVE`/`JOB_LIVE` i `content.ts`. Admin-fält med `schedule: true` visas i svensk tid.
 - **Partnerstatistik** (`src/lib/stats.ts`): bara totalsiffror per dag i `stats_daily`, utan IP/kakor. Utlänkar går via

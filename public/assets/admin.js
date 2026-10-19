@@ -285,6 +285,85 @@
     field.addEventListener("input", function () { field.removeAttribute("data-taken-auto"); }, { once: true });
   }
 
+  /* ---------- Dubbletter (galleriet): fingeravtryck av originalfilen och fråga servern om samma bild redan finns ---------- */
+  async function sha256(file) {
+    if (!window.crypto || !crypto.subtle) return "";
+    var buf = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+  }
+  async function findDuplicates(input, hashes) {
+    var url = input.getAttribute("data-dup-check"), csrf = input.form && input.form.querySelector('[name="_csrf"]');
+    var body = new FormData();
+    body.append("_csrf", csrf ? csrf.value : "");
+    hashes.forEach(function (h) { if (h) body.append("h", h); });
+    try {
+      var res = await fetch(url, { method: "POST", body: body, credentials: "same-origin" });
+      return res.ok ? (await res.json()).found || {} : {};
+    } catch (e) { return {}; } // varningen är en hjälp – den får aldrig stoppa uppladdningen
+  }
+  function where(m) { return m.album + (m.year ? " " + m.year : ""); }
+  function dupLink(m) {
+    var a = document.createElement("a");
+    a.href = "/admin/galleri/" + m.id; a.target = "_blank"; a.rel = "noopener";
+    a.textContent = m.title ? m.title + " (" + where(m) + ")" : "en bild i " + where(m);
+    return a;
+  }
+  function showDup(name, build) {
+    var box = companion(name, "data-dup-for");
+    if (!box) return;
+    box.innerHTML = "";
+    box.hidden = !build;
+    if (build) build(box);
+  }
+  async function checkSingle(input, name, file) {
+    var hidden = companion(name, "data-hash-for");
+    if (!hidden) return;
+    var hash = await sha256(file);
+    hidden.value = hash;
+    if (!hash) return;
+    var m = (await findDuplicates(input, [hash]))[hash];
+    if (!m) return;
+    showDup(name, function (box) {
+      var p = document.createElement("p");
+      p.innerHTML = "<strong>Den här bilden finns redan i galleriet:</strong> ";
+      p.appendChild(dupLink(m));
+      var q = document.createElement("p");
+      q.textContent = "Du kan ladda upp den ändå, men då visas den två gånger.";
+      box.appendChild(p); box.appendChild(q);
+    });
+  }
+  async function checkMany(input, name, files) {
+    showDup(name, null);
+    var hashes = [];
+    for (var i = 0; i < files.length; i++) hashes.push(await sha256(files[i]));
+    var found = hashes.some(Boolean) ? await findDuplicates(input, hashes) : {};
+    var seen = {}, dups = [];
+    hashes.forEach(function (h, i) {
+      if (!h) return;
+      if (found[h]) dups.push({ i: i, m: found[h] });
+      else if (seen[h] !== undefined) dups.push({ i: i, twin: files[seen[h]].name });
+      else seen[h] = i;
+    });
+    input._dup = { hashes: hashes, skip: dups.map(function (d) { return d.i; }) };
+    if (!dups.length) return;
+    showDup(name, function (box) {
+      var p = document.createElement("p");
+      p.innerHTML = "<strong>" + (dups.length === 1 ? "1 av bilderna" : dups.length + " av bilderna") + " finns redan</strong> och hoppas över när du klickar på Skapa:";
+      var ul = document.createElement("ul");
+      dups.forEach(function (d) {
+        var li = document.createElement("li");
+        li.appendChild(document.createTextNode(files[d.i].name + " – "));
+        if (d.m) { li.appendChild(document.createTextNode("finns som ")); li.appendChild(dupLink(d.m)); }
+        else li.appendChild(document.createTextNode("samma bild som " + d.twin + " i ditt urval"));
+        ul.appendChild(li);
+      });
+      var label = document.createElement("label");
+      label.className = "check-field check-small";
+      label.innerHTML = '<input type="checkbox" data-dup-anyway><span>Ladda upp dem ändå</span>';
+      box.appendChild(p); box.appendChild(ul); box.appendChild(label);
+    });
+  }
+
   function setDims(name, w, h) {
     var input = companion(name, "data-dims-for");
     if (input) input.value = w && h ? w + "x" + h : "";
@@ -465,6 +544,10 @@
       setMedium(name, null, "");
       setDims(name, 0, 0);
       setTaken(input, name, null, false);
+      showDup(name, null);
+      input._dup = null;
+      var hashIn = companion(name, "data-hash-for");
+      if (hashIn) hashIn.value = "";
       var bank = companion(name, "data-bank-for");
       if (bank && file) bank.value = "";
       if (!file) return;
@@ -473,6 +556,7 @@
         var pv = document.querySelector('[data-preview="' + name + '"]');
         if (pv) pv.hidden = true;
         setStatus(name, input.files.length + " bilder valda. De laddas upp en i taget när du klickar på Skapa – bildbeskrivning, bildtext och album gäller alla.", "ok");
+        if (input.hasAttribute("data-dup-check")) { input._dupReady = checkMany(input, name, Array.prototype.slice.call(input.files)); await input._dupReady; }
         return;
       }
 
@@ -498,6 +582,7 @@
       try {
         // Fotodatumet läses ur originalet – komprimering och beskärning tar bort det
         if (companion(name, "data-taken-for") && window.jfkTakenAt) setTaken(input, name, await window.jfkTakenAt(file), true);
+        if (input.hasAttribute("data-dup-check")) await checkSingle(input, name, file);
         var source = await decode(file);
         // Porträtt: beskär (data-crop) och/eller gör svartvit (data-gray-if) innan något annat
         var cropRatio = parseFloat(input.getAttribute("data-crop") || "0");
@@ -606,9 +691,12 @@
       form.insertBefore(box, actions);
       box.scrollIntoView({ block: "nearest", behavior: "smooth" });
       var text = box.querySelector(".bulk-progress-text"), bar = box.querySelector("progress"), errs = box.querySelector(".bulk-progress-errors");
-      var ok = 0, failed = 0;
+      if (input._dupReady) { text.textContent = "Letar efter dubbletter …"; await input._dupReady; }
+      var ok = 0, failed = 0, skipped = 0;
+      var dup = input._dup, anyway = form.querySelector("[data-dup-anyway]");
       for (var i = 0; i < files.length; i++) {
         var f = files[i];
+        if (dup && dup.skip.indexOf(i) >= 0 && !(anyway && anyway.checked)) { skipped++; bar.value = i + 1; continue; }
         text.textContent = "Laddar upp bild " + (i + 1) + " av " + files.length + " – " + f.name + " …";
         try {
           var prep = await prepareImage(f, max);
@@ -616,6 +704,8 @@
           var taken = window.jfkTakenAt ? await window.jfkTakenAt(f) : null;
           fd.delete(name); fd.delete(name + "__liten"); fd.delete(name + "__mellan"); fd.delete(name + "__matt"); fd.delete(name + "__bank"); fd.delete(name + "__tagen");
           if (companion(name, "data-taken-for")) fd.append(name + "__tagen", taken || "saknas");
+          fd.delete(name + "__hash");
+          if (dup && dup.hashes[i]) fd.append(name + "__hash", dup.hashes[i]);
           fd.append(name, prep.file, prep.file.name);
           if (prep.small) fd.append(name + "__liten", variantFile(prep.small, "liten", prep.file.name));
           if (prep.medium) fd.append(name + "__mellan", variantFile(prep.medium, "mellan", prep.file.name));
@@ -633,7 +723,7 @@
         bar.value = i + 1;
       }
       var list = form.action.replace(/\/ny(\?.*)?$/, "");
-      var url = list + "?klart=" + (failed ? "flera-delvis" : "flera") + "&antal=" + ok + "&misslyckade=" + failed;
+      var url = list + "?klart=" + (failed ? "flera-delvis" : "flera") + "&antal=" + ok + "&misslyckade=" + failed + (skipped ? "&hoppade=" + skipped : "");
       if (!failed) { location.href = url; return; }
       text.textContent = ok + " av " + files.length + " bilder laddades upp. De här gick inte:";
       var go = document.createElement("a");

@@ -45,7 +45,9 @@ export async function studentsPage(c: RequestContext): Promise<Response> {
       galleri: () => gallerySection(s, gallery, c.url, albumNames, covers),
     })}
   `;
-  return htmlResponse(c, layout(c, s, { title: s.students_kicker, description: s.students_lead }, content));
+  // Delad länk till en bild (?bild=12): förhandsbilden i chattar och sociala medier blir just den bilden
+  const shared = sharedImage(gallery, c.url);
+  return htmlResponse(c, layout(c, s, { title: s.students_kicker, description: s.students_lead, ogImage: shared ? (mediaUrl(shared.image_key, "md") ?? undefined) : undefined }, content));
 }
 
 function study(s: Settings, tight: boolean): SafeHtml {
@@ -228,6 +230,12 @@ function sport(s: Settings): SafeHtml {
   </section>`;
 }
 
+/** Bilden i en delad länk (?bild=12), om den finns. */
+function sharedImage(images: GalleryRow[], url: URL): GalleryRow | undefined {
+  const id = Number(url.searchParams.get("bild"));
+  return Number.isInteger(id) && id > 0 ? images.find((i) => i.id === id) : undefined;
+}
+
 /** Filnamnet när en bild laddas ned, t.ex. "jfk-inspark-2026-12.jpg". */
 function downloadName(album: string, img: GalleryRow): string {
   const ext = /\.([a-z0-9]+)$/i.exec(img.image_key)?.[1]?.toLowerCase() ?? "jpg";
@@ -240,15 +248,18 @@ function downloadName(album: string, img: GalleryRow): string {
  * öppnar bilden i ny flik som förut, och rutan visas aldrig.
  */
 function lightbox(s: Settings): SafeHtml {
-  return html`<dialog class="gal-lb" data-gal-lb aria-label="${fillText(s.gallery_lb_count, { nr: "1", antal: "1" })}" data-count="${s.gallery_lb_count}">
+  return html`<dialog class="gal-lb" data-gal-lb aria-label="${fillText(s.gallery_lb_count, { nr: "1", antal: "1" })}" data-count="${s.gallery_lb_count}" data-share-title="${s.gallery_lb_share_title}" data-copied="${s.gallery_lb_copied}" data-play="${s.gallery_lb_play}" data-pause="${s.gallery_lb_pause}">
     <div class="gal-lb-bar">
-      <p class="gal-lb-count" data-gal-lb-count aria-live="polite"></p>
+      <p class="gal-lb-count"><span data-gal-lb-count aria-live="polite"></span><span class="gal-lb-note" data-gal-lb-note role="status"></span></p>
       <div class="gal-lb-actions">
+        <button class="gal-lb-btn" type="button" data-gal-lb-play hidden aria-pressed="false">${icon("play", "icon icon-sm gal-lb-i-play")}<span class="gal-lb-pause-i" aria-hidden="true"></span><span data-gal-lb-play-label>${s.gallery_lb_play}</span></button>
+        <button class="gal-lb-btn" type="button" data-gal-lb-share${ek(s, "gallery_lb_share")}>${icon("link", "icon icon-sm")}<span>${s.gallery_lb_share}</span></button>
         <a class="gal-lb-btn" href="#" download data-gal-lb-download${ek(s, "gallery_lb_download")}>${icon("arrowDown", "icon icon-sm")}<span>${s.gallery_lb_download}</span></a>
         <a class="gal-lb-btn" href="#" target="_blank" rel="noopener" data-gal-lb-open${ek(s, "gallery_lb_open")}>${icon("external", "icon icon-sm")}<span>${s.gallery_lb_open}</span></a>
         <button class="gal-lb-close" type="button" data-gal-lb-close autofocus aria-label="${s.gallery_lb_close}">${icon("close", "icon")}</button>
       </div>
     </div>
+    <div class="gal-lb-progress" data-gal-lb-progress hidden aria-hidden="true"><span></span></div>
     <figure class="gal-lb-stage" data-gal-lb-stage>
       <img class="gal-lb-img" alt="" data-gal-lb-img>
       <figcaption class="gal-lb-caption" data-gal-lb-caption hidden><span data-gal-lb-text></span><span class="gal-lb-photo" data-gal-lb-photo></span></figcaption>
@@ -275,9 +286,11 @@ function gallerySection(s: Settings, images: GalleryRow[], url: URL, albumNames:
   // Kategorierna i den ordning styrelsen har valt (Bildgalleri → Kategorier). Åren nyast först, "Utan årtal" sist.
   const order = albumOrder(albumNames, albums.keys()).filter((a) => albums.has(a));
   const yearsOf = (a: string) => [...albums.get(a)!.keys()].sort((x, y) => (x === "" ? 1 : y === "" ? -1 : Number(y) - Number(x)));
-  const wantedAlbum = order.find((a) => slugify(a) === url.searchParams.get("album")) ?? order[0];
+  // En delad bild (?bild=12) bestämmer album och år; site.js öppnar den sedan i bildrutan.
+  const shared = sharedImage(images, url);
+  const wantedAlbum = (shared && order.includes(shared.album) ? shared.album : undefined) ?? order.find((a) => slugify(a) === url.searchParams.get("album")) ?? order[0];
   // Året i adressen: ett årtal eller "utan" (bilder utan år). Saknas det visas albumets senaste år.
-  const arParam = url.searchParams.get("ar");
+  const arParam = shared ? (shared.year == null ? "utan" : String(shared.year)) : url.searchParams.get("ar");
   const wantedYear = arParam === "utan" ? "" : arParam;
   const href = (a: string, y: string | null) => `?album=${encodeURIComponent(slugify(a))}${y === null ? "" : `&ar=${encodeURIComponent(y || "utan")}`}#bildgalleri`;
   const yearLabel = (y: string) => y || s.gallery_no_year;
@@ -285,7 +298,7 @@ function gallerySection(s: Settings, images: GalleryRow[], url: URL, albumNames:
   const grid = (album: string, imgs: GalleryRow[]) => html`<ul class="gallery-grid">
     ${imgs.map(
       (img) => html`<li${ec(s, `/admin/galleri/${img.id}`, `Bildgalleri › ${img.alt || album}`)}>
-        <a class="gallery-item" href="${mediaUrl(img.image_key)}" target="_blank" rel="noopener" data-gal-item data-gal-name="${downloadName(album, img)}"${img.caption ? html` data-gal-caption="${img.caption}"` : ""}${img.photographer ? html` data-gal-photo="${fillText(s.gallery_lb_photo, { namn: img.photographer })}"` : ""}>
+        <a class="gallery-item" href="${mediaUrl(img.image_key)}" target="_blank" rel="noopener" data-gal-item data-gal-id="${img.id}" data-gal-name="${downloadName(album, img)}"${img.caption ? html` data-gal-caption="${img.caption}"` : ""}${img.photographer ? html` data-gal-photo="${fillText(s.gallery_lb_photo, { namn: img.photographer })}"` : ""}>
           ${picture(img.image_key, { alt: img.alt || img.caption || `Bild från albumet ${album}${img.year ? ` ${img.year}` : ""}`, sizes: "(min-width: 1000px) 280px, 50vw", width: 480, height: 360 })}
           <span class="sr-only"> (${s.gallery_open})</span>
         </a>

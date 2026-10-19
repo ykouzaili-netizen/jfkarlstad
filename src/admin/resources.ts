@@ -74,6 +74,11 @@ export interface AdminField extends FieldSpec {
    * Ett datum som skrivits in i fältet går före. Kolumnen exif_checked sätts när en ny bild har lästs.
    */
   exifFrom?: string;
+  /**
+   * Bildfält: varna om samma fil redan finns (adressen som svarar, t.ex. "/admin/galleri/dubbletter"). admin.js skickar
+   * originalfilens SHA-256 i `${namn}__hash`, som sparas i kolumnen file_hash när en ny bild laddas upp.
+   */
+  dupCheck?: string;
 }
 
 /** Fotodatum ur bildens uppgifter, som admin.js skickar det. */
@@ -812,7 +817,7 @@ export const RESOURCES: Resource[] = [
     moveGroup: ["album", "year"],
     emptyText: "Inga bilder ännu.",
     fields: [
-      { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, multiple: true, purge: true, help: "JPG, PNG, WebP eller HEIC. Stora foton komprimeras automatiskt. Bilden raderas helt när den tas bort ur galleriet." },
+      { name: "image_key", label: "Bild", type: "text", upload: "image", requiredOnCreate: true, multiple: true, purge: true, dupCheck: "/admin/galleri/dubbletter", help: "JPG, PNG, WebP eller HEIC. Stora foton komprimeras automatiskt. Bilden raderas helt när den tas bort ur galleriet. Finns samma foto redan i galleriet får du en varning." },
       { name: "album", label: "Kategori", type: "select", required: true, optionsFrom: albumOptions, help: "Visas som ett album i bildgalleriet. Kategorierna ändrar du under fliken Kategorier." },
       { name: "year", label: "År", type: "number", min: 2000, max: 2100, nullable: true, help: "Året evenemanget hölls. På webbplatsen kan besökarna välja år inom varje kategori. Tomt = året bilden togs (om fotodatumet finns), annars ”Utan årtal”." },
       {
@@ -1309,7 +1314,7 @@ function editForm(r: Resource, fields: AdminField[], session: Session, action: s
           const field = f.custom
             ? f.custom.render(values[f.name] ?? "", errors[f.name])
             : f.upload
-            ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload, multiple: isNew && f.multiple, crop: f.crop, grayIf: f.grayIf })
+            ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload, multiple: isNew && f.multiple, crop: f.crop, grayIf: f.grayIf, dupCheck: f.dupCheck })
             : renderField(f, values[f.name] ?? "", errors[f.name]);
           return f.showIf
             ? html`<div class="show-if" data-show-if="${f.showIf.field}" data-show-value="${([] as string[]).concat(f.showIf.value).join("|")}"${shown(f, values) ? "" : html` hidden`}>${field}</div>`
@@ -1583,6 +1588,11 @@ async function save(r: Resource, c: RequestContext, session: Session, id: number
       else data[col(f)] = v === "" && f.nullable ? null : v;
     }
     Object.assign(data, fileCols);
+    // Fingeravtrycket för dubblettvarningen (bara för en ny fil)
+    for (const f of fields.filter((f) => f.dupCheck && fileCols[col(f)])) {
+      const hash = String(form.get(`${f.name}__hash`) ?? "");
+      if (/^[0-9a-f]{64}$/.test(hash)) data.file_hash = hash;
+    }
     // Bildens uppgifter har lästs för en ny fil – då behöver "Läs fotodatum ur bilderna" inte göra om det.
     if (exifRead.some((name) => fileCols[col(fields.find((f) => f.name === name)!)])) data.exif_checked = 1;
     if (r.path === "dokument" && fileSize !== null) data.file_size = fileSize;
