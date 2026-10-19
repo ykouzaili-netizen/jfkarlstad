@@ -891,7 +891,7 @@ export const RESOURCES: Resource[] = [
     lead: "Kategorierna är albumen i bildgalleriet och i Biografen. Dra dem i den ordning de ska visas på webbplatsen. Byter du namn följer bilderna och filmerna med. En kategori utan bilder syns inte för besökarna.",
     orderBy: "sort_order, name",
     movable: true,
-    listQuery: "SELECT a.*, (SELECT COUNT(*) FROM gallery_images g WHERE g.album = a.name) AS images, (SELECT COUNT(*) FROM gallery_videos v WHERE v.album = a.name) AS videos FROM gallery_albums a ORDER BY a.sort_order, a.name",
+    listQuery: "SELECT a.*, (SELECT image_key FROM gallery_images c WHERE c.id = a.cover_id AND c.album = a.name) AS cover_key, (SELECT COUNT(*) FROM gallery_images g WHERE g.album = a.name) AS images, (SELECT COUNT(*) FROM gallery_videos v WHERE v.album = a.name) AS videos FROM gallery_albums a ORDER BY a.sort_order, a.name",
     emptyText: "Inga kategorier ännu. Lägg till den första – t.ex. Banketter.",
     fields: [{ name: "name", label: "Namn", type: "text", required: true, max: 60, placeholder: "T.ex. Sittningar", help: "Visas som knapp i bildgalleriet. Kort och tydligt fungerar bäst." }],
     beforeSave: async (db, values, _data, existing): Promise<Errors> => {
@@ -918,6 +918,14 @@ export const RESOURCES: Resource[] = [
       return null;
     },
     listColumns: [
+      {
+        label: "Omslag",
+        className: "col-thumb",
+        render: (r) =>
+          Number(r.images)
+            ? html`<a class="gc-cover" href="/admin/galleri-kategorier/${r.id}/omslag" title="Välj omslagsbild">${r.cover_key ? thumb(r.cover_key) : html`<span class="thumb thumb-empty gc-cover-empty">Välj</span>`}<span class="sr-only">Välj omslagsbild för ${String(r.name)}</span></a>`
+            : html`<span class="thumb thumb-empty" aria-hidden="true"></span>`,
+      },
       { label: "Namn", render: (r) => html`<a class="row-title" href="/admin/galleri-kategorier/${r.id}">${String(r.name)}</a>` },
       {
         label: "Innehåll",

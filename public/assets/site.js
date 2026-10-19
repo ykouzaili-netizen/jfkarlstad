@@ -906,6 +906,7 @@ document.addEventListener("click", function (e) {
   var dlg = gal && gal.querySelector("[data-gal-lb]");
   if (!dlg || typeof dlg.showModal !== "function") return;
   var img = dlg.querySelector("[data-gal-lb-img]"), cap = dlg.querySelector("[data-gal-lb-caption]");
+  var remove = dlg.querySelector("[data-gal-lb-remove]");
   var capText = dlg.querySelector("[data-gal-lb-text]"), capPhoto = dlg.querySelector("[data-gal-lb-photo]");
   var count = dlg.querySelector("[data-gal-lb-count]"), dl = dlg.querySelector("[data-gal-lb-download]"), open = dlg.querySelector("[data-gal-lb-open]");
   var prev = dlg.querySelector('[data-gal-lb-step="-1"]'), next = dlg.querySelector('[data-gal-lb-step="1"]');
@@ -926,6 +927,10 @@ document.addEventListener("click", function (e) {
     capText.textContent = text;
     capPhoto.textContent = photo;
     cap.hidden = !text && !photo;
+    if (remove) {
+      var body = (remove.getAttribute("data-body") || "").replace("{adress}", a.href);
+      remove.href = remove.getAttribute("href").split("?")[0] + "?subject=" + encodeURIComponent(remove.getAttribute("data-subject") || "") + "&body=" + encodeURIComponent(body.replace(/\r?\n/g, "\r\n"));
+    }
     dl.href = a.href;
     dl.setAttribute("download", a.getAttribute("data-gal-name") || "");
     open.href = a.href;

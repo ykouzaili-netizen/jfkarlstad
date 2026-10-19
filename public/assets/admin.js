@@ -2297,3 +2297,79 @@
   });
   update();
 })();
+
+/* Bildgalleriet: "Ladda ned (zip)". Listan med bilder hämtas från /admin/galleri/zip, varje originalbild hämtas och
+   packas här i webbläsaren (zip utan komprimering – JPG går ändå inte att packa mindre), sedan laddas filen ned.
+   Inget skickas någon annanstans. */
+(function () {
+  var buttons = document.querySelectorAll("[data-gl-zip]");
+  if (!buttons.length || !window.fetch || !window.Blob || !window.TextEncoder) return;
+  var CRC = (function () {
+    var t = new Uint32Array(256);
+    for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+    return t;
+  })();
+  function crc32(bytes) {
+    var c = 0xffffffff;
+    for (var i = 0; i < bytes.length; i++) c = CRC[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+  function dosTime(d) {
+    return { time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), date: ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate() };
+  }
+  function zip(entries) {
+    var enc = new TextEncoder(), parts = [], central = [], offset = 0, t = dosTime(new Date());
+    entries.forEach(function (e) {
+      var name = enc.encode(e.name), crc = crc32(e.data), size = e.data.length;
+      var h = new DataView(new ArrayBuffer(30));
+      h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
+      h.setUint16(10, t.time, true); h.setUint16(12, t.date, true); h.setUint32(14, crc, true);
+      h.setUint32(18, size, true); h.setUint32(22, size, true); h.setUint16(26, name.length, true); h.setUint16(28, 0, true);
+      parts.push(h.buffer, name, e.data);
+      var c = new DataView(new ArrayBuffer(46));
+      c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true);
+      c.setUint16(12, t.time, true); c.setUint16(14, t.date, true); c.setUint32(16, crc, true); c.setUint32(20, size, true); c.setUint32(24, size, true);
+      c.setUint16(28, name.length, true); c.setUint32(42, offset, true);
+      central.push(c.buffer, name);
+      offset += 30 + name.length + size;
+    });
+    var csize = central.reduce(function (s, p) { return s + p.byteLength; }, 0);
+    var end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true);
+    end.setUint32(12, csize, true); end.setUint32(16, offset, true);
+    return new Blob(parts.concat(central, [end.buffer]), { type: "application/zip" });
+  }
+  buttons.forEach(function (btn) {
+    btn.hidden = false;
+    var label = btn.innerHTML;
+    btn.addEventListener("click", async function () {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      var say = function (text) { btn.textContent = text; };
+      try {
+        say("Förbereder …");
+        var res = await fetch(btn.getAttribute("data-gl-zip"), { credentials: "same-origin" });
+        if (!res.ok) throw new Error("lista");
+        var files = (await res.json()).files || [], entries = [];
+        for (var i = 0; i < files.length; i++) {
+          say("Hämtar " + (i + 1) + " av " + files.length + " …");
+          var r = await fetch(files[i].src, { credentials: "same-origin" });
+          if (!r.ok) continue; // en bild som inte går att hämta hoppas över
+          entries.push({ name: files[i].name, data: new Uint8Array(await r.arrayBuffer()) });
+        }
+        if (!entries.length) throw new Error("tom");
+        say("Packar …");
+        var url = URL.createObjectURL(zip(entries));
+        var a = document.createElement("a");
+        a.href = url; a.download = btn.getAttribute("data-zip-name") || "bilder.zip";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+        say(entries.length < files.length ? "Klar – " + (files.length - entries.length) + " bilder saknades" : "Klar!");
+        setTimeout(function () { btn.innerHTML = label; btn.disabled = false; }, 4000);
+      } catch (e) {
+        say("Gick inte – försök igen");
+        setTimeout(function () { btn.innerHTML = label; btn.disabled = false; }, 4000);
+      }
+    });
+  });
+})();

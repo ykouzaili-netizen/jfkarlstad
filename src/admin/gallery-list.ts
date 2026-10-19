@@ -1,6 +1,6 @@
 import { html, type SafeHtml } from "../lib/html.js";
 import { redirect } from "../lib/http.js";
-import { GALLERY_ORDER, albumOrder, loadAlbums, type GalleryRow } from "../lib/content.js";
+import { GALLERY_IMAGE_ORDER, GALLERY_ORDER, albumOrder, loadAlbums, type GalleryRow } from "../lib/content.js";
 import { purgeIfUnused } from "../lib/media.js";
 import { MONTHS_SHORT, formatDateTimeShort, parseLocal } from "../lib/format.js";
 import { slugify } from "../lib/slug.js";
@@ -77,6 +77,13 @@ function sortRows(rows: Row[], sort: Sort): Row[] {
     });
   }
   return out;
+}
+
+/** Knapp som laddar ned ett album (och år) som zip – byggs i webbläsaren av admin.js (data-gl-zip). */
+function zipButton(album: string, year: string, file: string, count: number, label = "Ladda ned (zip)"): SafeHtml {
+  const q = new URLSearchParams({ kategori: slugify(album) });
+  if (year) q.set("ar", year);
+  return html`<button class="btn btn-outline btn-sm gl-zip" type="button" hidden data-gl-zip="/admin/galleri/zip?${q.toString()}" data-zip-name="${file}.zip" title="${count === 1 ? "1 bild" : `${count} bilder`} i originalstorlek">${icon("arrowDown", "icon icon-sm")}${label}</button>`;
 }
 
 export async function galleryListPage(c: RequestContext, session: Session): Promise<Response> {
@@ -178,6 +185,7 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
         <span>Bilderna visas i den här ordningen på webbplatsen: <strong>nyast fotograferad först</strong>, sedan bilder utan fotodatum (senast uppladdad först).
         Dra en bild i handtaget för att flytta den – då får det albumet en egen ordning. Med <em>Återställ</em> går albumet tillbaka till datumordning.</span>
       </p>
+      ${album && groups.length > 1 ? html`<p class="gl-zip-all">${zipButton(album, "", slugify(album), rows.length, `Ladda ned hela ${album} (zip)`)}</p>` : ""}
       ${groups.map((g) => {
         const custom = g.rows.some((r) => r.sort_order > 0);
         const fresh = custom ? g.rows.filter((r) => r.sort_order === 0).length : 0;
@@ -199,7 +207,10 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
                 ${fresh ? html`<span class="gl-fresh">${fresh === 1 ? "1 ny bild ligger sist" : `${fresh} nya bilder ligger sist`} – dra dit du vill ha ${fresh === 1 ? "den" : "dem"}.</span>` : ""}
               </p>
             </div>
-            <div class="gl-reset" data-gl-reset${custom ? "" : html` hidden`}>${resetForm}</div>
+            <div class="gl-group-tools">
+              ${zipButton(g.album, g.year == null ? "utan" : String(g.year), `${slugify(g.album)}-${g.year ?? "utan-artal"}`, g.rows.length)}
+              <div class="gl-reset" data-gl-reset${custom ? "" : html` hidden`}>${resetForm}</div>
+            </div>
           </header>
           <table class="admin-table gl-table">
             ${head(true, false, `i ${g.album} ${yearLabel}`)}
@@ -271,9 +282,11 @@ export async function galleryListPage(c: RequestContext, session: Session): Prom
         </div>
         <div class="gl-bulk-actions">
           <button class="btn btn-primary btn-sm" type="submit" name="atgard" value="andra">Spara på markerade</button>
+          <button class="btn btn-outline btn-sm" type="submit" name="atgard" value="forst" title="De markerade läggs först i sitt album (i den ordning de står nu)">${icon("arrowUp", "icon icon-sm")}Flytta först</button>
+          <button class="btn btn-outline btn-sm" type="submit" name="atgard" value="sist" title="De markerade läggs sist i sitt album">${icon("arrowDown", "icon icon-sm")}Flytta sist</button>
           <button class="btn btn-danger-ghost btn-sm" type="submit" name="atgard" value="radera" data-confirm-click="Vill du ta bort de markerade bilderna? De raderas helt och det går inte att ångra.">Ta bort markerade</button>
         </div>
-        <p class="field-help gl-bulk-help">Lämna ett fält tomt för att behålla det som står. Skriv <strong>-</strong> under År för ”Utan årtal”. Bilder som flyttas till ett annat album eller år hamnar efter fotodatum där.</p>
+        <p class="field-help gl-bulk-help"><strong>Flytta först/sist</strong> ändrar ordningen på webbplatsen inom bildernas album och år. Lämna ett fält tomt för att behålla det som står. Skriv <strong>-</strong> under År för ”Utan årtal”. Bilder som flyttas till ett annat album eller år hamnar efter fotodatum där.</p>
       </form>`
     : "";
 
@@ -368,7 +381,31 @@ export async function galleryBulkSubmit(c: RequestContext, session: Session): Pr
   for (let i = 0; i < ids.length; i += 90) chunks.push(ids.slice(i, i + 90)); // D1: högst 100 parametrar per fråga
   const inList = (chunk: number[]) => chunk.map(() => "?").join(",");
 
-  if (form.get("atgard") === "radera") {
+  const action = String(form.get("atgard") ?? "");
+  if (action === "forst" || action === "sist") {
+    // De markerade läggs först/sist i sitt album och år, i den ordning de står nu; resten behåller sin ordning.
+    const { results } = await db.prepare(`SELECT id, album, year FROM gallery_images ORDER BY ${GALLERY_ORDER}`).all<{ id: number; album: string; year: number | null }>();
+    const picked = new Set(ids);
+    const groups = new Map<string, number[]>();
+    for (const r of results) {
+      const k = `${r.album}|${r.year ?? ""}`;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k)!.push(r.id);
+    }
+    const stmts: D1PreparedStatement[] = [];
+    for (const list of groups.values()) {
+      if (!list.some((id) => picked.has(id))) continue;
+      const mine = list.filter((id) => picked.has(id));
+      const rest = list.filter((id) => !picked.has(id));
+      const order = action === "forst" ? [...mine, ...rest] : [...rest, ...mine];
+      order.forEach((id, i) => stmts.push(db.prepare("UPDATE gallery_images SET sort_order = ? WHERE id = ?").bind((i + 1) * 10, id)));
+    }
+    for (let i = 0; i < stmts.length; i += 400) await db.batch(stmts.slice(i, i + 400));
+    await audit(c.env, session, "ändrade ordningen i", "bildgalleri", null, `${ids.length} bilder ${action === "forst" ? "först" : "sist"}`);
+    return redirect(backTo(form, "flera-flyttade"), 303);
+  }
+
+  if (action === "radera") {
     const keys: string[] = [];
     for (const chunk of chunks) {
       const { results } = await db.prepare(`SELECT image_key FROM gallery_images WHERE id IN (${inList(chunk)})`).bind(...chunk).all<{ image_key: string }>();
@@ -404,4 +441,81 @@ export async function galleryBulkSubmit(c: RequestContext, session: Session): Pr
   await db.batch(chunks.map((chunk) => db.prepare(`UPDATE gallery_images SET ${sets.join(", ")} WHERE id IN (${inList(chunk)})`).bind(...binds, ...chunk)));
   await audit(c.env, session, "ändrade", "bilder", null, `${ids.length} galleribilder`);
   return redirect(backTo(form, "flera-andrade"), 303);
+}
+
+/**
+ * Bilderna i ett album (och år) för "Ladda ned (zip)": adress och filnamn i zip-filen. Själva zip-filen byggs i
+ * webbläsaren (admin.js), så att Workern slipper läsa och packa hundratals megabyte.
+ */
+export async function galleryZipList(c: RequestContext): Promise<Response> {
+  const db = c.env.DB;
+  const albums = albumOrder(await loadAlbums(db), []);
+  const album = albums.find((a) => slugify(a) === c.url.searchParams.get("kategori"));
+  if (!album) return new Response(JSON.stringify({ files: [] }), { status: 404, headers: { "Content-Type": "application/json; charset=utf-8" } });
+  const ar = c.url.searchParams.get("ar");
+  const where = ar === "utan" ? " AND year IS NULL" : ar && /^\d{4}$/.test(ar) ? " AND year = ?" : "";
+  const stmt = db.prepare(`SELECT id, year, image_key FROM gallery_images WHERE album = ?${where} ORDER BY ${GALLERY_ORDER}`);
+  const { results } = await (where.includes("?") ? stmt.bind(album, Number(ar)) : stmt.bind(album)).all<{ id: number; year: number | null; image_key: string }>();
+  const pad = String(results.length).length;
+  const counters = new Map<string, number>();
+  const files = results.map((r) => {
+    const folder = ar ? "" : `${r.year ?? "utan-artal"}/`;
+    const n = (counters.get(folder) ?? 0) + 1;
+    counters.set(folder, n);
+    const ext = /\.([a-z0-9]+)$/i.exec(r.image_key)?.[1]?.toLowerCase() ?? "jpg";
+    return { src: mediaUrl(r.image_key), name: `${folder}${slugify(album)}-${r.year ?? "utan-artal"}-${String(n).padStart(pad, "0")}.${ext}` };
+  });
+  return new Response(JSON.stringify({ files }), { headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
+/** Bildgalleri → Kategorier → Välj omslag: en av kategorins bilder visas på albumknappen på webbplatsen. */
+export async function galleryCoverPage(c: RequestContext, session: Session): Promise<Response> {
+  const db = c.env.DB;
+  const cat = await db.prepare("SELECT id, name, cover_id FROM gallery_albums WHERE id = ?").bind(Number(c.params.id)).first<{ id: number; name: string; cover_id: number | null }>();
+  if (!cat) return redirect("/admin/galleri-kategorier", 303);
+  const { results } = await db.prepare(`SELECT * FROM gallery_images WHERE album = ? ORDER BY year IS NULL, year DESC, ${GALLERY_IMAGE_ORDER}`).bind(cat.name).all<Row>();
+  const current = results.some((r) => r.id === cat.cover_id) ? cat.cover_id : null;
+  const content = html`
+    ${adminHead(`Omslag för ${cat.name}`, {
+      back: { href: "/admin/galleri-kategorier", label: "Kategorier" },
+      lead: "Omslaget visas som en liten rund bild på kategorins knapp i bildgalleriet. Välj en bild där motivet syns tydligt även i litet format.",
+    })}
+    ${results.length
+      ? html`<form class="admin-form gc" method="post" action="/admin/galleri-kategorier/${cat.id}/omslag" data-dirty-check>
+          ${csrfField(session)}
+          <fieldset class="gc-grid-wrap">
+            <legend class="sr-only">Omslagsbild</legend>
+            <ul class="gc-grid">
+              <li><label class="gc-item gc-none"><input type="radio" name="cover" value=""${current ? "" : html` checked`}><span>Inget omslag</span></label></li>
+              ${results.map(
+                (r) => html`<li><label class="gc-item">
+                  <input type="radio" name="cover" value="${r.id}"${r.id === current ? html` checked` : ""}>
+                  <img src="${mediaUrl(r.image_key, "sm") ?? ""}" alt="" width="160" height="160" loading="lazy" decoding="async">
+                  <span class="sr-only">${titleOf(r)}${r.year ? ` (${r.year})` : ""}</span>
+                </label></li>`,
+              )}
+            </ul>
+          </fieldset>
+          <div class="admin-form-actions"><button class="btn btn-primary btn-lg" type="submit">Spara omslag</button><a class="btn btn-outline" href="/admin/galleri-kategorier">Avbryt</a></div>
+        </form>`
+      : html`<div class="admin-empty"><p>Kategorin har inga bilder ännu. Ladda upp bilder först, så kan du välja en av dem som omslag.</p><a class="btn btn-primary" href="/admin/galleri/ny?kategori=${slugify(cat.name)}">+ Ladda upp bilder</a></div>`}`;
+  return adminLayout(c, session, { title: `Omslag för ${cat.name}`, active: "/admin/galleri", newCount: await newMessageCount(db), wide: true }, content);
+}
+
+export async function galleryCoverSubmit(c: RequestContext, session: Session): Promise<Response> {
+  const form = await c.req.formData();
+  const id = Number(c.params.id);
+  if (!checkCsrf(c, session, form)) return redirect(`/admin/galleri-kategorier/${id}/omslag?fel=csrf`, 303);
+  const db = c.env.DB;
+  const cat = await db.prepare("SELECT name FROM gallery_albums WHERE id = ?").bind(id).first<{ name: string }>();
+  if (!cat) return redirect("/admin/galleri-kategorier", 303);
+  const raw = String(form.get("cover") ?? "");
+  let cover: number | null = null;
+  if (raw) {
+    const ok = await db.prepare("SELECT id FROM gallery_images WHERE id = ? AND album = ?").bind(Number(raw), cat.name).first();
+    if (ok) cover = Number(raw);
+  }
+  await db.prepare("UPDATE gallery_albums SET cover_id = ? WHERE id = ?").bind(cover, id).run();
+  await audit(c.env, session, "ändrade omslaget för", "kategori", id, cat.name);
+  return redirect(`/admin/galleri-kategorier?klart=${cover ? "omslag-sparat" : "omslag-borttaget"}`, 303);
 }

@@ -35,7 +35,8 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   Bilder visas med `picture()` (srcset med `.sm`); `/media/x.sm` faller tillbaka på originalet.
 - **Bildgalleriet** (`src/admin/gallery-list.ts`, egen lista i stället för den generiska): kategorier (= albumen, tabellen
   `gallery_albums`, redigeras under fliken Kategorier – `loadAlbums()`; namnbyte uppdaterar bilder och filmer), Ändra flera
-  (kategori, år, fotograf, ta bort), 100 bilder åt gången med Visa fler/Visa alla, sortering
+  (kategori, år, fotograf, flytta först/sist, ta bort), omslag per kategori (`cover_id`), zip per album (byggs i
+  webbläsaren, admin.js), 100 bilder åt gången med Visa fler/Visa alla, sortering
   efter fotodatum/tillagd (bara i listan), dra och släpp inom album+år och Återställ (sort_order = 0). Ordningen är
   `GALLERY_ORDER` i `content.ts`: egen ordning, sedan fotodatum (`taken_at`, EXIF ur originalet i admin.js `jfkTakenAt`, nyast först),
   sist utan datum efter uppladdning. På webbplatsen öppnas bilderna i en bildruta (`<dialog data-gal-lb>`, site.js).

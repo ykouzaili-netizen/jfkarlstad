@@ -342,6 +342,18 @@ export async function loadAlbums(db: D1Database): Promise<string[]> {
   }
 }
 
+/** Omslagsbilden per kategori (bildens nyckel), bara där styrelsen har valt en och bilden finns kvar i kategorin. */
+export async function loadAlbumCovers(db: D1Database): Promise<Map<string, string>> {
+  try {
+    const { results } = await db
+      .prepare("SELECT a.name, g.image_key FROM gallery_albums a JOIN gallery_images g ON g.id = a.cover_id AND g.album = a.name")
+      .all<{ name: string; image_key: string }>();
+    return new Map(results.map((r) => [r.name, r.image_key]));
+  } catch {
+    return new Map();
+  }
+}
+
 /** Kategorierna i vald ordning, och efter dem eventuella namn som bara finns på bilderna (så att inget försvinner). */
 export function albumOrder(albums: string[], used: Iterable<string>): string[] {
   return [...albums, ...[...new Set(used)].filter((a) => a && !albums.includes(a))];

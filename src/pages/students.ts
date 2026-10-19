@@ -1,7 +1,7 @@
 import { blockOrder, isBlockHidden } from "../lib/pagelayout.js";
 import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
 import { ec, ek, lines, loadSettings, type Settings, arrange, siteLayout, type SettingKey } from "../lib/settings.js";
-import { albumOrder, galleryQuery, loadAlbums, repQuery, videoQuery, type CourseRepRow, type GalleryRow, type VideoRow } from "../lib/content.js";
+import { albumOrder, galleryQuery, loadAlbumCovers, loadAlbums, repQuery, videoQuery, type CourseRepRow, type GalleryRow, type VideoRow } from "../lib/content.js";
 import { filmsSection } from "./films.js";
 import { slugify } from "../lib/slug.js";
 import { fill as fillText } from "../lib/texts.js";
@@ -15,7 +15,7 @@ import { contentPhoto, pageHeader } from "../views/page.js";
 
 export async function studentsPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, [repRes, galRes, vidRes], albumNames] = await Promise.all([loadSettings(db, c.preview), db.batch([repQuery.all(db), galleryQuery.all(db), videoQuery.all(db)]), loadAlbums(db)]);
+  const [s, [repRes, galRes, vidRes], albumNames, covers] = await Promise.all([loadSettings(db, c.preview), db.batch([repQuery.all(db), galleryQuery.all(db), videoQuery.all(db)]), loadAlbums(db), loadAlbumCovers(db)]);
   const reps = repRes!.results as unknown as CourseRepRow[];
   const gallery = galRes!.results as unknown as GalleryRow[];
   const films = (vidRes?.results ?? []) as unknown as VideoRow[];
@@ -42,7 +42,7 @@ export async function studentsPage(c: RequestContext): Promise<Response> {
       kursombud: () => repsSection(s, reps),
       idrott: () => sport(s),
       filmer: () => filmsSection(s, films, c.url),
-      galleri: () => gallerySection(s, gallery, c.url, albumNames),
+      galleri: () => gallerySection(s, gallery, c.url, albumNames, covers),
     })}
   `;
   return htmlResponse(c, layout(c, s, { title: s.students_kicker, description: s.students_lead }, content));
@@ -253,6 +253,7 @@ function lightbox(s: Settings): SafeHtml {
       <img class="gal-lb-img" alt="" data-gal-lb-img>
       <figcaption class="gal-lb-caption" data-gal-lb-caption hidden><span data-gal-lb-text></span><span class="gal-lb-photo" data-gal-lb-photo></span></figcaption>
     </figure>
+    <a class="gal-lb-remove" href="mailto:${s.gallery_remove_email}" data-gal-lb-remove data-subject="${s.gallery_remove_subject}" data-body="${s.gallery_remove_body}"${ek(s, "gallery_lb_remove")}>${s.gallery_lb_remove}</a>
     <button class="gal-lb-nav gal-lb-prev" type="button" data-gal-lb-step="-1" aria-label="${s.gallery_lb_prev}">${icon("chevronLeft", "icon")}</button>
     <button class="gal-lb-nav gal-lb-next" type="button" data-gal-lb-step="1" aria-label="${s.gallery_lb_next}">${icon("chevronRight", "icon")}</button>
   </dialog>`;
@@ -262,7 +263,7 @@ function lightbox(s: Settings): SafeHtml {
  * Bildgalleriet: ett album i taget och, inom albumet, ett år i taget (nyast först). Valen är vanliga länkar
  * (?album=…&ar=…), så det fungerar utan JavaScript; site.js byter vy direkt utan att ladda om sidan.
  */
-function gallerySection(s: Settings, images: GalleryRow[], url: URL, albumNames: string[]): SafeHtml {
+function gallerySection(s: Settings, images: GalleryRow[], url: URL, albumNames: string[], covers: Map<string, string>): SafeHtml {
   const albums = new Map<string, Map<string, GalleryRow[]>>();
   for (const img of images) {
     if (!albums.has(img.album)) albums.set(img.album, new Map());
@@ -307,7 +308,8 @@ function gallerySection(s: Settings, images: GalleryRow[], url: URL, albumNames:
               ? html`<nav class="gal-albums" aria-label="${s.gallery_albums_label}">
                   ${order.map((a) => {
                     const n = [...albums.get(a)!.values()].reduce((t, l) => t + l.length, 0);
-                    return html`<a class="gal-album" href="${href(a, null)}" data-gal-album="${slugify(a)}"${a === wantedAlbum ? html` aria-current="true"` : ""}>${a}<span class="gal-n">${n}</span></a>`;
+                    const cover = covers.get(a);
+                    return html`<a class="gal-album${cover ? " has-cover" : ""}" href="${href(a, null)}" data-gal-album="${slugify(a)}"${a === wantedAlbum ? html` aria-current="true"` : ""}>${cover ? html`<img class="gal-cover" src="${mediaUrl(cover, "sm")}" alt="" width="32" height="32" loading="lazy" decoding="async">` : ""}${a}<span class="gal-n">${n}</span></a>`;
                   })}
                 </nav>`
               : ""}
