@@ -357,7 +357,7 @@ with sync_playwright() as p:
     page.wait_for_load_state()
     check(page.locator("[name=uppdrag]").input_value() == "Testutskottet", "knappen förväljer utskottet i intresseformuläret")
     status, body, _ = get("/om-oss")
-    check('href="/engagera-dig#utskott-testutskottet"' in body, "korten på Om oss länkar till utskottet på Engagera dig")
+    check('href="/om-oss/utskott/testutskottet"' in body, "korten på Om oss länkar till utskottets egen sida")
 
     # ───────── Anmälan stängd / öppnar automatiskt ─────────
     print("Anmälan stängd")
