@@ -66,6 +66,7 @@ export const DEFAULT_NAV: NavItem[] = [
   },
   { id: "paverka", label: "JF Påverka", href: "/jf-paverka" },
   { id: "kontakt", label: "Kontakt", href: "/kontakt" },
+  { id: "butik", label: "Butik", href: "/butik" },
 ];
 
 /** Så sparas menyn i databasen. */

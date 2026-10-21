@@ -30,6 +30,7 @@ import {
 import { cookiesPage, privacyPage, sitemapXml } from "./pages/legal.js";
 import { networkPage } from "./pages/networks.js";
 import { competitionIcsHandler, competitionPage } from "./pages/competition.js";
+import { shopCartPage, shopPage, shopProductPage } from "./pages/shop.js";
 import { errorPage, notFoundPage } from "./pages/errors.js";
 import { registerAdminRoutes } from "./admin/routes.js";
 import { getSession } from "./admin/auth.js";
@@ -96,6 +97,10 @@ const router = new Router()
   .get("/tavling", competitionPage)
   .get("/tavling/kalender.ics", competitionIcsHandler)
   .get("/tavlingen", () => redirect("/tavling", 301))
+  .get("/butik", shopPage)
+  .get("/butik/varukorg", shopCartPage)
+  .get("/butik/:slug", shopProductPage)
+  .get("/butiken", () => redirect("/butik", 301))
   .get("/faq", faqPage)
   .get("/kontakt", (c) => contactPage(c))
   .post("/kontakt", submitHandler("kontakt"))

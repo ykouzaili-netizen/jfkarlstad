@@ -3,6 +3,8 @@ import { raw, type SafeHtml } from "../lib/html.js";
 /** Linjeikoner (24×24, stroke = currentColor). Dekorativa – aria-hidden sätts alltid. */
 const PATHS = {
   arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  arrowLeft: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+  bag: '<path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>',
   play: '<path d="M8 5.5v13l11-6.5z"/>',
   expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   shrink: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',

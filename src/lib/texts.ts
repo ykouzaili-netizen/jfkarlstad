@@ -1277,6 +1277,76 @@ export const PAGES = [
     ], "Fyll i när röstningen är klar."),
   ]),
 
+  // JFK Butik (/butik). Produkterna och släppen ändras under Innehåll → Butik – här finns bara sidans texter.
+  // Sidan följer webbplatsens färger och rubriktypsnitt (Utseende).
+  page("butik", "Butik", "/butik", [
+    sec("topp", "Sidans namn och ingress", [
+      text("shop_title", "Butikens namn", "JFK Butik", { required: true, help: "Visas i fältet överst på butikens sidor och i webbläsarens flik." }),
+      area("shop_lead", "Kort beskrivning", "Kläder och märken med JFK:s namn – till självkostnadspris, tryckta när du beställer.", { help: "Visas när butiken delas och i sökmotorer." }),
+      text("shop_nav_all", "Genväg: allt i butiken", "Allt", small),
+      text("shop_nav_archive", "Genväg: tidigare släpp", "Tidigare släpp", small),
+      text("shop_cart", "Länken till varukorgen", "Korg", small),
+      text("shop_empty", "När butiken är tom", "Butiken fylls på snart. Titta in igen!", small),
+    ]),
+    sec("produkter", "Produkterna", [
+      text("shop_label_drop", "Etikett: produkt i ett släpp", "Nº {nr} · {slapp}", { ...small, help: "{nr} byts mot produktens nummer, {slapp} mot släppets namn, t.ex. ”Släpp 01”." }),
+      text("shop_label_always", "Etikett: produkt i sortimentet", "Nº {nr} · Finns alltid", small),
+      text("shop_designer", "Vem som ritade", "Ritad av {namn}{program}.", { ...small, help: "{namn} byts mot designerns namn och {program} mot ”, programmet” om det finns." }),
+      text("shop_deadline", "Släpp: sista dag", "Beställ senast {datum}", small),
+      text("shop_min", "Släpp: minsta antal", "Trycks när {antal} har beställt", small),
+      text("shop_ships", "Sortimentet: leveranstid", "Trycks när du beställer – hos dig inom cirka 10 dagar.", small),
+      text("shop_color", "Färg", "Färg", small),
+      text("shop_size", "Storlek", "Storlek", small),
+      text("shop_size_help", "Länk till måtten", "Mått i cm", small),
+      text("shop_sold_out", "Slut i en storlek", "Slut just nu", small),
+      text("shop_add", "Knapp: lägg i korgen", "Lägg i korgen", small),
+      text("shop_choose", "Knapp innan storlek är vald", "Välj storlek först", small),
+      text("shop_more", "Länk till produktens sida", "Om plagget, bilder och mått", small),
+      text("shop_also", "Rubrik: övriga produkter", "Också i butiken", small),
+      text("shop_added", "Bekräftelse: tillagd", "Tillagd i korgen", small),
+      text("shop_to_cart", "Bekräftelse: knapp", "Till kassan", small),
+    ]),
+    sec("slapp", "Släpp", [
+      text("shop_next_title", "Nästa släpp – rubrik", "Nästa släpp", small),
+      text("shop_next_date", "Nästa släpp – med datum", "Nästa släpp öppnar {datum}.", { ...small, help: "Visas när ett kommande släpp är inlagt under Innehåll → Butik → Släpp." }),
+      text("shop_next_month", "Nästa släpp – utan inlagt släpp", "", { help: "Valfritt, t.ex. ”i mars”. Visas som ”Nästa släpp: i mars” när inget släpp pågår och inget kommande är inlagt. Tomt = raden visas inte." }),
+      text("shop_archive_title", "Tidigare släpp – rubrik", "Tidigare släpp", small),
+      text("shop_archive_empty", "Tidigare släpp – det första", "Det här är vårt första. Varje släpp sparas här när det har stängt.", small),
+      text("shop_archive_closed", "Tidigare släpp – stängt", "Stängt {datum}", small),
+    ]),
+    sec("varfor", "Varför vi säljer kläder", [
+      text("shop_why_kicker", "Liten etikett", "Varför vi säljer kläder", small),
+      area("shop_why_text", "Text", "Inte för att tjäna pengar. För att det ska synas att vi finns – i föreläsningssalen, på sittningen och på mässan."),
+      text("shop_zero", "Rutan med 0 kr", "tar JFK av varje köp. Hela priset går till plagg, tryck och betalning.", { help: "Står efter ”0 kr”. Skriv aldrig något som inte stämmer till kronan." }),
+      list("shop_why_points", "Punkter", "Inget lager. Vi trycker exakt det som beställs.\nAlla foton är tagna av medlemmar, på riktiga medlemmar.", { help: "En punkt per rad." }),
+    ]),
+    sec("produktsidan", "Produktens egen sida", [
+      text("shop_about_design", "Rubrik: om designen", "Om designen", small),
+      text("shop_material_title", "Rubrik: material", "Material och var den görs", small),
+      text("shop_care_title", "Rubrik: skötsel", "Så håller den längre", small),
+      text("shop_delivery_title", "Rubrik: leverans", "Leverans, ångerrätt och byten", small),
+      md("shop_delivery_text", "Leverans, ångerrätt och byten – text", "Varan skickas hem till dig eller till ett ombud nära dig – du väljer i kassan.\n\nDu har 14 dagars ångerrätt från att du fått varan. Byten och reklamationer sköts av {leverantor}, som säljer och skickar varorna.", { help: "{leverantor} byts mot leverantörens namn. " + MD_HELP }),
+      text("shop_back", "Länk tillbaka", "Butiken", small),
+    ]),
+    sec("varukorg", "Varukorgen", [
+      text("shop_cart_title", "Rubrik", "Varukorg", small),
+      text("shop_cart_empty", "Tom varukorg", "Varukorgen är tom.", small),
+      text("shop_cart_continue", "Länk: fortsätt handla", "Fortsätt handla", small),
+      text("shop_cart_group_drop", "Grupp: släpp", "{slapp} – skickas när släppet har tryckts", small),
+      text("shop_cart_group_always", "Grupp: sortimentet", "Sortimentet – skickas inom cirka 10 dagar", small),
+      text("shop_cart_total", "Summa", "Summa", small),
+      text("shop_cart_shipping", "Frakt", "Frakt väljs i kassan", small),
+      text("shop_cart_remove", "Ta bort", "Ta bort", small),
+      area("shop_checkout_soon", "Kassan – tills betalningen är på plats", "Kassan öppnar när leverantören är vald. Det går inte att betala än – men varukorgen sparas i den här webbläsaren.", { help: "Visas i stället för kassan tills betalningen och leverantören är kopplade." }),
+    ]),
+    sec("villkor", "Säljare och villkor", [
+      text("shop_supplier", "Leverantörens namn", "[Leverantören]", { required: true, help: "Den som säljer och skickar varorna. Byt till leverantörens riktiga namn när ni har valt." }),
+      text("shop_terms_line", "Raden längst ned", "Hem eller till ombud · Swish eller kort · 14 dagars ångerrätt · Säljs av {leverantor}", { help: "{leverantor} byts mot leverantörens namn." }),
+      email("shop_email", "E-post för frågor om butiken", "", { help: "Valfritt. Visas som ”Frågor om butiken” längst ned. Tomt = kontaktsidan." }),
+      text("shop_questions", "Länk: frågor", "Frågor om butiken", small),
+    ]),
+  ]),
+
   page("kontakt", "Kontakt", "/kontakt", [
     sec("topp", "Sidans topp", [
       text("contact_kicker", "Liten etikett ovanför rubriken", "Kontakt", small),

@@ -43,6 +43,13 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   dela/direktlänk (`?bild=ID`, ger också og:image), bildspel och helskärm (på `[data-gal-lb-inner]` – en dialog får inte
   gå i helskärm). Sidans läge sparas och återställs när rutan stängs. Dubblettvarning: SHA-256 av originalet (`file_hash`)
   och bildavtryck (`phash`, dHash med rutmedelvärden i admin.js `jfkPrint`, högst 4 bitar skillnad).
+- **Butiken** (`/butik`, `src/pages/shop.ts`, `src/lib/shop.ts`, `public/assets/butik.css|js`, migrering 0024): dold från
+  början (`sida:butik`). Produkter (`shop_products`, "alltid" eller "slapp") och släpp (`shop_drops`, svensk lokal tid,
+  slutminuten räknas med) under Innehåll → Butik; texterna `shop_*` under Texter och sidor → Butik. Utseendet "Ett plagg
+  i taget": utvalda produkter och släppets produkter får egna avsnitt som växlar primär-/accent-/bakgrundsfärg, övriga
+  blir kort. Utan foto ritas plagget (`garmentSvg`, färgen `--g` i en `<style nonce>`, butik.js byter färg via CSSOM).
+  Varukorgen finns bara i webbläsaren (localStorage `jfk-butik-korg`), kontrolleras mot `#shop-data` på /butik/varukorg.
+  **Ingen betalning än** – kassan visar `shop_checkout_soon` tills leverantör och Stripe är kopplade. Test: `tools/e2e/test_shop.py`.
 - **Schemaläggning:** `news.published_at`, `events.publish_at`, `jobs.publish_at` (UTC). Publika frågor filtrerar via
   `NEWS_LIVE`/`EVENT_LIVE`/`JOB_LIVE` i `content.ts`. Admin-fält med `schedule: true` visas i svensk tid.
 - **Partnerstatistik** (`src/lib/stats.ts`): bara totalsiffror per dag i `stats_daily`, utan IP/kakor. Utlänkar går via

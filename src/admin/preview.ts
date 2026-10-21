@@ -9,6 +9,7 @@ import { studentsPage } from "../pages/students.js";
 import { companiesPage, contactPage, engagePage, nominatePage, paverkaPage, thanksPage } from "../pages/forms.js";
 import { networkPage } from "../pages/networks.js";
 import { competitionPage } from "../pages/competition.js";
+import { shopPage, shopProductPage } from "../pages/shop.js";
 import { documentTextPage, documentsPage, eventDetailPage, faqPage, newsArticlePage, newsListPage, partnerDetailPage, partnersPage } from "../pages/listings.js";
 import { jobDetailPage, jobsPage } from "../pages/careers.js";
 import { calendarPage } from "../pages/calendar.js";
@@ -47,6 +48,7 @@ export const PREVIEW_PAGES: { path: string; label: string; render: Render }[] = 
   { path: "/faq", label: "Vanliga frågor", render: faqPage },
   { path: "/jf-paverka", label: "JF Påverka", render: (c) => paverkaPage(c) },
   { path: "/tavling", label: "Merch- och märkestävlingen", render: competitionPage },
+  { path: "/butik", label: "Butik", render: shopPage },
   { path: "/nominera", label: "Nominera till hedersmedlemskap", render: (c) => nominatePage(c) },
   { path: "/kontakt", label: "Kontakt", render: (c) => contactPage(c) },
   { path: "/sok", label: "Sök", render: searchPage },
@@ -63,6 +65,7 @@ const DYNAMIC: [RegExp, Render][] = [
   [/^\/dokument\/(\d+(?:-[a-z0-9-]*)?)$/, documentTextPage],
   [/^\/kalender\/([^/.]+)$/, eventDetailPage],
   [/^\/karriar\/([^/]+)$/, jobDetailPage],
+  [/^\/butik\/(?!varukorg$)([^/]+)$/, shopProductPage],
   [/^\/kontakt\/tack$/, thanksPage("kontakt")],
   [/^\/for-foretag\/tack$/, thanksPage("foretag")],
   [/^\/jf-paverka\/tack$/, thanksPage("paverka")],

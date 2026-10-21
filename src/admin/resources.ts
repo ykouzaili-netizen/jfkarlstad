@@ -24,6 +24,7 @@ import { MEDAL_GROUPS, MEDAL_KINDS, medalImageUrl } from "../lib/medals.js";
 import { competitionDates, currentPhase, dayMonth, dayMonthClock, period, type Phase } from "../lib/competition.js";
 import { loadSettings } from "../lib/settings.js";
 import { LAYOUT_PREFIX } from "../lib/pagelayout.js";
+import { dropDay, dropState, GARMENTS, kr, loadShop, type DropRow, type DropState } from "../lib/shop.js";
 
 /**
  * Generisk redigering (skapa, lista, ändra, publicera, ta bort) för innehållstyperna.
@@ -347,6 +348,162 @@ async function competitionIntro(c: RequestContext): Promise<SafeHtml> {
   </div>`;
 }
 
+// ───────────── Butiken (Innehåll → Butik) ─────────────
+
+const SHOP_TABS = [
+  { href: "/admin/butik", label: "Produkter" },
+  { href: "/admin/butik-slapp", label: "Släpp" },
+  { href: "/admin/texter?sida=butik", label: "Texter" },
+];
+
+const SHOP_STATE_LABELS: Record<DropState, string> = { upcoming: "Kommer", open: "Pågår", closed: "Stängt" };
+
+async function dropOptions(db: D1Database): Promise<{ value: string; label: string }[]> {
+  try {
+    const { results } = await db.prepare("SELECT id, label, title, starts_at, ends_at FROM shop_drops ORDER BY starts_at DESC, id DESC").all<DropRow>();
+    return (results ?? []).map((d) => ({ value: String(d.id), label: `${d.label ? `${d.label} · ` : ""}${d.title} (${dropDay(d.starts_at)}–${dropDay(d.ends_at)})` }));
+  } catch {
+    return [];
+  }
+}
+
+/** Rutan överst under Butik: om butiken visas, vilket släpp som pågår och vad som inte är kopplat än. */
+async function shopIntro(c: RequestContext): Promise<SafeHtml> {
+  const [hidden, data] = await Promise.all([
+    c.env.DB.prepare("SELECT value FROM settings WHERE key = ?").bind(LAYOUT_PREFIX.page + "butik").first<{ value: string }>().catch(() => null),
+    loadShop(c.env.DB),
+  ]);
+  const isHidden = hidden?.value === "dold";
+  const drop = data.current
+    ? `${data.current.label ? `${data.current.label} · ` : ""}${data.current.title} pågår till ${dropDay(data.current.ends_at)}.`
+    : data.next
+      ? `Inget släpp pågår. Nästa öppnar ${dropDay(data.next.starts_at)}.`
+      : "Inget släpp pågår och inget nytt är inlagt.";
+  return html`<div class="admin-card comp-status${isHidden ? "" : " is-on"}">
+    <p><strong>${isHidden ? "Butiken är dold" : "Butiken visas på webbplatsen"}</strong> · ${data.live.length} ${data.live.length === 1 ? "produkt" : "produkter"} går att lägga i korgen. ${drop}</p>
+    <p class="muted">Betalningen och beställningarna till leverantören är inte kopplade än – kassan säger det till besökarna. Produkter utan foto visas som en teckning av plagget i dess första färg.</p>
+    <p class="comp-status-links"><a href="/admin/texter?sida=butik">${isHidden ? "Visa butiken eller ändra texterna" : "Dölj butiken eller ändra texterna"}</a> · <a href="/butik" target="_blank" rel="noopener">${isHidden ? "Förhandsgranska butiken" : "Öppna butiken"}<span class="sr-only"> (öppnas i ny flik)</span></a></p>
+  </div>`;
+}
+
+const COLOR_HELP = "En färg per rad: namnet och färgkoden, t.ex. ”Svart #1d1d1d”. Den första färgen används på teckningen när det saknas foto. En enda rad = ingen färgväljare.";
+
+const SHOP_PRODUCTS: Resource = {
+  path: "butik",
+  movable: true,
+  table: "shop_products",
+  title: "Butik",
+  singular: "produkt",
+  newLabel: "Lägg till produkt",
+  lead: "Allt som säljs i butiken. ”Finns alltid” går att beställa hela tiden; ”Ingår i ett släpp” bara medan släppet pågår. Pilarna bestämmer ordningen på sidan.",
+  orderBy: "sort_order, name COLLATE NOCASE, id",
+  slugFrom: "name",
+  publishable: true,
+  publishLabels: ["Visas", "Dold"],
+  duplicable: true,
+  tabs: SHOP_TABS,
+  listIntro: shopIntro,
+  emptyText: "Inga produkter ännu. Lägg till den första – det räcker med namn, pris och storlekar.",
+  fields: [
+    { name: "name", label: "Namn", type: "text", required: true, max: 80, placeholder: "T.ex. JFK-hoodie" },
+    { name: "price", label: "Pris i kronor", type: "number", required: true, min: 0, max: 99999, help: "Det köparen betalar, inklusive moms. Leverantörens pris – JFK tar inget påslag." },
+    {
+      name: "kind",
+      label: "Säljsätt",
+      type: "radio",
+      required: true,
+      options: [
+        { value: "alltid", label: "Finns alltid", hint: "Sortimentet. Kan beställas när som helst." },
+        { value: "slapp", label: "Ingår i ett släpp", hint: "Kan bara beställas medan släppet pågår och trycks samlat när det stänger." },
+      ],
+    },
+    { name: "drop_id", label: "Släpp", type: "select", nullable: true, optionsFrom: dropOptions, showIf: { field: "kind", value: "slapp" }, help: "Saknas släppet? Lägg till det under fliken Släpp först." },
+    { name: "summary", label: "Kort text", type: "textarea", rows: 2, max: 240, help: "En eller två meningar som visas vid produkten. Skriv som en medlem, inte som en butik." },
+    { name: "sizes", label: "Storlekar", type: "text", max: 120, placeholder: "XS, S, M, L, XL, XXL", help: "Med kommatecken emellan. Tomt = en storlek (t.ex. märken och påsar)." },
+    { name: "sold_out", label: "Slut just nu", type: "text", max: 120, placeholder: "T.ex. XXL", help: "Storlekar som inte går att välja just nu." },
+    { name: "colors", label: "Färger", type: "textarea", rows: 3, max: 400, help: COLOR_HELP },
+    { name: "featured", label: "Visa stort på butikens sida", type: "checkbox", help: "Får ett eget avsnitt med storleksval direkt på sidan. Produkter i ett pågående släpp visas alltid stort." },
+    {
+      name: "garment",
+      label: "Teckning när foto saknas",
+      type: "select",
+      required: true,
+      options: GARMENTS,
+      help: "Visas tills det finns ett foto, i produktens första färg och med JFK:s logotyp.",
+    },
+    { name: "image_key", label: "Foto 1 (huvudbild)", type: "text", upload: "image", nullable: true, help: "Gärna plagget mot en enfärgad bakgrund. Samma ljus och vinkel på alla produkter gör att butiken hänger ihop." },
+    { name: "image_alt", label: "Foto 1 – beskrivning", type: "text", max: 200, help: "T.ex. ”Svart hoodie med JFK:s logotyp på bröstet”." },
+    { name: "image2_key", label: "Foto 2", type: "text", upload: "image", nullable: true, help: "T.ex. baksidan, en närbild på trycket eller en medlem som bär plagget på campus (bara med samtycke)." },
+    { name: "image2_caption", label: "Foto 2 – bildtext", type: "text", max: 160 },
+    { name: "image3_key", label: "Foto 3", type: "text", upload: "image", nullable: true },
+    { name: "image3_caption", label: "Foto 3 – bildtext", type: "text", max: 160 },
+    { name: "image4_key", label: "Foto 4", type: "text", upload: "image", nullable: true },
+    { name: "image4_caption", label: "Foto 4 – bildtext", type: "text", max: 160 },
+    { name: "model_note", label: "Så sitter den", type: "text", max: 160, placeholder: "T.ex. Elsa är 172 cm och bär M – den sitter rakt, inte tight.", help: "Visas vid storlekarna på produktens sida." },
+    { name: "designer", label: "Designer", type: "text", max: 100, help: "Valfritt. Visas som ”Ritad av …”, t.ex. vinnaren av märkestävlingen." },
+    { name: "designer_program", label: "Designerns program", type: "text", max: 100, placeholder: "T.ex. Juristprogrammet, termin 3" },
+    { name: "designer_quote", label: "Designerns egna ord", type: "textarea", rows: 3, max: 400, help: "Ett par meningar om idén bakom designen. Visas under Om designen." },
+    { name: "sketch_key", label: "Skissen", type: "text", upload: "image", nullable: true, help: "Valfritt. Visas bredvid den färdiga produkten: från skiss till tryck." },
+    { name: "description", label: "Mer om produkten", type: "textarea", rows: 5, max: 3000, help: "Valfritt. Visas på produktens sida. Tom rad = nytt stycke." },
+    { name: "material", label: "Material och var den görs", type: "textarea", rows: 2, max: 600, help: "Från leverantören. Skriv bara det ni vet stämmer." },
+    { name: "care", label: "Skötsel", type: "textarea", rows: 2, max: 600, help: "Leverantörens tvättråd, skrivet rakt." },
+  ],
+  listColumns: [
+    { label: "", render: (r) => (r.image_key ? thumb(r.image_key, String(r.image_alt ?? "")) : html`<span class="thumb thumb-empty" aria-hidden="true"></span>`), className: "col-thumb" },
+    { label: "Produkt", render: (r) => html`<a class="row-title" href="/admin/butik/${r.id}">${String(r.name)}</a>${r.featured ? html` <span class="pill">Stor</span>` : ""}` },
+    { label: "Säljsätt", render: (r) => (r.kind === "slapp" ? "Släpp" : "Finns alltid") },
+    { label: "Pris", render: (r) => kr(Number(r.price ?? 0)), className: "num" },
+    { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
+  ],
+  titleOf: (r) => String(r.name),
+  publicUrl: (r) => (r.published ? `/butik/${r.slug}` : null),
+  check: (v): Errors => {
+    const e: Errors = {};
+    if (v.kind === "slapp" && !v.drop_id) e.drop_id = "Välj vilket släpp produkten ingår i – eller välj ”Finns alltid”.";
+    const bad = (v.colors ?? "").split(/\r?\n/).map((l) => l.trim()).filter((l) => l && /#/.test(l) && !/#[0-9a-f]{6}\b/i.test(l));
+    if (bad.length) e.colors = `Färgkoden ska ha sex tecken efter #, t.ex. #1d1d1d. Kontrollera: ${bad[0]}`;
+    return e;
+  },
+  extraColumns: (v) => ({ drop_id: v.kind === "slapp" && v.drop_id ? Number(v.drop_id) : null, updated_at: nowUtc() }),
+};
+
+const SHOP_DROPS: Resource = {
+  path: "butik-slapp",
+  table: "shop_drops",
+  title: "Butik",
+  singular: "släpp",
+  newLabel: "Nytt släpp",
+  lead: "Ett släpp är en kollektion som bara kan beställas under en period, t.ex. vinnarna i märkestävlingen. När perioden är slut trycks allt på en gång. Lägg sedan till produkterna under fliken Produkter och välj ”Ingår i ett släpp”.",
+  orderBy: "starts_at DESC, id DESC",
+  publishable: true,
+  publishLabels: ["Visas", "Dold"],
+  tabs: SHOP_TABS,
+  navActive: "/admin/butik",
+  emptyText: "Inga släpp ännu.",
+  fields: [
+    { name: "label", label: "Nummer eller etikett", type: "text", max: 40, placeholder: "T.ex. Släpp 01", help: "Visas vid produkterna, t.ex. ”Nº 01 · Släpp 01”." },
+    { name: "title", label: "Namn", type: "text", required: true, max: 80, placeholder: "T.ex. Vinnarna" },
+    { name: "starts_at", label: "Öppnar", type: "datetime-local", required: true, help: "Svensk tid. Före den här tiden syns släppets produkter inte alls." },
+    { name: "ends_at", label: "Sista beställning", type: "datetime-local", required: true, help: "Till och med den här minuten. Sedan går det inte att lägga släppets produkter i korgen." },
+    { name: "min_qty", label: "Minsta antal", type: "number", min: 1, max: 9999, nullable: true, help: "Valfritt. Visas som ”Trycks när 30 har beställt”, om leverantören kräver ett minsta antal." },
+    { name: "delivery_note", label: "Leveranstid", type: "text", max: 120, placeholder: "T.ex. Hos dig omkring tre veckor efter att släppet stängt" },
+    { name: "summary", label: "Kort text", type: "textarea", rows: 2, max: 300, help: "Visas under Tidigare släpp när släppet har stängt." },
+  ],
+  listColumns: [
+    { label: "Släpp", render: (r) => html`<a class="row-title" href="/admin/butik-slapp/${r.id}">${r.label ? `${String(r.label)} · ` : ""}${String(r.title)}</a>` },
+    { label: "Period", render: (r) => `${dropDay(String(r.starts_at))} – ${dropDay(String(r.ends_at))}` },
+    { label: "Läge", render: (r) => SHOP_STATE_LABELS[dropState({ starts_at: String(r.starts_at), ends_at: String(r.ends_at) })] },
+    { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
+  ],
+  titleOf: (r) => `${r.label ? `${String(r.label)} · ` : ""}${String(r.title)}`,
+  check: (v): Errors => (v.ends_at && v.starts_at && v.ends_at <= v.starts_at ? { ends_at: "Sista beställning måste vara efter att släppet öppnar." } : {}),
+  extraColumns: () => ({ updated_at: nowUtc() }),
+  beforeDelete: async (db, row) => {
+    const used = await db.prepare("SELECT COUNT(*) AS n FROM shop_products WHERE drop_id = ?").bind(row.id).first<{ n: number }>().catch(() => null);
+    return used && used.n > 0 ? "slapp-har-produkter" : null;
+  },
+};
+
 export const RESOURCES: Resource[] = [
   {
     path: "nyheter",
@@ -626,6 +783,8 @@ export const RESOURCES: Resource[] = [
     check: (v): Errors => (v.kind === "program" && !v.url ? { url: "Skriv in länken till programmets webbplats." } : {}),
     extraColumns: () => ({ updated_at: nowUtc() }),
   },
+  SHOP_PRODUCTS,
+  SHOP_DROPS,
   {
     path: "styrelsen",
     movable: true,
