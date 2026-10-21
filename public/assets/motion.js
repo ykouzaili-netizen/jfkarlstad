@@ -353,7 +353,8 @@
   var SDA = !!(window.CSS && CSS.supports && CSS.supports("animation-timeline: scroll()") && CSS.supports("animation-range: 0px 10px") && CSS.supports("view-timeline: --a block"));
   if (SDA) root.classList.add("sda");
   var bands = FULL && !SDA ? $$("[data-wordband]") : [];
-  var canHide = header && !document.querySelector(".section-nav");
+  // Sidor med en egen klistrad meny under sidhuvudet (avsnittsmenyn, tävlingens flikar) behåller sidhuvudet – annars blir det en glipa ovanför menyn.
+  var canHide = header && !document.querySelector(".section-nav, .t-tabs-bar");
   var lastY = window.scrollY;
   var heroH = 0;
 
