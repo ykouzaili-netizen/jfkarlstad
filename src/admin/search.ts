@@ -85,6 +85,13 @@ export async function adminSearchPage(c: RequestContext, session: Session): Prom
       db.prepare("SELECT id, alt, caption, album FROM gallery_images"),
       db.prepare("SELECT id, term, name, email FROM course_reps"),
     ]);
+    // Utskotten och deras medlemmar (migrering 0026) – för sig, så att en äldre databas inte stoppar sökningen.
+    const [committeesRes, membersRes] = await db
+      .batch([
+        db.prepare("SELECT id, name, summary, body FROM committees"),
+        db.prepare("SELECT m.id, m.name, m.role, m.year, c.name AS committee FROM committee_members m LEFT JOIN committees c ON c.id = m.committee_id"),
+      ])
+      .catch(() => [undefined, undefined] as (D1Result | undefined)[]);
     type R = Record<string, string | number | null>;
     const rows = (r: D1Result | undefined) => (r?.results ?? []) as R[];
     const str = (v: unknown) => (v == null ? "" : String(v));
@@ -107,6 +114,8 @@ export async function adminSearchPage(c: RequestContext, session: Session): Prom
       { label: "Vanliga frågor", icon: "mail" as IconName, hits: make(rows(faq), "faq", "question", ["question", "answer"], (r) => str(r.category), "answer") },
       { label: "Partners", icon: "briefcase" as IconName, hits: make(rows(partners), "partners", "name", ["name", "tagline", "description"], (r) => str(r.tagline), "description") },
       { label: "Styrelsen", icon: "users" as IconName, hits: make(rows(board), "styrelsen", "name", ["name", "role", "email"], (r) => str(r.role)) },
+      { label: "Utskott", icon: "users" as IconName, hits: make(rows(committeesRes), "utskott", "name", ["name", "summary", "body"], () => "Utskott", "summary") },
+      { label: "Utskottsmedlemmar", icon: "users" as IconName, hits: make(rows(membersRes), "utskottsmedlemmar", "name", ["name", "role"], (r) => `${str(r.committee)}, ${str(r.year)}`) },
       { label: "Kursombud", icon: "users" as IconName, hits: make(rows(reps), "kursombud", "term", ["term", "name", "email"], (r) => str(r.name) || "Meddelas senare") },
       { label: "Lediga uppdrag", icon: "users" as IconName, hits: make(rows(positions), "uppdrag", "title", ["title", "committee", "description"], (r) => str(r.committee), "description") },
       { label: "Dokument", icon: "lock" as IconName, hits: make(rows(docs), "dokument", "title", ["title", "year"], (r) => `${str(r.year)}`) },

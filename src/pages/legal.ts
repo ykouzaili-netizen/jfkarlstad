@@ -1,5 +1,6 @@
 import { loadShop } from "../lib/shop.js";
 import { loadNetworks } from "../lib/networks.js";
+import { loadCommittees } from "../lib/committees.js";
 import { isLinkVisible } from "../lib/pagelayout.js";
 import { html } from "../lib/html.js";
 import { ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
@@ -113,7 +114,7 @@ export async function sitemapXml(c: RequestContext): Promise<Response> {
     db.prepare("SELECT slug, updated_at AS mod FROM partners WHERE published = 1"),
     jobQuery.open(db, stockholmToday()),
   ]);
-  const [networks, shop] = await Promise.all([loadNetworks(db), loadShop(db)]);
+  const [networks, shop, committees] = await Promise.all([loadNetworks(db), loadShop(db), loadCommittees(db)]);
   const staticPaths = [
     "/", "/om-oss", "/engagera-dig", "/bli-medlem", "/for-studenter", "/karriar", "/for-foretag", "/partners",
     "/aktuellt", "/kalender", "/dokument", "/jf-paverka", "/tavling", "/butik", "/nominera", "/faq", "/kontakt", "/integritetspolicy", "/cookies",
@@ -130,6 +131,7 @@ export async function sitemapXml(c: RequestContext): Promise<Response> {
     ...(visible("/partners") ? dyn(partners, "/partners") : []),
     ...(visible("/butik") ? shop.live.map((p) => entry(`/butik/${encodeURIComponent(p.slug)}`)) : []),
     ...(visible("/om-oss") ? networks.map((n) => entry(`/om-oss/${encodeURIComponent(n.slug)}`)) : []),
+    ...(visible("/om-oss") ? committees.map((cm) => entry(`/om-oss/utskott/${encodeURIComponent(cm.slug)}`)) : []),
     ...(visible("/karriar") ? ((jobs?.results ?? []) as { slug: string; updated_at?: string }[]).map((j) => entry(`/karriar/${encodeURIComponent(j.slug)}`, j.updated_at)) : []),
   ].join("\n")}\n</urlset>`;
   return textResponse(xml, "application/xml; charset=utf-8");

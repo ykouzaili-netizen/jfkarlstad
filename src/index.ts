@@ -31,6 +31,7 @@ import {
 } from "./pages/listings.js";
 import { cookiesPage, privacyPage, sitemapXml } from "./pages/legal.js";
 import { networkPage } from "./pages/networks.js";
+import { committeePage } from "./pages/committee.js";
 import { competitionIcsHandler, competitionPage } from "./pages/competition.js";
 import { shopCartPage, shopPage, shopProductPage } from "./pages/shop.js";
 import { errorPage, notFoundPage } from "./pages/errors.js";
@@ -70,6 +71,8 @@ async function isHiddenPage(env: Env, path: string): Promise<boolean> {
 const router = new Router()
   .get("/", homePage)
   .get("/om-oss", aboutPage)
+  .get("/om-oss/utskott", () => redirect("/om-oss#utskotten", 301))
+  .get("/om-oss/utskott/:slug", committeePage)
   .get("/om-oss/:slug", networkPage)
   .get("/engagera-dig", (c) => engagePage(c))
   .post("/engagera-dig", submitHandler("engagemang"))

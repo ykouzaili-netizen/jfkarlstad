@@ -29,7 +29,7 @@ import { historyPage, historyRestore, menuSubmit, textsPage, textsSubmit, undoSu
 import { mediaAdjustPage, mediaAdjustSubmit, mediaDeleteSubmit, mediaOptimizeSubmit, mediaLibraryPage, mediaPickerFragment, mediaUploadSubmit } from "./media-pages.js";
 import { partnerStatsCsv, partnerStatsPage } from "./stats-pages.js";
 import { adminSearchPage } from "./search.js";
-import { handoverPage, handoverSubmit } from "./handover.js";
+import { handoverPage, handoverSubmit, serviceYearSubmit } from "./handover.js";
 import { mailPage, mailRecipientsSubmit, mailTestSubmit } from "./mail-page.js";
 import { linkCheckBatch, linkCheckPage, linkCheckSubmit } from "./link-check.js";
 import { galleryBulkSubmit, galleryCoverPage, galleryDuplicates, galleryCoverSubmit, galleryExifSubmit, galleryListPage, galleryResetSubmit, galleryZipList } from "./gallery-list.js";
@@ -131,5 +131,6 @@ export function registerAdminRoutes(router: Router): void {
     .post("/admin/anvandare/:id/ta-bort", requireUser(userRemove, "admin"))
     .get("/admin/logg", requireUser(logPage, "admin"))
     .get("/admin/styrelseskifte", requireUser(handoverPage, "admin"))
-    .post("/admin/styrelseskifte", requireUser(handoverSubmit, "admin"));
+    .post("/admin/styrelseskifte", requireUser(handoverSubmit, "admin"))
+    .post("/admin/styrelseskifte/ar", requireUser(serviceYearSubmit, "admin"));
 }

@@ -26,6 +26,9 @@ import { loadSettings } from "../lib/settings.js";
 import { LAYOUT_PREFIX } from "../lib/pagelayout.js";
 import { sharePanel } from "./share-pages.js";
 import { copyShopPhotos, deleteShopPhotos, shopPhotosPanel } from "./shop-images.js";
+import { committeeMembersPanel, currentServiceYear, serviceYearOptions } from "./committee-members.js";
+import { COVER_FOCUS } from "../lib/committees.js";
+import { isServiceYear, nextYear, shownYear, yearState } from "../lib/years.js";
 import { dropDay, dropState, GARMENTS, kr, loadShop, type DropRow, type DropState } from "../lib/shop.js";
 
 /**
@@ -135,6 +138,11 @@ export interface Resource {
   editOutro?: (db: D1Database, session: Session, row: Row) => Promise<SafeHtml | string>;
   /** Körs efter att en post har kopierats (t.ex. kopierar produktens bilder). */
   afterDuplicate?: (db: D1Database, fromId: number, toId: number) => Promise<void>;
+  /**
+   * Vart man kommer efter att ha sparat, flyttat eller tagit bort en post, och vart Avbryt leder – t.ex. tillbaka
+   * till utskottet för en utskottsmedlem. En adress i adminpanelen (kan sluta med #ankare). null = listan.
+   */
+  returnTo?: (row: Record<string, unknown>) => string | null;
   /** Ruta överst i formuläret som följer de osparade värdena (t.ex. förhandsvisningen av en medalj). */
   formIntro?: (values: Values) => SafeHtml;
   /** Körs efter att posten har sparats (t.ex. byter namn på kategorin även på bilderna). existing = posten före ändringen. */
@@ -155,6 +163,7 @@ const albumOptions = async (db: D1Database) => (await loadAlbums(db)).map((a) =>
 const BOARD_TABS = [
   { href: "/admin/styrelsen", label: "Styrelsen" },
   { href: "/admin/utskott", label: "Utskott" },
+  { href: "/admin/utskottsmedlemmar", label: "Utskottsmedlemmar" },
   { href: "/admin/kursombud", label: "Kursombud" },
   { href: "/admin/utmarkelser", label: "Utmärkelser" },
   { href: "/admin/medaljer", label: "Ordnar och medaljer" },
@@ -283,6 +292,27 @@ export async function instagramSyncSubmit(c: RequestContext, session: Session): 
 }
 
 /** Samarbetspartnerna (byråerna under Partners) som val för ett event – huvudpartners först. */
+/** Styrelsen: vilket år som visas och genvägen för att lägga in nästa styrelse. */
+async function boardYearIntro(c: RequestContext): Promise<SafeHtml> {
+  const year = await currentServiceYear(c.env.DB);
+  const coming = nextYear(year);
+  let counts = { next: 0 };
+  try {
+    counts = (await c.env.DB.prepare("SELECT COUNT(*) AS next FROM board_members WHERE year = ?").bind(coming).first<{ next: number }>()) ?? counts;
+  } catch {
+    /* kolumnen finns inte än */
+  }
+  return html`<div class="admin-card admin-card-inline year-intro">
+    <p><strong>Webbplatsen visar styrelsen för ${year}.</strong> ${counts.next
+      ? html`${counts.next} ${counts.next === 1 ? "ledamot är" : "ledamöter är"} inlagda för ${coming} och syns när ni byter år.`
+      : html`Ny styrelse? Lägg in den som ${coming} – den syns på webbplatsen först när ni byter år.`}</p>
+    <div class="year-intro-actions">
+      <a class="btn btn-outline btn-sm" href="/admin/styrelsen/ny?ar=${encodeURIComponent(coming)}">+ Lägg in styrelsen för ${coming}</a>
+      <a class="link-btn" href="/admin/styrelseskifte#verksamhetsar">Byt verksamhetsår</a>
+    </div>
+  </div>`;
+}
+
 async function eventPartnerOptions(db: D1Database): Promise<{ value: string; label: string }[]> {
   const { results } = await db
     .prepare("SELECT id, name FROM partners ORDER BY tier = 'huvud' DESC, sort_order, name COLLATE NOCASE")
@@ -290,6 +320,32 @@ async function eventPartnerOptions(db: D1Database): Promise<{ value: string; lab
   return results.map((p) => ({ value: String(p.id), label: p.name }));
 }
 
+/** Utskotten som val (även dolda, så att ett event kan förberedas). Tål att tabellen saknas. */
+async function committeeOptions(db: D1Database): Promise<{ value: string; label: string }[]> {
+  try {
+    const { results } = await db.prepare("SELECT id, name, published FROM committees ORDER BY sort_order, id").all<{ id: number; name: string; published: number }>();
+    return results.map((c) => ({ value: String(c.id), label: c.published ? c.name : `${c.name} (dold)` }));
+  } catch {
+    return [];
+  }
+}
+
+/** Nästa ordning i en grupp (t.ex. sist i utskottet för året), så att nya poster hamnar sist. */
+async function nextOrder(db: D1Database, sql: string, ...binds: unknown[]): Promise<number> {
+  const row = await db.prepare(sql).bind(...binds).first<{ top: number | null }>();
+  return (row?.top ?? 0) + 10;
+}
+
+/** Året som visas, som en extra kolumn i listornas frågor (inställningen service_year). */
+const SHOWN_YEAR_SQL = "(SELECT value FROM settings WHERE key = 'service_year') AS shown_year";
+
+/** Etikett för ett verksamhetsår i listorna. r.shown_year kommer från SHOWN_YEAR_SQL. */
+function yearPill(r: Row): SafeHtml {
+  const shown = shownYear(String(r.shown_year ?? ""));
+  const y = String(r.year ?? "") || shown;
+  const state = yearState(y, shown);
+  return html`<span class="pill ${state === "nu" ? "pill-on" : state === "kommande" ? "pill-plan" : "pill-off"}">${y}${state === "nu" ? " · visas" : state === "kommande" ? " · nästa år" : ""}</span>`;
+}
 /** Snabbvalet av arbetsgivare i jobbformuläret: partnerna först, sedan övriga arbetsgivare. */
 async function employerOptions(db: D1Database): Promise<{ value: string; label: string }[]> {
   const [partners, companies] = await db.batch([
@@ -576,6 +632,14 @@ export const RESOURCES: Resource[] = [
         optionsFrom: eventPartnerOptions,
         help: "Valfritt. Arrangeras eventet tillsammans med en av era samarbetspartners (t.ex. en lunchföreläsning med en byrå) visas det också på partnerns sida, och eventet får en länk till partnern.",
       },
+      {
+        name: "committee_id",
+        label: "Arrangeras av utskott",
+        type: "select",
+        nullable: true,
+        optionsFrom: committeeOptions,
+        help: "Valfritt. Då visas eventet under ”På gång” på utskottets egen sida, och eventet får en länk till utskottet.",
+      },
       { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true },
       { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200 },
       { name: "publish_at", label: "Publicera på webbplatsen", type: "datetime-local", schedule: true, nullable: true, help: SCHEDULE_HELP },
@@ -799,15 +863,26 @@ export const RESOURCES: Resource[] = [
     title: "Styrelsen",
     singular: "styrelseledamot",
     newLabel: "Lägg till ledamot",
-    lead: "Visas på Om oss och på kontaktsidan. Byt ut alla när en ny styrelse har valts – checklistan under Styrelseskifte hjälper er.",
-    orderBy: "sort_order, name",
+    lead: "Visas på Om oss och på kontaktsidan. Varje ledamot hör till ett verksamhetsår: lägg in en ny styrelse som nästa år, så flyttar den gamla till Tidigare styrelser när ni byter år under Styrelseskifte.",
+    orderBy: "year DESC, sort_order, name",
+    listQuery: `SELECT *, ${SHOWN_YEAR_SQL} FROM board_members ORDER BY year DESC, sort_order, name`,
+    moveGroup: ["year"],
     publishable: true,
     publishLabels: ["Visas", "Dold"],
     tabs: BOARD_TABS,
     emptyText: "Ingen i styrelsen är inlagd ännu.",
+    listIntro: boardYearIntro,
     fields: [
       { name: "name", label: "Namn", type: "text", required: true, max: 100 },
       { name: "role", label: "Roll", type: "text", required: true, max: 100, placeholder: "T.ex. Ordförande" },
+      {
+        name: "year",
+        label: "Verksamhetsår",
+        type: "select",
+        required: true,
+        optionsFrom: serviceYearOptions,
+        help: "Nästa år syns på webbplatsen först när ni byter verksamhetsår under Styrelseskifte. Tidigare år visas under Tidigare styrelser på Om oss, med namn och roll men utan foto.",
+      },
       { name: "email", label: "E-post för rollen", type: "email", nullable: true, max: 200 },
       { name: "photo_key", label: "Foto", type: "text", upload: "image", nullable: true, purge: true, crop: 0.75, help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR). När du väljer en bild får du beskära den till ett stående porträtt (3:4) – dra och zooma så att ansiktet hamnar i övre halvan. Utan foto visas initialerna. Fotot raderas helt när det tas bort." },
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägre tal visas först." },
@@ -816,9 +891,11 @@ export const RESOURCES: Resource[] = [
       { label: "", render: (r) => thumb(r.photo_key), className: "col-thumb" },
       { label: "Namn", render: (r) => html`<a class="row-title" href="/admin/styrelsen/${r.id}">${String(r.name)}</a>` },
       { label: "Roll", render: (r) => String(r.role) },
+      { label: "Verksamhetsår", render: yearPill },
       { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
     ],
     titleOf: (r) => String(r.name),
+    check: (v): Errors => (v.year && !isServiceYear(v.year) ? { year: "Välj ett verksamhetsår i listan." } : {}),
   },
   {
     path: "utmarkelser",
@@ -1371,7 +1448,7 @@ export const RESOURCES: Resource[] = [
     title: "Utskott",
     singular: "utskott",
     newLabel: "Lägg till utskott",
-    lead: "Utskotten visas som kort på Om oss och Engagera dig. På Engagera dig kan besökare klicka på ett utskott och läsa den långa beskrivningen med bilder – och anmäla intresse direkt.",
+    lead: "Utskotten visas som kort på Om oss och Engagera dig, och varje utskott har en egen sida med anslagsbild och medlemmar. Medlemmarna lägger du till längst ned på utskottets sida här.",
     orderBy: "sort_order, id",
     slugFrom: "name",
     publishable: true,
@@ -1381,10 +1458,27 @@ export const RESOURCES: Resource[] = [
     emptyText: "Inga utskott ännu. Lägg till föreningens utskott, så visas de på Om oss och Engagera dig.",
     fields: [
       { name: "name", label: "Namn", type: "text", required: true, max: 100, placeholder: "T.ex. Arbetsmarknadsutskottet" },
-      { name: "summary", label: "Kort beskrivning", type: "textarea", rows: 2, max: 300, help: "En eller två meningar. Visas på korten innan man klickar." },
-      { name: "body", label: "Hela beskrivningen", type: "textarea", rows: 12, max: 8000, help: `Visas när man klickar på utskottet: vad ni gör, hur ett år ser ut och vad man får ut av att vara med. ${MARKDOWN_HELP}` },
+      { name: "summary", label: "Kort beskrivning", type: "textarea", rows: 2, max: 300, help: "En eller två meningar. Visas på korten och överst på utskottets sida." },
+      {
+        name: "cover_key",
+        label: "Anslagsbild",
+        type: "text",
+        upload: "image",
+        nullable: true,
+        help: "Utskottets egen bild – gärna en gruppbild. Den visas som affisch på Om oss (stående) och brett överst på utskottets sida (liggande), så välj en bild där det viktiga inte ligger precis vid kanten. Utan anslagsbild används bild 1, och utan bilder visas utskottets begynnelsebokstav.",
+      },
+      { name: "cover_alt", label: "Anslagsbild – beskrivning", type: "text", max: 200, placeholder: "T.ex. Evenemangsutskottet på vårbanketten 2026", help: "Läses upp för den som inte ser bilden." },
+      {
+        name: "cover_focus",
+        label: "Vad ska alltid synas?",
+        type: "radio",
+        options: Object.entries(COVER_FOCUS).map(([value, f]) => ({ value, label: f.label })),
+        help: "Bilden beskärs olika på affischen och överst på sidan. Välj den del av bilden som inte får klippas bort.",
+      },
+      { name: "email", label: "E-post till utskottet", type: "email", nullable: true, max: 200, help: "Valfritt. Visas på utskottets sida som ”Mejla utskottet”." },
+      { name: "body", label: "Hela beskrivningen", type: "textarea", rows: 12, max: 8000, help: `Visas under Vad vi gör på utskottets sida och när man öppnar utskottet på Engagera dig: vad ni gör, hur ett år ser ut och vad man får ut av att vara med. ${MARKDOWN_HELP}` },
       { name: "commitment", label: "Tidsåtgång", type: "text", max: 120, placeholder: "T.ex. Ett par timmar i veckan" },
-      { name: "image_1_key", label: "Bild 1 (visas på kortet)", type: "text", upload: "image", nullable: true, help: "Liggande bild fungerar bäst. Bild 1 visas även på kortet innan man klickar." },
+      { name: "image_1_key", label: "Bild 1", type: "text", upload: "image", nullable: true, help: "Bild 1–3 visas under Bilder på utskottets sida och när man öppnar utskottet på Engagera dig. Liggande bilder fungerar bäst." },
       { name: "image_1_alt", label: "Bild 1 – bildbeskrivning", type: "text", max: 200 },
       { name: "image_2_key", label: "Bild 2", type: "text", upload: "image", nullable: true },
       { name: "image_2_alt", label: "Bild 2 – bildbeskrivning", type: "text", max: 200 },
@@ -1393,13 +1487,86 @@ export const RESOURCES: Resource[] = [
       { name: "sort_order", label: "Ordning", type: "number", min: 0, max: 999, help: "Lägre tal visas först." },
     ],
     listColumns: [
-      { label: "", render: (r) => thumb(r.image_1_key, ""), className: "col-thumb" },
+      { label: "", render: (r) => thumb(r.cover_key ?? r.image_1_key, ""), className: "col-thumb" },
       { label: "Utskott", render: (r) => html`<a class="row-title" href="/admin/utskott/${r.id}">${String(r.name)}</a>` },
-      { label: "Bilder", render: (r) => String([r.image_1_key, r.image_2_key, r.image_3_key].filter(Boolean).length) },
+      { label: "Medlemmar i år", render: (r) => html`<a href="/admin/utskott/${r.id}#medlemmar">${Number(r.member_count) || "Inga än"}</a>` },
+      { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
+    ],
+    listQuery: `SELECT c.*, (SELECT COUNT(*) FROM committee_members m WHERE m.committee_id = c.id AND m.year = COALESCE((SELECT value FROM settings WHERE key = 'service_year'), '')) AS member_count FROM committees c ORDER BY c.sort_order, c.id`,
+    toValues: (r) => ({ cover_focus: COVER_FOCUS[String(r.cover_focus ?? "")] ? String(r.cover_focus) : "mitten" }),
+    titleOf: (r) => String(r.name),
+    publicUrl: (r) => (r.published ? `/om-oss/utskott/${r.slug}` : null),
+    // Medlemmarna ligger under formuläret – en genväg överst så att man hittar dit direkt.
+    editIntro: async (db, row) => {
+      const year = await currentServiceYear(db);
+      const n = await db.prepare("SELECT COUNT(*) AS n FROM committee_members WHERE committee_id = ? AND year = ?").bind(row.id, year).first<{ n: number }>().catch(() => null);
+      return html`<p class="admin-card admin-card-inline cmm-jump">${icon("users", "icon icon-sm")}<span>${n?.n ? `${n.n} ${n.n === 1 ? "medlem" : "medlemmar"} ${year}.` : `Inga medlemmar för ${year} än.`}</span><a class="link-btn" href="#medlemmar">Gå till medlemmarna ↓</a></p>`;
+    },
+    editOutro: (db, session, row) => committeeMembersPanel(db, session, { id: row.id, name: String(row.name) }),
+    beforeDelete: async (db, row) => {
+      const n = await db.prepare("SELECT COUNT(*) AS n FROM committee_members WHERE committee_id = ?").bind(row.id).first<{ n: number }>().catch(() => null);
+      return n?.n ? "utskott-har-medlemmar" : null;
+    },
+    extraColumns: () => ({ updated_at: nowUtc() }),
+  },
+  {
+    path: "utskottsmedlemmar",
+    movable: true,
+    table: "committee_members",
+    title: "Utskottsmedlemmar",
+    singular: "utskottsmedlem",
+    newLabel: "Lägg till medlem",
+    lead: "Alla som sitter i ett utskott, per verksamhetsår. Det enklaste är att lägga till och ändra medlemmar inne på varje utskott under fliken Utskott.",
+    orderBy: "committee_id, year DESC, sort_order, id",
+    listQuery: `SELECT m.*, c.name AS committee_name, ${SHOWN_YEAR_SQL} FROM committee_members m LEFT JOIN committees c ON c.id = m.committee_id ORDER BY c.sort_order, c.id, m.year DESC, m.sort_order, m.id`,
+    moveGroup: ["committee_id", "year"],
+    publishable: true,
+    publishLabels: ["Visas", "Dold"],
+    navActive: "/admin/styrelsen",
+    tabs: BOARD_TABS,
+    emptyText: "Inga utskottsmedlemmar ännu. Öppna ett utskott under fliken Utskott och tryck på Lägg till medlem.",
+    fields: [
+      { name: "committee_id", label: "Utskott", type: "select", required: true, optionsFrom: committeeOptions },
+      { name: "name", label: "Namn", type: "text", required: true, max: 100 },
+      { name: "role", label: "Roll", type: "text", max: 80, placeholder: "T.ex. Ordförande, Vice ordförande eller Ledamot", help: "Den med rollen Ordförande visas under utskottets affisch på Om oss." },
+      { name: "program", label: "Program och termin", type: "text", max: 100, placeholder: "T.ex. Juristprogrammet, termin 3" },
+      { name: "quote", label: "Därför är jag med", type: "textarea", rows: 3, max: 280, help: "Valfritt. En eller två meningar med egna ord. Visas för den som står först i utskottet (oftast ordföranden)." },
+      {
+        name: "photo_key",
+        label: "Porträtt",
+        type: "text",
+        upload: "image",
+        nullable: true,
+        purge: true,
+        crop: 0.75,
+        help: "Ladda bara upp ett foto om personen har sagt ja till att det publiceras (GDPR). Du beskär det till ett stående porträtt (3:4) – dra och zooma så att ansiktet hamnar i övre halvan. Utan foto visas initialerna. Fotot raderas helt när det byts ut eller personen tas bort.",
+      },
+      {
+        name: "year",
+        label: "Verksamhetsår",
+        type: "select",
+        required: true,
+        optionsFrom: serviceYearOptions,
+        help: "Nästa år syns på webbplatsen först när ni byter verksamhetsår under Styrelseskifte. Tidigare år visas under Tidigare år på utskottets sida, med namn och roll men utan foto.",
+      },
+    ],
+    listColumns: [
+      { label: "", render: (r) => thumb(r.photo_key), className: "col-thumb" },
+      { label: "Namn", render: (r) => html`<a class="row-title" href="/admin/utskottsmedlemmar/${r.id}">${String(r.name)}</a>` },
+      { label: "Utskott", render: (r) => html`<a href="/admin/utskott/${Number(r.committee_id)}#medlemmar">${String(r.committee_name ?? "–")}</a>` },
+      { label: "Roll", render: (r) => String(r.role || "–") },
+      { label: "Verksamhetsår", render: yearPill },
       { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
     ],
     titleOf: (r) => String(r.name),
-    publicUrl: (r) => (r.published ? `/engagera-dig#utskott-${r.slug}` : null),
+    check: (v): Errors => (v.year && !isServiceYear(v.year) ? { year: "Välj ett verksamhetsår i listan." } : {}),
+    // Nya medlemmar (och den som byter utskott eller år) hamnar sist i sitt utskott det året.
+    beforeSave: async (db, values, data, existing) => {
+      const moved = !existing || String(existing.committee_id) !== values.committee_id || String(existing.year) !== values.year;
+      if (moved) data.sort_order = await nextOrder(db, "SELECT MAX(sort_order) AS top FROM committee_members WHERE committee_id = ? AND year = ?", Number(values.committee_id), values.year);
+      return {};
+    },
+    returnTo: (r) => (r.committee_id ? `/admin/utskott/${Number(r.committee_id)}#medlemmar` : null),
     extraColumns: () => ({ updated_at: nowUtc() }),
   },
   {
@@ -1467,7 +1634,23 @@ function rowToValues(fields: AdminField[], r: Resource, row: Row | null): Values
   return v;
 }
 
-function editForm(r: Resource, fields: AdminField[], session: Session, action: string, values: Values, errors: Errors, isNew: boolean): SafeHtml {
+/**
+ * Adressen från returnTo (bara adresser i adminpanelen), med en etikett för länken tillbaka.
+ * För utskottsmedlemmar blir etiketten utskottets namn när det finns bland valen.
+ */
+function backTo(r: Resource, row: Record<string, unknown>): { href: string; label: string } | null {
+  const href = r.returnTo?.(row);
+  if (!href || !/^\/admin\/[a-z0-9/_-]*(#[a-z0-9-]+)?$/i.test(href)) return null;
+  return { href, label: r.path === "utskottsmedlemmar" ? "Utskottet" : r.title };
+}
+
+/** Lägg till en fråga (t.ex. klart=sparat) före #ankaret i en adress. */
+function withQuery(href: string, query: string): string {
+  const [path, hash] = href.split("#");
+  return `${path}${path!.includes("?") ? "&" : "?"}${query}${hash ? `#${hash}` : ""}`;
+}
+
+function editForm(r: Resource, fields: AdminField[], session: Session, action: string, values: Values, errors: Errors, isNew: boolean, cancelHref?: string): SafeHtml {
   const hasUpload = fields.some((f) => f.upload);
   return html`<form class="admin-form" method="post" action="${action}"${hasUpload ? html` enctype="multipart/form-data"` : ""} novalidate data-dirty-check>
     ${csrfField(session)}
@@ -1499,7 +1682,7 @@ function editForm(r: Resource, fields: AdminField[], session: Session, action: s
       : ""}
     <div class="admin-form-actions">
       <button class="btn btn-primary btn-lg" type="submit">${isNew ? "Skapa" : "Spara ändringar"}</button>
-      <a class="btn btn-outline" href="/admin/${r.path}">Avbryt</a>
+      <a class="btn btn-outline" href="${cancelHref ?? `/admin/${r.path}`}">Avbryt</a>
     </div>
   </form>`;
 }
@@ -1594,6 +1777,15 @@ export function newHandler(r: Resource) {
     const q = c.url.searchParams;
     const pre = q.get("partner") ? `p:${q.get("partner")}` : q.get("arbetsgivare") ? `c:${q.get("arbetsgivare")}` : "";
     if (r.path === "jobb" && pre && fields.find((f) => f.name === "employer_pick")?.options?.some((o) => o.value === pre)) values.employer_pick = pre;
+    if (r.path === "utskott") values.cover_focus = "mitten";
+    // Verksamhetsåret: året som visas, eller det år man valde (t.ex. "Lägg in styrelsen för 2027/28").
+    if (r.path === "styrelsen" || r.path === "utskottsmedlemmar") {
+      const ar = q.get("ar") ?? "";
+      values.year = isServiceYear(ar) ? ar : await currentServiceYear(c.env.DB);
+    }
+    // "Lägg till medlem" från ett utskott förväljer det
+    const cm = q.get("utskott") ?? "";
+    if (r.path === "utskottsmedlemmar" && fields.find((f) => f.name === "committee_id")?.options?.some((o) => o.value === cm)) values.committee_id = cm;
     return renderEdit(c, session, r, fields, null, values, {});
   };
 }
@@ -1610,9 +1802,10 @@ export function editHandler(r: Resource) {
 async function renderEdit(c: RequestContext, session: Session, r: Resource, fields: AdminField[], row: Row | null, values: Values, errors: Errors, status = 200): Promise<Response> {
   const isNew = !row;
   const pub = row && r.publicUrl?.(row);
+  const back = backTo(r, row ?? values);
   const content = html`
     ${adminHead(isNew ? r.newLabel : `Redigera ${r.singular}`, {
-      back: { href: `/admin/${r.path}`, label: r.title },
+      back: back ? { href: back.href, label: back.label } : { href: `/admin/${r.path}`, label: r.title },
       actions: row
         ? html`${pub ? html`<a class="btn btn-outline btn-sm" href="${pub}" target="_blank" rel="noopener">${icon("external", "icon icon-sm")}Visa på webbplatsen</a>` : ""}
             ${r.duplicable ? postButton(session, `/admin/${r.path}/${row.id}/kopiera`, "Kopiera") : ""}
@@ -1622,7 +1815,7 @@ async function renderEdit(c: RequestContext, session: Session, r: Resource, fiel
         : undefined,
     })}
     ${row && r.editIntro ? await r.editIntro(c.env.DB, row) : ""}
-    ${editForm(r, fields, session, isNew ? `/admin/${r.path}/ny` : `/admin/${r.path}/${row!.id}`, values, errors, isNew)}
+    ${editForm(r, fields, session, isNew ? `/admin/${r.path}/ny` : `/admin/${r.path}/${row!.id}`, values, errors, isNew, back?.href)}
     ${row && r.editOutro ? await r.editOutro(c.env.DB, session, row) : ""}
   `;
   return adminLayout(c, session, { title: isNew ? r.newLabel : `Redigera ${r.singular}`, active: r.navActive ?? `/admin/${r.path}`, newCount: await newMessageCount(c.env.DB), narrow: true }, content, status);
@@ -1784,7 +1977,9 @@ async function save(r: Resource, c: RequestContext, session: Session, id: number
     for (const f of released) if (f.purge) await purgeIfUnused(c.env, f.key);
     const scheduled = fields.some((f) => f.schedule && data[col(f)] && String(data[col(f)]) > nowUtc()) && values.published;
     if (r.stayAfterSave && (await r.stayAfterSave(data))) return redirect(`/admin/${r.path}/${newId}?klart=sparat`, 303);
-    return redirect(`/admin/${r.path}?klart=${scheduled ? "schemalagt" : existing ? "sparat" : "skapat"}`, 303);
+    const flash = `klart=${scheduled ? "schemalagt" : existing ? "sparat" : "skapat"}`;
+    const back = backTo(r, { ...(existing ?? {}), ...data, id: newId });
+    return redirect(back ? withQuery(back.href, flash) : `/admin/${r.path}?${flash}`, 303);
 }
 
 export function deleteHandler(r: Resource) {
@@ -1800,6 +1995,8 @@ export function deleteHandler(r: Resource) {
       // Personfoton, galleribilder och PDF:er raderas helt. Övriga bilder ligger kvar i bildbanken.
       for (const f of r.fields.filter((f) => f.upload && f.purge)) await purgeIfUnused(c.env, row[col(f)] as string | null);
       await audit(c.env, session, "tog bort", r.singular, id, r.titleOf(row));
+      const back = backTo(r, row);
+      if (back) return redirect(withQuery(back.href, "klart=raderat"), 303);
     }
     return redirect(`/admin/${r.path}?klart=raderat`, 303);
   };
@@ -1844,6 +2041,12 @@ export function moveHandler(r: Resource) {
     if (i >= 0 && j >= 0 && j < results.length) {
       [results[i], results[j]] = [results[j]!, results[i]!];
       await db.batch(results.map((x, k) => db.prepare(`UPDATE ${r.table} SET sort_order = ? WHERE id = ?`).bind((k + 1) * 10, x.id)));
+    }
+    // Flyttad från utskottets ruta Medlemmar: tillbaka dit.
+    if (r.returnTo && form.get("tillbaka") && me) {
+      const row = await db.prepare(`SELECT * FROM ${r.table} WHERE id = ?`).bind(id).first<Row>();
+      const target = row ? backTo(r, row) : null;
+      if (target) return redirect(withQuery(target.href.replace(/#.*$/, `#medlem-${id}`), `flyttad=${id}`), 303);
     }
     // Tillbaka till samma vy (t.ex. vald kategori i bildgalleriet) – bara adresser inom listan.
     const back = String(form.get("tillbaka") ?? "");

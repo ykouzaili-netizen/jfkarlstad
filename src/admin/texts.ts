@@ -193,7 +193,7 @@ const textFields = (sec: SectionDef) => (sec.fields as readonly FieldDef[]).filt
 async function previewFor(db: D1Database, page: PageDef, sec: SectionDef): Promise<{ path: string; label: string }> {
   if (sec.id === "tack") return { path: `${page.path}/tack`, label: `${page.title} – bekräftelsen` };
   if (page.id === "integritet" && sec.id === "kakor") return { path: "/cookies", label: "Kakor" };
-  const dyn: Record<string, "event" | "news" | "partner" | "job" | "network"> = { "kalender/eventsida": "event", "aktuellt/artikel": "news", "partners/partnersida": "partner", "karriar/annons": "job", "om-oss/natverk": "network" };
+  const dyn: Record<string, "event" | "news" | "partner" | "job" | "network" | "committee"> = { "om-oss/utskottssidor": "committee", "kalender/eventsida": "event", "aktuellt/artikel": "news", "partners/partnersida": "partner", "karriar/annons": "job", "om-oss/natverk": "network" };
   const kind = dyn[`${page.id}/${sec.id}`];
   if (kind) {
     const p = await samplePath(db, kind);

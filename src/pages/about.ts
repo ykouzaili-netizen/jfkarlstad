@@ -1,4 +1,6 @@
-import { loadCommittees, type CommitteeRow } from "../lib/committees.js";
+import { loadCommitteeMembers, loadCommittees, type CommitteeMemberRow, type CommitteeRow } from "../lib/committees.js";
+import { shownYear, splitByYear } from "../lib/years.js";
+import { archiveYears, committeeMonogram, committeePosters, committeeUrl, currentMembersBy, softHyphen } from "./committee.js";
 import { blockOrder, isBlockHidden, isLinkVisible } from "../lib/pagelayout.js";
 import { html, paragraphs, type SafeHtml } from "../lib/html.js";
 import { ec, ek, loadSettings, type SettingKey, type Settings, siteLayout, withBlockColors } from "../lib/settings.js";
@@ -17,14 +19,17 @@ import { HERO_FALLBACKS, heroStyle, heroTile, personCard, photoTop, sectionNav, 
 
 export async function aboutPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, [boardRes, honorRes, partnerRes], committeeRows, medals, networks] = await Promise.all([
+  const [s, [boardRes, honorRes, partnerRes], committeeRows, medals, networks, members] = await Promise.all([
     loadSettings(db, c.preview),
     db.batch([boardQuery.all(db), honorQuery.all(db), partnerQuery.all(db)]),
     loadCommittees(db),
     loadMedals(db),
     loadNetworks(db),
+    loadCommitteeMembers(db),
   ]);
-  const board = boardRes!.results as unknown as BoardRow[];
+  const year = shownYear(s.service_year);
+  // Styrelsen för året som visas; äldre år blir Tidigare styrelser (bara namn och roll).
+  const board = splitByYear(boardRes!.results as unknown as BoardRow[], year);
   const honors = honorRes!.results as unknown as HonorRow[];
   const partners = partnerRes!.results as unknown as PartnerRow[];
   const committees = committeeRows;
@@ -32,8 +37,8 @@ export async function aboutPage(c: RequestContext): Promise<Response> {
   const sections: { id: string; anchor: string; labelKey: SettingKey; icon: IconName; render: () => SafeHtml | string }[] = [
     { id: "om", anchor: "#om-jfk", labelKey: "about_section_title", icon: "sparkle", render: () => aboutSection(s) },
     { id: "styrning", anchor: "#sa-styrs-jfk", labelKey: "governance_title", icon: "network", render: () => governance(s) },
-    { id: "styrelsen", anchor: "#styrelsen", labelKey: "board_title", icon: "user", render: () => boardSection(s, board) },
-    { id: "utskott", anchor: "#utskotten", labelKey: "committees_title", icon: "users", render: () => (committees.length ? committeesSection(s, committees) : "") },
+    { id: "styrelsen", anchor: "#styrelsen", labelKey: "board_title", icon: "user", render: () => boardSection(s, board.current, board.archive) },
+    { id: "utskott", anchor: "#utskotten", labelKey: "committees_title", icon: "users", render: () => (committees.length ? committeesSection(s, committees, currentMembersBy(members, year)) : "") },
     { id: "utmarkelser", anchor: "#utmarkelser", labelKey: "honors_title", icon: "check", render: () => html`${honorsSection(s, honorsData(honors, medals))}${nominateCta(s)}` },
     { id: "pedagog", anchor: "#arets-pedagog", labelKey: "pedagog_title", icon: "megaphone", render: () => pedagogSection(s, honors) },
     { id: "samarbeten", anchor: "#samarbeten", labelKey: "collab_title", icon: "briefcase", render: () => collabSection(s, partners, networks) },
@@ -136,25 +141,40 @@ function governance(s: Settings): SafeHtml {
   </section>`;
 }
 
-const COMMITTEE_STYLES = ["mork", "gul", "ljusa", "karusell"] as const;
+const COMMITTEE_STYLES = ["anslag", "mork", "gul", "ljusa", "karusell"] as const;
 
-function committeesSection(s: Settings, committees: CommitteeRow[]): SafeHtml {
-  const monogram = (name: string) => name.replace(/utskottet$/i, "").trim().charAt(0).toUpperCase() || name.charAt(0);
-  const style = (COMMITTEE_STYLES as readonly string[]).includes(s.committees_style) ? s.committees_style : "mork";
+function committeesSection(s: Settings, committees: CommitteeRow[], byCommittee: Map<number, CommitteeMemberRow[]>): SafeHtml {
+  const style = (COMMITTEE_STYLES as readonly string[]).includes(s.committees_style) ? s.committees_style : "anslag";
+  const head = html`<div class="committees-head">
+    <h2 class="section-title" id="utskotten"${ek(s, "committees_title")}>${s.committees_title}</h2>
+    <p class="section-lead"${ek(s, "committees_lead")}>${s.committees_lead}</p>
+  </div>`;
+  if (style === "anslag") {
+    return html`<section class="section committees-board" aria-labelledby="utskotten">
+      <div class="container">
+        ${head}
+        ${committeePosters(s, committees, byCommittee)}
+        <div class="cta-inline cta-inline-soft committees-board-cta">
+          <div>
+            <h3 class="cta-inline-title"${ek(s, "committees_cta_title")}>${s.committees_cta_title}</h3>
+            <p${ek(s, "committees_cta_text")}>${s.committees_cta_text}</p>
+          </div>
+          <a class="btn btn-primary" href="/engagera-dig"${ek(s, "committees_cta_button")}>${s.committees_cta_button}${icon("arrowRight", "icon icon-sm")}</a>
+        </div>
+      </div>
+    </section>`;
+  }
   const showImage = Boolean(s.committees_image) && (style === "mork" || style === "karusell");
   const carousel = style === "karusell";
   return html`<section class="committees committees--${style}${showImage ? " has-image" : ""}" aria-labelledby="utskotten">
     ${showImage ? html`<div class="committees-bg" aria-hidden="true"${ek(s, "committees_image")}>${picture(s.committees_image, { alt: "", sizes: "100vw", width: 2000, height: 1200 })}</div>` : ""}
     <div class="container">
-      <div class="committees-head">
-        <h2 class="section-title" id="utskotten"${ek(s, "committees_title")}>${s.committees_title}</h2>
-        <p class="section-lead"${ek(s, "committees_lead")}>${s.committees_lead}</p>
-      </div>
+      ${head}
       <ul class="committee-grid"${carousel ? html` tabindex="0" aria-label="${s.committees_title} – bläddra i sidled"` : ""}>
         ${committees.map(
           (cm) => html`<li class="committee-card is-link"${ec(s, `/admin/utskott/${cm.id}`, `Utskott › ${cm.name}`)}>
-            <span class="committee-mark" aria-hidden="true">${monogram(cm.name)}</span>
-            <h3 class="committee-name"><a class="committee-link" href="/engagera-dig#utskott-${cm.slug}">${softHyphen(cm.name)}</a></h3>
+            <span class="committee-mark" aria-hidden="true">${committeeMonogram(cm.name)}</span>
+            <h3 class="committee-name"><a class="committee-link" href="${committeeUrl(cm)}">${softHyphen(cm.name)}</a></h3>
             ${cm.summary ? html`<p class="committee-text">${cm.summary}</p>` : ""}
             <span class="committee-more" aria-hidden="true"${ek(s, "committees_read_more")}>${s.committees_read_more}${icon("arrowRight", "icon icon-sm")}</span>
           </li>`,
@@ -169,7 +189,7 @@ function committeesSection(s: Settings, committees: CommitteeRow[]): SafeHtml {
   </section>`;
 }
 
-function boardSection(s: Settings, board: BoardRow[]): SafeHtml {
+function boardSection(s: Settings, board: BoardRow[], archive: { year: string; rows: BoardRow[] }[]): SafeHtml {
   return html`<section class="section" aria-labelledby="styrelsen">
     <div class="container">
       <div class="section-head">
@@ -179,6 +199,12 @@ function boardSection(s: Settings, board: BoardRow[]): SafeHtml {
         </div>
       </div>
       ${board.length ? html`<ul class="person-grid">${board.map((p) => personCard(s, p))}</ul>` : emptyState(s.board_empty, ek(s, "board_empty"))}
+      ${archive.length
+        ? html`<details class="archive archive-board">
+            <summary><span class="archive-summary"><span class="archive-title"${ek(s, "board_archive_title")}>${s.board_archive_title}</span></span>${icon("chevronDown", "icon icon-sm")}</summary>
+            ${archiveYears(archive)}
+          </details>`
+        : ""}
     </div>
   </section>`;
 }
@@ -200,12 +226,4 @@ function collabSection(s: Settings, partners: PartnerRow[], networks: NetworkRow
         : ""}
     </div>
   </section>`;
-}
-
-/**
- * Mjukt bindestreck före "utskott" i sammansatta namn ("Kommunikations­utskottet"), så att långa namn bryts
- * snyggt i smala kort. Webbläsarnas automatiska avstavning saknar ofta svenska.
- */
-function softHyphen(name: string): string {
-  return name.replace(/([a-zåäö])(utskott)/giu, "$1­$2");
 }

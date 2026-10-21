@@ -1,7 +1,9 @@
 import { html, paragraphs, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ec, ek, lines, loadSettings, type SettingKey, type Settings, arrange } from "../lib/settings.js";
+import { ec, ek, lines, loadSettings, type SettingKey, type Settings, arrange, siteLayout } from "../lib/settings.js";
 import { fill } from "../lib/texts.js";
-import { committeeImages, loadCommittees, type CommitteeRow } from "../lib/committees.js";
+import { committeeCover, committeeImages, loadCommittees, type CommitteeRow } from "../lib/committees.js";
+import { shownYear, splitByYear } from "../lib/years.js";
+import { isLinkVisible } from "../lib/pagelayout.js";
 import { boardQuery, partnerQuery, positionQuery, rows, type BoardRow, type PartnerRow, type PositionRow } from "../lib/content.js";
 import { errorSummary, renderField, validate, type Errors, type FieldSpec, type FormUiTexts, type Values } from "../lib/forms.js";
 import { checkFormToken, clientIp, formToken, rateLimit, turnstileEnabled, verifyTurnstile } from "../lib/security.js";
@@ -15,7 +17,7 @@ import type { Env } from "../env.js";
 import { layout, picture } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 import { checkList, contentPhoto, pageHeader } from "../views/page.js";
-import { partnerLogo } from "../views/components.js";
+import { arrowLink, partnerLogo } from "../views/components.js";
 import { loadMedals } from "../lib/medals.js";
 
 export type FormId = "kontakt" | "foretag" | "paverka" | "engagemang" | "nominering";
@@ -263,7 +265,9 @@ async function formBlock(c: RequestContext, s: Settings, id: FormId, fields: Fie
 
 export async function contactPage(c: RequestContext, values?: Values, errors?: Errors, topError?: string, status = 200): Promise<Response> {
   const db = c.env.DB;
-  const [s, board] = await Promise.all([loadSettings(db, c.preview), rows<BoardRow>(boardQuery.all(db))]);
+  const [s, allBoard] = await Promise.all([loadSettings(db, c.preview), rows<BoardRow>(boardQuery.all(db))]);
+  // Bara styrelsen för året som visas (inte tidigare år eller nästa styrelse som lagts in i förväg).
+  const board = splitByYear(allBoard, shownYear(s.service_year)).current;
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${s.address_street}, ${s.address_city}`)}`;
   const withMail = board.filter((b) => b.email);
   const content = html`
@@ -582,6 +586,7 @@ function deadline(c: RequestContext, s: Settings, signup: SignupState): SafeHtml
  * skrollar till det öppnade och öppnar kortet direkt om adressen slutar med #utskott-namn.
  */
 function committeeSection(s: Settings, committees: CommitteeRow[], signup: SignupState): SafeHtml {
+  const aboutVisible = isLinkVisible(siteLayout(s), "/om-oss");
   const mark = (name: string) => name.replace(/utskottet$/i, "").trim().charAt(0).toUpperCase() || name.charAt(0);
   return html`<section class="section section-surface" aria-labelledby="utskotten">
     <div class="container">
@@ -595,7 +600,7 @@ function committeeSection(s: Settings, committees: CommitteeRow[], signup: Signu
       <div class="cm-grid" data-cm-grid>
         ${committees.map((cm) => {
           const imgs = committeeImages(cm);
-          const cover = imgs[0];
+          const cover = committeeCover(cm);
           return html`<details class="cm-card${cover ? " has-image" : ""}" id="utskott-${cm.slug}" data-cm${ec(s, `/admin/utskott/${cm.id}`, `Utskott › ${cm.name}`)}>
             <summary class="cm-summary">
               <span class="cm-cover" aria-hidden="true">
@@ -619,6 +624,7 @@ function committeeSection(s: Settings, committees: CommitteeRow[], signup: Signu
                 ${signup.open
                   ? html`<a class="btn btn-primary" href="/engagera-dig?utskott=${cm.slug}#anmalan"${ek(s, "engage_committee_join")}>${fill(s.engage_committee_join, { utskott: cm.name })}</a>`
                   : html`<a class="btn btn-outline" href="#anmalan"${ek(s, "engage_committee_closed")}>${icon("lock", "icon icon-sm")}${fill(s.engage_committee_closed, { datum: signup.when })}</a>`}
+                ${aboutVisible ? html`<p class="cm-meet">${arrowLink(`/om-oss/utskott/${cm.slug}`, s.committee_meet_title, "arrow-link", ek(s, "committee_meet_title"))}</p>` : ""}
               </div>
             </div>
           </details>`;

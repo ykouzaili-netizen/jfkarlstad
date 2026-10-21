@@ -1032,3 +1032,41 @@ a.admin-user:hover { background: var(--c-hover); }
 .share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .share-box .copy-row { display: flex; gap: 8px; }
 .share-box .copy-row input { flex: 1; min-width: 0; font-size: 0.875rem; }
+
+/* Utskott → utskottet: rutan Medlemmar */
+.cmm { display: grid; gap: 16px; }
+.cmm-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 20px; }
+.cmm-head > div { flex: 1 1 320px; min-width: 0; }
+.cmm-title { font-size: 1.125rem; }
+.cmm-subtitle { font-size: 0.9375rem; font-weight: 700; margin: 4px 0 2px; }
+.cmm-list { list-style: none; display: grid; border-top: 1px solid var(--c-border); }
+.cmm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 0; border-bottom: 1px solid var(--c-border); background: var(--c-surface); }
+.cmm-row.is-moved, .cmm-row:target { background: #fff8db; }
+.cmm-photo { flex: none; width: 42px; height: 56px; border-radius: 6px; object-fit: cover; }
+.cmm-initials { display: grid; place-items: center; background: var(--c-primary); color: var(--c-accent); font-size: 0.8125rem; font-weight: 700; }
+.cmm-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 200px; min-width: 0; }
+.cmm-meta { color: var(--c-muted); font-size: 0.8125rem; }
+.cmm-flags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cmm-nophoto { color: #8a5a00; font-size: 0.75rem; font-weight: 600; }
+.cmm-empty { padding: 18px; border: 1px dashed var(--c-border); border-radius: 12px; color: var(--c-muted); }
+.cmm-next { display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid var(--c-border); }
+.cmm-next .link-btn { justify-self: start; }
+.cmm-archive > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.cmm-archive[open] { display: grid; gap: 8px; }
+.pill-accent { background: var(--c-accent); color: var(--c-on-accent); }
+
+/* Styrelsen: vilket verksamhetsår som visas */
+.year-intro { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.year-intro p { flex: 1 1 360px; margin: 0; }
+.year-intro-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+
+/* Styrelseskifte: byt verksamhetsår */
+.year-card { display: grid; gap: 16px 28px; margin-bottom: 20px; }
+@media (min-width: 640px) { .year-card { grid-template-columns: auto minmax(0, 1fr); align-items: center; } }
+.year-card-now { display: flex; flex-direction: column; gap: 2px; padding: 16px 20px; border-radius: 14px; background: var(--c-primary); color: var(--c-on-primary); }
+.year-card-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; }
+.year-card-year { font-family: var(--font-display); font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--c-accent); }
+.year-card-body { display: grid; gap: 12px; }
+.year-card-body p { margin: 0; }
+.year-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.cmm-jump { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }

@@ -6,6 +6,8 @@ import type { RequestContext } from "../router.js";
 import { icon } from "../views/icons.js";
 import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount } from "./layout.js";
+import { isServiceYear, nextYear, prevYear, shownYear } from "../lib/years.js";
+import { saveSettings } from "./texts.js";
 
 /**
  * Styrelseskifte: en checklista som hjälper en ny styrelse att ta över webbplatsen.
@@ -20,7 +22,8 @@ interface Step {
 }
 
 const STEPS: Step[] = [
-  { id: "styrelse", title: "Lägg in den nya styrelsen", text: "Byt namn, roller och e-postadresser. Ta bort foton på dem som har avgått.", link: { href: "/admin/styrelsen", label: "Styrelsen" } },
+  { id: "styrelse", title: "Lägg in den nya styrelsen och utskotten", text: "Lägg in dem som nästa verksamhetsår under Styrelsen och på varje utskott. Byt sedan år i rutan ovanför – då visas de nya, och de gamla flyttar till Tidigare år (bara namn och roll).", link: { href: "/admin/styrelsen", label: "Styrelsen" } },
+  { id: "gamla-foton", title: "Ta bort foton på dem som har slutat", text: "Tidigare år visas utan foton, men fotona ligger kvar tills ni tar bort dem. Öppna personen under Styrelsen eller Utskottsmedlemmar och tryck på Ta bort under fotot." },
   { id: "foton", title: "Fråga om samtycke till foton", text: "Ladda bara upp foton på de nya ledamöterna om de har sagt ja till det (GDPR). Utan foto visas initialerna." },
   { id: "konton", title: "Bjud in de nya till adminpanelen", text: "Varje person får ett eget konto – dela aldrig inloggningar.", link: { href: "/admin/anvandare", label: "Användare" } },
   { id: "gamla-konton", title: "Ta bort konton för dem som slutat", text: "Den som inte sitter kvar i styrelsen ska inte kunna logga in längre." },
@@ -77,12 +80,39 @@ export async function handoverPage(c: RequestContext, session: Session): Promise
     return "";
   };
 
+  const year = shownYear(s.service_year);
+  const coming = nextYear(year);
+  const [nb, nc] = await db
+    .batch([
+      db.prepare("SELECT COUNT(*) AS n FROM board_members WHERE year = ?").bind(coming),
+      db.prepare("SELECT COUNT(*) AS n FROM committee_members WHERE year = ?").bind(coming),
+    ])
+    .catch(() => [undefined, undefined] as (D1Result | undefined)[]);
+  const count = (r: D1Result | undefined) => ((r?.results[0] as { n?: number } | undefined)?.n ?? 0) as number;
+  const nextBoard = count(nb);
+  const nextCommittees = count(nc);
+  const yearCard = html`<section class="admin-card year-card" id="verksamhetsar" aria-labelledby="ar-rubrik">
+    <div class="year-card-now">
+      <span class="year-card-label">Verksamhetsår på webbplatsen</span>
+      <strong class="year-card-year" id="ar-rubrik">${year}</strong>
+    </div>
+    <div class="year-card-body">
+      <p>Inlagt för <strong>${coming}</strong>: ${nextBoard} i styrelsen och ${nextCommittees} i utskotten. När ni byter år visas de på webbplatsen, och ${year} flyttar till Tidigare år.</p>
+      <form method="post" action="/admin/styrelseskifte/ar" class="year-card-actions">
+        ${csrfField(session)}
+        <button class="btn btn-primary" type="submit" name="ar" value="${coming}"${nextBoard ? "" : html` data-confirm-click="Ingen i styrelsen är inlagd för ${coming} än – då blir styrelsen tom på webbplatsen. Byta år ändå?"`}${nextBoard ? html` data-confirm-click="Byta till ${coming}? Den nya styrelsen och de nya utskotten visas direkt, och ${year} flyttar till Tidigare år."` : ""}>Byt till ${coming}</button>
+        <button class="link-btn" type="submit" name="ar" value="${prevYear(year)}" data-confirm-click="Gå tillbaka till ${prevYear(year)}? Använd bara det här om ni har bytt år av misstag.">Tillbaka till ${prevYear(year)}</button>
+      </form>
+    </div>
+  </section>`;
+
   const content = html`
     ${adminHead("Styrelseskifte", { lead: "Checklistan för när en ny styrelse tar över webbplatsen. Bocka av stegen allteftersom – listan sparas, så ni kan dela upp arbetet mellan er." })}
     <div class="handover-progress">
       <progress class="handover-bar" max="${total}" value="${done}" aria-label="Styrelseskiftet: ${done} av ${total} steg klara"></progress>
       <p><strong>${done} av ${total} steg klara</strong>${state.by && state.at ? html` <span class="muted">· senast ändrad av ${state.by}, ${formatDateTimeShort(state.at)}</span>` : ""}</p>
     </div>
+    ${yearCard}
     <form class="admin-form" method="post" action="/admin/styrelseskifte" data-dirty-check>
       ${csrfField(session)}
       <ol class="handover-list">
@@ -120,4 +150,18 @@ export async function handoverSubmit(c: RequestContext, session: Session): Promi
     .run();
   await audit(c.env, session, form.get("nollstall") ? "började om" : "uppdaterade", "checklistan för styrelseskifte", null, `${done.length} av ${STEPS.length} klara`);
   return redirect("/admin/styrelseskifte?klart=sparat", 303);
+}
+
+/** POST /admin/styrelseskifte/ar – byt verksamhetsåret som visas på webbplatsen (ett år framåt eller bakåt). */
+export async function serviceYearSubmit(c: RequestContext, session: Session): Promise<Response> {
+  const form = await c.req.formData();
+  if (!checkCsrf(c, session, form)) return redirect("/admin/styrelseskifte?fel=csrf", 303);
+  const s = await loadSettings(c.env.DB);
+  const current = shownYear(s.service_year);
+  const wanted = String(form.get("ar") ?? "");
+  // Bara ett steg i taget, så att en ändrad sida eller ett dubbelklick inte hoppar flera år.
+  if (!isServiceYear(wanted) || (wanted !== nextYear(current) && wanted !== prevYear(current))) return redirect("/admin/styrelseskifte#verksamhetsar", 303);
+  await saveSettings(c.env.DB, session, [["service_year", wanted]]);
+  await audit(c.env, session, "bytte verksamhetsår till", "webbplatsen", null, `${current} → ${wanted}`);
+  return redirect("/admin/styrelseskifte?klart=verksamhetsar-bytt#verksamhetsar", 303);
 }

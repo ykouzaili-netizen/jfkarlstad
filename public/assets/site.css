@@ -4717,3 +4717,238 @@ button.pd-plaque:hover { transform: translateY(-2px); filter: brightness(1.06); 
 .year-step-when { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-primary); margin-bottom: 6px; }
 .year-step-title { font-family: var(--font-body); font-size: 1.125rem; font-weight: 600; letter-spacing: 0; line-height: 1.3; margin-bottom: 8px; }
 .year-step-text { color: var(--c-muted); font-size: 0.9375rem; line-height: 1.55; }
+
+/* ---------- Utskotten: Anslagstavlan (Om oss) och utskottens egna sidor ---------- */
+/* Anslagsbilden beskärs olika på affischen (4:5), överst på sidan (brett) och i Fler utskott. Styrelsen väljer
+   vad som alltid ska synas (Utskott → Vad ska alltid synas?). */
+.focus-upptill img { object-position: 50% 22%; }
+.focus-nertill img { object-position: 50% 80%; }
+.focus-vanster img { object-position: 22% 50%; }
+.focus-hoger img { object-position: 78% 50%; }
+
+/* Anslagstavlan: varje utskott är en affisch fäst med en tejpbit. Lutningen sitter bara på tejpen,
+   så att texten på affischerna står rakt och är lätt att läsa. */
+.committees-board .committees-head { display: grid; gap: 12px 48px; margin-bottom: clamp(32px, 5vw, 52px); }
+@media (min-width: 900px) {
+  .committees-board .committees-head { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; }
+  .committees-board .committees-head .section-lead { margin: 0; }
+}
+.poster-grid { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 14px; }
+@media (min-width: 700px) { .poster-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 24px; } }
+.poster { position: relative; display: flex; flex-direction: column; gap: 12px; padding-top: 11px; min-width: 0; }
+.poster--t1 { --tilt: -3deg; }
+.poster--t2 { --tilt: 2deg; }
+.poster--t3 { --tilt: -1.5deg; }
+.poster--t4 { --tilt: 3deg; }
+.poster-tape {
+  position: absolute; top: 0; left: 50%; z-index: 4;
+  width: 76px; height: 22px; margin-left: -38px;
+  background: color-mix(in srgb, var(--c-accent) 82%, transparent);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  transform: rotate(var(--tilt));
+  pointer-events: none;
+}
+.poster-card {
+  position: relative; isolation: isolate;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  aspect-ratio: 4 / 5;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.1), 0 14px 30px -16px rgb(0 0 0 / 0.5);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+.poster-card.has-image { color: #fff; }
+/* Utan bild: ett diskret rutmönster och utskottets begynnelsebokstav, som ett tryckt anslag. */
+.poster-card:not(.has-image) {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--c-on-primary) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--c-on-primary) 7%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.poster-media { position: absolute; inset: 0; z-index: -2; }
+.poster-media img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s var(--ease); }
+.poster-card.has-image::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgb(0 0 0 / 0) 34%, rgb(0 0 0 / 0.84) 100%); }
+.poster-monogram {
+  position: absolute; top: 6%; right: 8%;
+  font-family: var(--font-display); font-weight: var(--display-weight);
+  font-size: clamp(4.5rem, 3rem + 7vw, 9rem); line-height: 1;
+  color: var(--c-accent);
+}
+.poster-count {
+  position: absolute; top: 14px; left: 14px;
+  padding: 5px 10px; border-radius: 999px;
+  background: var(--c-accent); color: var(--c-on-accent);
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+/* Texten står längst ned i flödet (inte absolut placerad), så att länkens yta (::after) täcker hela affischen. */
+.poster-copy { display: flex; flex-direction: column; gap: 8px; padding: clamp(14px, 2.4vw, 22px); }
+.poster-name {
+  font-size: calc(clamp(1.125rem, 0.85rem + 1.3vw, 1.875rem) * var(--display-scale));
+  line-height: 1.08; color: inherit;
+  overflow-wrap: break-word; hyphens: manual;
+  text-wrap: balance;
+}
+.poster-link { color: inherit; text-decoration: none; }
+.poster-link::after { content: ""; position: absolute; inset: 0; z-index: 3; }
+.poster-link:focus-visible { outline: none; }
+.poster-card:has(.poster-link:focus-visible) { outline: 3px solid var(--c-accent); outline-offset: 4px; }
+.poster-text {
+  font-size: 0.875rem; line-height: 1.5; opacity: 0.88;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+.poster-chair { font-size: 0.8125rem; line-height: 1.4; color: var(--c-muted); }
+.poster-chair strong { color: var(--c-text); font-weight: 600; }
+@media (hover: hover) {
+  .poster:hover .poster-card { transform: translateY(-4px); box-shadow: 0 2px 4px rgb(0 0 0 / 0.1), 0 26px 44px -18px rgb(0 0 0 / 0.55); }
+  .poster:hover .poster-media img { transform: scale(1.04); }
+}
+@media (max-width: 699px) {
+  /* Två affischer i bredd: rubriken får plats med "Kommunikations-" på en rad även på en smal telefon. */
+  .poster-name { font-size: calc(clamp(0.9375rem, 0.55rem + 1.6vw, 1.25rem) * var(--display-scale)); }
+  .poster-copy { padding: 12px; }
+  .poster-text { display: none; }
+  .poster-tape { width: 54px; height: 16px; margin-left: -27px; }
+  .poster-count { top: 10px; left: 10px; padding: 4px 8px; font-size: 0.6875rem; }
+  .poster-chair { font-size: 0.75rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .poster-card, .poster-media img { transition: none; }
+  .poster:hover .poster-card, .poster:hover .poster-media img { transform: none; }
+}
+.committees-board-cta { margin-top: clamp(40px, 5vw, 64px); }
+
+/* Utskottets sida: toppen med anslagsbilden */
+.cm-hero {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; align-items: flex-end;
+  min-height: clamp(380px, 48vw, 560px);
+  padding-block: clamp(40px, 6vw, 80px) clamp(36px, 5vw, 64px);
+  background: var(--c-primary); color: var(--c-on-primary);
+}
+.cm-hero.has-image { color: #fff; }
+.cm-hero-media { position: absolute; inset: 0; z-index: -2; }
+.cm-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.cm-hero.has-image::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(0deg, rgb(0 0 0 / 0.72) 0%, rgb(0 0 0 / 0.2) 70%), linear-gradient(90deg, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0) 70%);
+}
+.cm-hero-monogram {
+  position: absolute; right: -0.04em; bottom: -0.22em; z-index: -1;
+  font-family: var(--font-display); font-weight: var(--display-weight);
+  font-size: clamp(14rem, 8rem + 22vw, 28rem); line-height: 1;
+  color: var(--c-accent); opacity: 0.9;
+  pointer-events: none;
+}
+.cm-hero-inner { width: 100%; }
+.cm-hero .breadcrumb ol, .cm-hero .breadcrumb [aria-current] { color: inherit; }
+.cm-hero .breadcrumb ol { opacity: 0.85; }
+.cm-hero .breadcrumb a { color: inherit; }
+.cm-title {
+  max-width: 15ch;
+  font-size: calc(clamp(2.5rem, 1.5rem + 4.4vw, 4.75rem) * var(--display-scale));
+  line-height: 1.02; letter-spacing: -0.02em;
+  color: inherit; overflow-wrap: break-word; hyphens: manual; text-wrap: balance;
+}
+.cm-lead-text { max-width: 54ch; margin-top: 16px; font-size: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem); line-height: 1.55; opacity: 0.9; }
+.cm-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.cm-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 999px;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  font-size: 0.8125rem; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.cm-chip-accent { background: var(--c-accent); color: var(--c-on-accent); }
+.cm-section-title { margin-bottom: clamp(20px, 3vw, 32px); }
+
+/* Möt utskottet: den som står först får ett eget, större kort */
+.cm-lead {
+  display: grid; grid-template-columns: minmax(0, 120px) minmax(0, 1fr); grid-template-areas: "photo body" "quote quote"; gap: 18px; align-items: start;
+  margin-bottom: 16px; padding: clamp(14px, 2.6vw, 28px);
+  border: 1px solid var(--c-border); border-radius: var(--radius-lg);
+  background: var(--c-surface);
+}
+@media (min-width: 760px) {
+  .cm-lead { grid-template-columns: 280px minmax(0, 1fr); grid-template-rows: auto auto; grid-template-areas: "photo body" "photo quote"; gap: 0 44px; align-content: center; }
+  .cm-lead-body { align-self: end; }
+  .cm-lead-quote { align-self: start; max-width: 36rem; }
+}
+.cm-lead-photo { grid-area: photo; }
+.cm-lead-body { grid-area: body; }
+.cm-lead-quote { grid-area: quote; }
+@media (min-width: 760px) { .cm-lead:not(:has(.cm-lead-quote)) .cm-lead-body { grid-row: 1 / 3; align-self: center; } }
+.cm-lead-photo { position: relative; aspect-ratio: 3 / 4; border-radius: var(--radius); overflow: hidden; background: var(--c-primary); }
+.cm-lead-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; }
+.cm-lead-photo .person-initials { position: absolute; inset: 0; padding-bottom: 0; font-size: clamp(2.25rem, 1.4rem + 3.4vw, 4.5rem); }
+.cm-lead-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; max-width: 36rem; }
+.cm-lead-role { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-muted); }
+.cm-lead-name { font-size: calc(clamp(1.5rem, 1.15rem + 1.5vw, 2.25rem) * var(--display-scale)); line-height: 1.1; }
+.cm-lead-program { color: var(--c-muted); font-size: 0.9375rem; }
+.cm-lead-quote { position: relative; margin: 12px 0 0; padding-top: 4px; }
+.cm-lead-quote p { font-family: var(--font-display); font-style: italic; font-size: calc(clamp(1.0625rem, 0.95rem + 0.6vw, 1.4rem) * var(--display-scale)); line-height: 1.45; }
+.cm-lead-quote p::before { content: "”"; margin-right: 0.08em; color: var(--c-primary); }
+.cm-lead-quote p::after { content: "”"; margin-left: 0.04em; color: var(--c-primary); }
+.cm-lead-email { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 12px; font-weight: 600; text-decoration-color: var(--c-accent); }
+.cm-lead-address { font-weight: 400; color: var(--c-muted); font-size: 0.875rem; }
+.cm-members { margin-top: 4px; }
+.person-meta { margin-top: 2px; color: color-mix(in srgb, var(--c-on-primary) 72%, transparent); font-size: 0.75rem; line-height: 1.35; }
+.cm-empty { padding: 24px; border: 1px dashed var(--c-border); border-radius: var(--radius); color: var(--c-muted); }
+
+/* Vill du vara med? */
+.cm-join {
+  display: grid; gap: 12px; align-content: start;
+  padding: clamp(22px, 3vw, 30px);
+  border-radius: var(--radius-lg);
+  background: var(--c-accent); color: var(--c-on-accent);
+}
+@media (min-width: 900px) { .cm-join { position: sticky; top: calc(var(--header-h) + 24px); } }
+.cm-join-title { font-size: calc(1.5rem * var(--display-scale)); color: inherit; }
+.cm-join-meta { font-size: 0.875rem; }
+.cm-join-meta span { font-weight: 700; }
+.cm-join .btn { justify-self: start; }
+.cm-join .btn-primary { background: var(--c-primary); color: var(--c-on-primary); border-color: var(--c-primary); box-shadow: none; }
+.cm-join .btn-outline { border-color: currentColor; color: inherit; }
+.cm-join :focus-visible { outline-color: var(--c-on-accent); }
+.cm-join-email { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: inherit; }
+
+/* Fler utskott */
+.cm-more { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); gap: 20px 16px; }
+@media (max-width: 559px) { .cm-more { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.cm-more-item { position: relative; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cm-more-media { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 10; border-radius: var(--radius-sm); overflow: hidden; background: var(--c-primary); }
+.cm-more-media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s var(--ease); }
+.cm-more-monogram { font-family: var(--font-display); font-weight: var(--display-weight); font-size: 2.5rem; color: var(--c-accent); }
+.cm-more-link { font-weight: 600; font-size: 0.9375rem; line-height: 1.3; text-decoration: none; overflow-wrap: break-word; hyphens: manual; }
+.cm-more-link::after { content: ""; position: absolute; inset: 0; }
+.cm-more-item:hover .cm-more-link { text-decoration: underline; text-decoration-color: var(--c-accent); }
+.cm-more-item:hover .cm-more-media img { transform: scale(1.04); }
+.cm-more-link:focus-visible { outline: none; }
+.cm-more-item:has(.cm-more-link:focus-visible) .cm-more-media { outline: 3px solid var(--c-accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .cm-more-media img { transition: none; } .cm-more-item:hover .cm-more-media img { transform: none; } }
+
+/* Tidigare år (utskotten) och Tidigare styrelser (Om oss): bara namn och roll */
+.archive { border-block: 1px solid var(--c-border); }
+.archive-board { margin-top: clamp(28px, 4vw, 44px); }
+.archive > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; cursor: pointer; list-style: none; }
+.archive > summary::-webkit-details-marker { display: none; }
+.archive > summary .icon { flex: none; transition: transform 0.25s var(--ease); }
+.archive[open] > summary .icon { transform: rotate(180deg); }
+.archive > summary:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 2px; border-radius: 6px; }
+.archive-summary { display: flex; flex-direction: column; gap: 2px; }
+.archive-title { font-family: var(--font-display); font-weight: var(--display-weight); font-size: calc(1.375rem * var(--display-scale)); }
+.archive-lead { color: var(--c-muted); font-size: 0.9375rem; }
+.archive-years { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 28px 32px; padding: 6px 0 28px; }
+.archive-year-title { font-family: var(--font-display); font-size: calc(1.25rem * var(--display-scale)); font-variant-numeric: lining-nums tabular-nums; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 2px solid var(--c-accent); }
+.archive-list { list-style: none; }
+.archive-list li { display: flex; flex-direction: column; padding: 7px 0; border-bottom: 1px solid var(--c-border); }
+.archive-name { font-weight: 600; }
+.archive-role { color: var(--c-muted); font-size: 0.8125rem; }
+
+/* Engagera dig: länk till utskottets sida */
+.cm-meet { margin-top: 14px; }
+.cm-members { grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); }
+@media (max-width: 559px) { .cm-members { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.cm-join { min-width: 0; }
+.cm-join .btn { max-width: 100%; white-space: normal; text-align: left; }

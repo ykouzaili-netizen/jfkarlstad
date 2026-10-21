@@ -1,4 +1,5 @@
 import { loadNetworks } from "../lib/networks.js";
+import { loadCommittees } from "../lib/committees.js";
 import { isLinkVisible } from "../lib/pagelayout.js";
 import { escapeHtml, html, raw, type SafeHtml } from "../lib/html.js";
 import { ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
@@ -90,7 +91,7 @@ export async function searchPage(c: RequestContext): Promise<Response> {
       faqQuery.all(db),
       partnerQuery.all(db),
     ]);
-    const networks = await loadNetworks(db);
+    const [networks, committees] = await Promise.all([loadNetworks(db), loadCommittees(db)]);
     const res = <T,>(r: D1Result | undefined) => (r?.results ?? []) as T[];
     const title = (t: string) => (matches(ts, t) ? 2 : 1);
 
@@ -151,6 +152,12 @@ export async function searchPage(c: RequestContext): Promise<Response> {
               .filter((n) => matches(ts, n.name, n.summary, n.description))
               .map((n) => ({ title: n.name, href: `/om-oss/${n.slug}`, meta: n.kicker, text: snippet(ts, n.summary || n.description), score: title(n.name) })),
           ),
+      },
+      {
+        key: "search_group_pages",
+        hits: committees
+          .filter((cm) => matches(ts, cm.name, cm.summary, cm.body))
+          .map((cm) => ({ title: cm.name, href: `/om-oss/utskott/${cm.slug}`, meta: s.committee_breadcrumb, text: snippet(ts, cm.summary || cm.body), score: title(cm.name) })),
       },
     ]
       .map((g) => ({ ...g, hits: g.hits.filter((h) => isLinkVisible(siteLayout(s), h.href)) }))

@@ -303,6 +303,10 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
   const partner = e.partner_id
     ? await db.prepare("SELECT name, slug FROM partners WHERE id = ? AND published = 1").bind(e.partner_id).first<{ name: string; slug: string }>().catch(() => null)
     : null;
+  // Utskottet som arrangerar eventet (bara om utskottet visas)
+  const committee = e.committee_id
+    ? await db.prepare("SELECT name, slug FROM committees WHERE id = ? AND published = 1").bind(e.committee_id).first<{ name: string; slug: string }>().catch(() => null)
+    : null;
   const d = eventDate(e.starts_at, e.ends_at);
   const isPast = (e.ends_at ?? e.starts_at.slice(0, 10) + "T23:59") < stockholmNow();
   const img = mediaUrl(e.image_key);
@@ -334,6 +338,7 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
               ${d ? html`<li>${icon("clock", "icon")}<span>${d.time}</span></li>` : ""}
               ${e.location ? html`<li>${icon("pin", "icon")}<span>${e.location}</span></li>` : ""}
               ${e.members_only ? html`<li${ek(s, "event_members_only")}>${icon("lock", "icon")}<span>${s.event_members_only}</span></li>` : ""}
+              ${committee ? html`<li${ek(s, "event_by")}>${icon("users", "icon")}<span><a href="/om-oss/utskott/${committee.slug}">${fill(s.event_by, { namn: committee.name })}</a></span></li>` : ""}
               ${partner ? html`<li${ek(s, "event_with")}>${icon("briefcase", "icon")}<span><a href="/partners/${partner.slug}">${fill(s.event_with, { namn: partner.name })}</a></span></li>` : ""}
             </ul>
             ${!isPast

@@ -39,6 +39,8 @@ const FLASH: Record<string, { kind: "ok" | "error"; text: string }> = {
   uppladdning: { kind: "error", text: "Filen kunde inte laddas upp. Kontrollera filtyp och storlek." },
   "ar-satt": { kind: "ok", text: "Året är sparat på de markerade bilderna och syns direkt i bildgalleriet." },
   "ar-inga": { kind: "error", text: "Bocka i minst en bild först." },
+  "utskott-har-medlemmar": { kind: "error", text: "Utskottet har medlemmar (även tidigare år) och kan inte tas bort. Vill ni bara att det inte syns? Tryck på Dölj. Annars: ta bort medlemmarna först, längst ned på utskottets sida." },
+  "verksamhetsar-bytt": { kind: "ok", text: "Verksamhetsåret är bytt. Webbplatsen visar nu den nya styrelsen och de nya utskotten – de tidigare finns under Tidigare år." },
   "kategori-har-bilder": { kind: "error", text: "Kategorin har bilder kvar och kan inte tas bort. Flytta bilderna först: markera dem under Bilder och välj en annan kategori – eller byt bara namn på kategorin." },
   "flera-andrade": { kind: "ok", text: "Klart! Ändringen är sparad på de markerade bilderna." },
   "flera-borttagna": { kind: "ok", text: "De markerade bilderna är borttagna och raderade." },

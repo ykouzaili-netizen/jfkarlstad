@@ -52,6 +52,15 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   under produktens formulär (`src/admin/shop-images.ts`, `editOutro`). På produktsidan öppnas bilderna i helbild (gal-lb-rutan, butik.js).
   Varukorgen finns bara i webbläsaren (localStorage `jfk-butik-korg`), kontrolleras mot `#shop-data` på /butik/varukorg.
   **Ingen betalning än** – kassan visar `shop_checkout_soon` tills leverantör och Stripe är kopplade. Test: `tools/e2e/test_shop.py`.
+- **Utskotten och verksamhetsåren** (`src/pages/committee.ts`, `src/lib/committees.ts`, `src/lib/years.ts`, migrering 0026):
+  varje utskott har en egen sida `/om-oss/utskott/:slug` med anslagsbild (`committees.cover_key`, `cover_focus` = vad som
+  alltid ska synas när bilden beskärs), medlemmar (`committee_members`, den första visas störst med citat), Vad vi gör,
+  bilder, evenemang (`events.committee_id`), Tidigare år och Fler utskott. Om oss har utseendet Anslagstavlan (standard).
+  Medlemmarna redigeras i rutan under utskottets formulär (`src/admin/committee-members.ts`); resursen `utskottsmedlemmar`
+  har `returnTo` som skickar tillbaka till utskottet. Styrelsen (`board_members.year`) och utskottens medlemmar hör till ett
+  verksamhetsår ("2026/27"); inställningen `service_year` är året som visas och byts under Styrelseskifte. Äldre år visas
+  som Tidigare år/Tidigare styrelser (bara namn och roll), ett senare år är nästa styrelse som läggs in i förväg.
+  Test: `tools/e2e/test_committees.py`.
 - **Schemaläggning:** `news.published_at`, `events.publish_at`, `jobs.publish_at` (UTC). Publika frågor filtrerar via
   `NEWS_LIVE`/`EVENT_LIVE`/`JOB_LIVE` i `content.ts`. Admin-fält med `schedule: true` visas i svensk tid.
 - **Partnerstatistik** (`src/lib/stats.ts`): bara totalsiffror per dag i `stats_daily`, utan IP/kakor. Utlänkar går via

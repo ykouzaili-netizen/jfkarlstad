@@ -16,6 +16,8 @@ const EXTRA_DEFAULTS = {
   menu_config: "",
   /** Checklistan för styrelseskifte (JSON). */
   handover_state: "",
+  /** Verksamhetsåret som visas på webbplatsen, t.ex. "2026/27" (src/lib/years.ts). Byts under Styrelseskifte. */
+  service_year: "",
   font_heading: "playfair",
   /** Rörelse och animationer: "full" (standard), "lugn" (bara mjuka toningar) eller "av". */
   motion_level: "full",

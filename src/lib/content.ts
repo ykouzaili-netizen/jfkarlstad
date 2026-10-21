@@ -30,6 +30,8 @@ export interface EventRow {
   publish_at: string | null;
   /** Studentnätverket som eventet arrangeras tillsammans med (migrering 0017), annars null. */
   partner_id?: number | null;
+  /** Utskottet som arrangerar eventet (migrering 0026), annars null. */
+  committee_id?: number | null;
 }
 
 export interface PartnerRow {
@@ -58,6 +60,8 @@ export interface BoardRow {
   role: string;
   email: string | null;
   photo_key: string | null;
+  /** Verksamhetsåret, t.ex. "2026/27" (migrering 0026). Tomt = året som visas. */
+  year?: string;
   sort_order: number;
   published: number;
 }
@@ -255,6 +259,9 @@ export const eventQuery = {
   /** Kommande evenemang tillsammans med ett studentnätverk (nätverkets egen sida). */
   upcomingForPartner: (db: D1Database, partnerId: number, nowLocal: string, limit: number) =>
     db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND partner_id = ? AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(partnerId, nowLocal, limit),
+  /** Kommande evenemang som ett utskott arrangerar (utskottets egen sida). */
+  upcomingForCommittee: (db: D1Database, committeeId: number, nowLocal: string, limit: number) =>
+    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND committee_id = ? AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(committeeId, nowLocal, limit),
 };
 
 /** Logotypen kommer från partnern (om den är publicerad) eller från arbetsgivarregistret (companies). */

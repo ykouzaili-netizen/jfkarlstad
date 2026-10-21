@@ -23,6 +23,26 @@ export interface CommitteeRow {
   image_2_alt: string;
   image_3_key: string | null;
   image_3_alt: string;
+  /** Anslagsbilden (migrering 0026): på kortet under Om oss och överst på utskottets sida. */
+  cover_key?: string | null;
+  cover_alt?: string;
+  /** Vad som alltid ska synas när bilden beskärs: mitten, upptill, nertill, vanster, hoger. */
+  cover_focus?: string;
+  email?: string | null;
+  sort_order: number;
+  published: number;
+}
+
+/** En medlem i ett utskott ett visst verksamhetsår (migrering 0026). Den som står först visas störst. */
+export interface CommitteeMemberRow {
+  id: number;
+  committee_id: number;
+  year: string;
+  name: string;
+  role: string;
+  program: string;
+  quote: string;
+  photo_key: string | null;
   sort_order: number;
   published: number;
 }
@@ -156,4 +176,43 @@ export function committeeImages(c: CommitteeRow): { key: string; alt: string }[]
     { key: c.image_2_key, alt: c.image_2_alt },
     { key: c.image_3_key, alt: c.image_3_alt },
   ].filter((i): i is { key: string; alt: string } => Boolean(i.key));
+}
+
+/** Anslagsbilden – eller bild 1 om ingen anslagsbild är vald. */
+export function committeeCover(c: CommitteeRow): { key: string; alt: string } | null {
+  if (c.cover_key) return { key: c.cover_key, alt: c.cover_alt ?? "" };
+  if (c.image_1_key) return { key: c.image_1_key, alt: c.image_1_alt };
+  return null;
+}
+
+/** Valen för "Vad ska alltid synas?" och var bilden då beskärs (CSS object-position). */
+export const COVER_FOCUS: Record<string, { label: string; position: string }> = {
+  mitten: { label: "Mitten av bilden", position: "50% 50%" },
+  upptill: { label: "Övre delen (t.ex. ansikten i en gruppbild)", position: "50% 22%" },
+  nertill: { label: "Nedre delen", position: "50% 80%" },
+  vanster: { label: "Vänster sida", position: "22% 50%" },
+  hoger: { label: "Höger sida", position: "78% 50%" },
+};
+
+export function coverFocus(c: CommitteeRow): string {
+  return COVER_FOCUS[c.cover_focus ?? ""] ? c.cover_focus! : "mitten";
+}
+
+/**
+ * Publicerade medlemmar för alla utskott (eller ett), i ordning: utskott, år (nyast först), ordning.
+ * Tål att tabellen saknas (koden publicerad före migreringen) – då finns inga medlemmar.
+ */
+export async function loadCommitteeMembers(db: D1Database, committeeId?: number): Promise<CommitteeMemberRow[]> {
+  try {
+    const where = committeeId ? "WHERE published = 1 AND committee_id = ?" : "WHERE published = 1";
+    const stmt = db.prepare(`SELECT * FROM committee_members ${where} ORDER BY committee_id, year DESC, sort_order, id`);
+    return (await (committeeId ? stmt.bind(committeeId) : stmt).all<CommitteeMemberRow>()).results;
+  } catch {
+    return [];
+  }
+}
+
+/** Ordföranden bland årets medlemmar: den första vars roll är ordförande (inte vice). */
+export function chairOf(members: CommitteeMemberRow[]): CommitteeMemberRow | null {
+  return members.find((m) => /ordf/i.test(m.role) && !/vice/i.test(m.role)) ?? null;
 }
