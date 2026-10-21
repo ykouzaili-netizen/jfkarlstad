@@ -1,4 +1,5 @@
 import { html, type SafeHtml } from "../lib/html.js";
+import { chunked, placeholders, selectIn } from "../lib/sql.js";
 import { isHex, luminance } from "../lib/color.js";
 import { DEFAULT_SETTINGS, firstImage, loadSettings, SLIDE_PREFIX, slideshowOf, siteLayout, type SettingKey, type Settings } from "../lib/settings.js";
 import { PAGES, FIELD_INDEX, findPage, type FieldDef, type PageDef, type SectionDef } from "../lib/texts.js";
@@ -45,10 +46,7 @@ export async function saveSettings(
   const keys = changed.map(([k]) => k);
 
   // Första gången en text ändras sparas även texten som gällde innan, så att den går att återställa.
-  const { results } = await db
-    .prepare(`SELECT DISTINCT key FROM setting_versions WHERE key IN (${keys.map(() => "?").join(",")})`)
-    .bind(...keys)
-    .all<{ key: string }>();
+  const results = await selectIn<{ key: string }>(db, "SELECT DISTINCT key FROM setting_versions WHERE key IN ({in})", keys);
   const withHistory = new Set(results.map((r) => r.key));
 
   const stmts: D1PreparedStatement[] = [];
@@ -318,10 +316,7 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
   const keys = page.sections.flatMap((sec) => (sec.fields as readonly FieldDef[]).map((f) => f.key));
   let versionCounts = new Map<string, number>();
   try {
-    const { results } = await db
-      .prepare(`SELECT key, COUNT(*) AS n FROM setting_versions WHERE key IN (${keys.map(() => "?").join(",")}) GROUP BY key`)
-      .bind(...keys)
-      .all<{ key: string; n: number }>();
+    const results = await selectIn<{ key: string; n: number }>(db, "SELECT key, COUNT(*) AS n FROM setting_versions WHERE key IN ({in}) GROUP BY key", keys);
     versionCounts = new Map(results.map((r) => [r.key, r.n]));
   } catch {
     /* ingen historik ännu */
@@ -540,7 +535,7 @@ export async function resetLayoutSubmit(c: RequestContext, session: Session): Pr
   if (!checkCsrf(c, session, form)) return redirect(`/admin/texter?sida=${page.id}&fel=csrf`, 303);
   const layout = siteLayout(await loadSettings(c.env.DB));
   const keys = [`ordning:${page.id}`, `dolt:${page.id}`, ...styledKeys(page, layout).map((k) => `stil:${k}`)];
-  await c.env.DB.prepare(`DELETE FROM settings WHERE key IN (${keys.map(() => "?").join(",")})`).bind(...keys).run();
+  await c.env.DB.batch(chunked(keys).map((part) => c.env.DB.prepare(`DELETE FROM settings WHERE key IN (${placeholders(part)})`).bind(...part)));
   await audit(c.env, session, "återställde uppbyggnaden av", "sidan", page.id, page.title);
   return redirect(`/admin/texter?sida=${page.id}&klart=uppbyggnad_aterstalld`, 303);
 }
@@ -551,10 +546,7 @@ export async function resetLayoutSubmit(c: RequestContext, session: Session): Pr
  */
 async function saveLayout(db: D1Database, entries: [string, string | null][]): Promise<string[]> {
   if (!entries.length) return [];
-  const { results } = await db
-    .prepare(`SELECT key, value FROM settings WHERE key IN (${entries.map(() => "?").join(",")})`)
-    .bind(...entries.map(([k]) => k))
-    .all<{ key: string; value: string }>();
+  const results = await selectIn<{ key: string; value: string }>(db, "SELECT key, value FROM settings WHERE key IN ({in})", entries.map(([k]) => k));
   const current = new Map(results.map((r) => [r.key, r.value]));
   const changes = entries.filter(([k, v]) => (current.get(k) ?? null) !== v);
   if (!changes.length) return [];

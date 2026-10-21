@@ -7,6 +7,7 @@ import type { Env } from "./env.js";
 import { Router, type RequestContext } from "./router.js";
 import { randomToken, redirect, textResponse } from "./lib/http.js";
 import { loadSettings } from "./lib/settings.js";
+import { logError } from "./lib/errorlog.js";
 import { findRedirect, looksLikeOldAddress } from "./lib/legacy.js";
 import { getFile, MEDIA_VARIANT_VERSION } from "./lib/storage.js";
 import { thumbnail } from "./lib/youtube.js";
@@ -294,6 +295,7 @@ export default {
       // Engångslänkar (lösenord) får aldrig hamna i loggen
       const safePath = url.pathname.replace(/^\/admin\/losenord\/.+$/, "/admin/losenord/[dold]");
       console.error("Ohanterat fel", req.method, safePath, err);
+      exec.waitUntil(logError(env, req.method, safePath, err));
       return errorPage(c);
     }
   },

@@ -11,6 +11,8 @@ export async function runMaintenance(env: Env): Promise<void> {
     // Rate limit-rader vars tidsfönster (max 1 timme) har gått ut. Cron körs varje timme, så ingen rad
     // överlever längre än ca 2 timmar – väl inom löftet "inom 24 timmar" i integritetspolicyn.
     env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?").bind(now - 3600),
+    // Tekniska fel (error_log) behövs bara för felsökning – 30 dagar räcker
+    env.DB.prepare("DELETE FROM error_log WHERE created_at < datetime('now', '-30 days')"),
     // Formulärinskick raderas efter 12 månader (se integritetspolicyn)
     env.DB.prepare("DELETE FROM submissions WHERE created_at < datetime('now', '-12 months')"),
     // Ändringsloggen sparas i två år

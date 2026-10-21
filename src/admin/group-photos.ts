@@ -276,7 +276,8 @@ export async function keepForNextYear(c: RequestContext, session: Session): Prom
   if (!checkCsrf(c, session, form)) return backTo(scope, "fel=csrf", anchor);
   const year = await currentServiceYear(db);
   const coming = nextYear(year);
-  const ids = form.getAll("id").map((v) => Number(v)).filter((n) => Number.isInteger(n) && n > 0);
+  // Högst 90 (D1 tillåter 100 parametrar per fråga) – ett utskott eller en styrelse är aldrig i närheten.
+  const ids = [...new Set(form.getAll("id").map((v) => Number(v)).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 90);
   if (!ids.length) return backTo(scope, "fel=inga-valda", anchor);
   const marks = ids.map(() => "?").join(",");
   const norm = (n: string) => n.trim().toLocaleLowerCase("sv");

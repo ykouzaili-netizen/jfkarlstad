@@ -131,6 +131,9 @@ tools/local-preview Reservlösning för förhandsvisning utan wrangler (node:sql
 - **CSS/JS-cache:** filerna cachas ett år. Höj `ASSET_VERSION` i `src/views/layout.ts` när `site.css`/`site.js` ändras.
 - **Typsnitt:** självhostade WOFF2 i `public/assets/fonts` (Montserrat, Playfair Display, Cormorant Garamond – OFL).
   Rubriktypsnittet väljs i adminpanelen och sätts via `--font-display`/`--display-scale`.
+- **D1 tillåter högst 100 parametrar per fråga.** Listor i `IN (…)` delas upp med `selectIn`/`chunked` i `src/lib/sql.ts`
+  (förhandsvisningen har samma gräns, så testerna fångar det). Ohanterade fel (500) sparas utan personuppgifter i
+  `error_log` (`src/lib/errorlog.ts`, rensas efter 30 dagar) – läs den med en D1-fråga vid felsökning.
 - **Säkerhet:** validera all indata på servern, escapa all utdata, inga hemligheter i koden (Worker secrets).
   Anonyma JF Påverka-inskick: spara/logga aldrig IP, namn eller e-post.
 - **GDPR:** Cloudflares anropsloggar (invocation logs) är avstängda i `wrangler.jsonc` – slå inte på dem, det bryter

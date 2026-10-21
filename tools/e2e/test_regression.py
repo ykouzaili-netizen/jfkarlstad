@@ -215,6 +215,16 @@ with sync_playwright() as p:
     page.wait_for_load_state()
     check(page.locator(".invite-box").count() == 1, "inbjudningslänk skapas")
 
+    # Sidor med många texter (> 100 fält med egen stil): D1 tillåter bara 100 parametrar per fråga, och sparningen
+    # gav 500 i produktion (okt 2026). Förhandsvisningen har samma gräns nu.
+    print("Spara sidor med många texter")
+    for sida in ["om-oss", "tavling", "integritet"]:
+        page.goto(f"{BASE}/admin/texter?sida={sida}")
+        page.evaluate("document.querySelector('#texter-form textarea, #texter-form input[type=text]').value += ' (test)'")
+        with page.expect_navigation():
+            page.locator("#texter-form button[type=submit]:not([formaction])").first.click()
+        check("klart=texter" in page.url, f"{sida}: ändringen sparas")
+
     check(not errors, f"inga JavaScript-fel {errors[:3]}")
     browser.close()
 done()

@@ -41,7 +41,11 @@ function d1Value(v) {
 
 class Stmt {
   constructor(sql, params = []) { this.sql = sql; this.params = params; }
-  bind(...values) { return new Stmt(this.sql, values.map(d1Value)); }
+  bind(...values) {
+    // Som i D1: högst 100 parametrar per fråga (SQLite tillåter fler, så annars syns felet bara i produktion).
+    if (values.length > 100) throw new Error(`D1_ERROR: too many SQL variables (${values.length} > 100): ${this.sql.slice(0, 80)}`);
+    return new Stmt(this.sql, values.map(d1Value));
+  }
   async all() {
     const s = sqlite.prepare(this.sql);
     const reader = /^\s*(select|with|pragma)|returning/i.test(this.sql);

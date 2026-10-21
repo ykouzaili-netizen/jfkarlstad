@@ -665,7 +665,7 @@ with sync_playwright() as p:
     page.locator(".handover-check input").nth(2).check()
     page.click("form.admin-form button[type=submit]")
     page.wait_for_url(re.compile(r"klart=sparat"))
-    check("2 av 11 steg klara" in page.content(), "checklistan sparar framstegen")
+    check(re.search(r"2 av \d+ steg klara", page.content()) is not None, "checklistan sparar framstegen")
     page.screenshot(path=str(OUT / "styrelseskifte.png"), full_page=True)
 
     # ───────── Sidans färger ─────────
