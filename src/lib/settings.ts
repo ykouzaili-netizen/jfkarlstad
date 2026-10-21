@@ -216,7 +216,7 @@ export const BLOCK_COLORS: Record<string, Record<string, string>> = {
   "bli-medlem": { formaner: "bli_medlem_formaner", faq: "bli_medlem_faq" },
   "for-studenter": { studera: "for_studenter_studera", jobb: "for_studenter_jobb", kursombud: "for_studenter_kursombud", galleri: "for_studenter_galleri" },
   "engagera-dig": { uppdrag: "engagera_dig_uppdrag", utskott: "engagera_dig_utskott", fler: "engagera_dig_fler" },
-  "for-foretag": { varfor: "for_foretag_varfor", paket: "for_foretag_paket", formular: "for_foretag_formular" },
+  "for-foretag": { varfor: "for_foretag_varfor", aret: "for_foretag_aret", paket: "for_foretag_paket", formular: "for_foretag_formular" },
 };
 
 /**

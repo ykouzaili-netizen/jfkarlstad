@@ -308,6 +308,18 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
     .filter((p) => s[p.nameKey]);
   const packageStyle = ["kort", "nivaer", "mork"].includes(s.packages_style) ? s.packages_style : "kort";
   const formHtml = await formBlock(c, s, "foretag", fieldsFor("foretag", s), values, errors, topError);
+  // Varför JFK?: siffrorna (antalet partners räknas från listan), skälen och året. Tomma rader visas inte.
+  const whyStats = [
+    { key: "companies_stat_1_value" as const, value: s.companies_stat_1_value, label: s.companies_stat_1_label },
+    { key: "companies_stat_partners_label" as const, value: partners.length ? String(partners.length) : "", label: s.companies_stat_partners_label },
+    { key: "companies_stat_3_value" as const, value: s.companies_stat_3_value, label: s.companies_stat_3_label },
+  ].filter((st) => st.value.trim());
+  const reasons = ([1, 2, 3] as const)
+    .map((n) => ({ titleKey: `companies_reason_${n}_title` as const, textKey: `companies_reason_${n}_text` as const }))
+    .filter((r) => s[r.titleKey]);
+  const yearSteps = ([1, 2, 3, 4] as const)
+    .map((n) => ({ whenKey: `companies_year_${n}_when` as const, titleKey: `companies_year_${n}_title` as const, textKey: `companies_year_${n}_text` as const }))
+    .filter((st) => s[st.titleKey]);
   const content = html`
     ${pageHeader(s, {
       kickerKey: "companies_kicker",
@@ -322,6 +334,15 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
         <div>
           <h2 class="section-title"${ek(s, "companies_why_title")}>${s.companies_why_title}</h2>
           <div class="prose"${ek(s, "companies_text")}>${paragraphs(s.companies_text)}</div>
+          ${whyStats.length
+            ? html`<dl class="why-stats">${whyStats.map((st) => html`<div class="why-stat"${ek(s, st.key)}><dt>${st.label}</dt><dd>${st.value}</dd></div>`)}</dl>`
+            : ""}
+          ${reasons.length
+            ? html`<div class="why-reasons">
+                <h3 class="why-reasons-title"${ek(s, "companies_reasons_title")}>${s.companies_reasons_title}</h3>
+                <ul>${reasons.map((r, i) => html`<li><span class="why-reason-num" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span><div><h4${ek(s, r.titleKey)}>${s[r.titleKey]}</h4><p${ek(s, r.textKey)}>${s[r.textKey]}</p></div></li>`)}</ul>
+              </div>`
+            : ""}
         </div>
         <div class="stack">
           ${contentPhoto(s, "companies_image", "companies_image_alt")}
@@ -331,7 +352,30 @@ export async function companiesPage(c: RequestContext, values?: Values, errors?:
           </div>
         </div>
       </div>
+      ${s.companies_quote.trim()
+        ? html`<div class="container">
+            <figure class="partner-quote"${ek(s, "companies_quote")}>
+              <blockquote><p>${s.companies_quote.trim()}</p></blockquote>
+              ${s.companies_quote_name ? html`<figcaption><strong${ek(s, "companies_quote_name")}>${s.companies_quote_name}</strong>${s.companies_quote_role ? html`<span${ek(s, "companies_quote_role")}>${s.companies_quote_role}</span>` : ""}</figcaption>` : ""}
+            </figure>
+          </div>`
+        : ""}
     </section>`,
+      aret: () =>
+        s.companies_year_title && yearSteps.length
+          ? html`<section class="section year-section" id="under-aret" aria-labelledby="under-aret-rubrik">
+              <div class="container">
+                <div class="section-head"><div><h2 class="section-title" id="under-aret-rubrik"${ek(s, "companies_year_title")}>${s.companies_year_title}</h2>${s.companies_year_lead ? html`<p class="section-lead"${ek(s, "companies_year_lead")}>${s.companies_year_lead}</p>` : ""}</div></div>
+                <ol class="year-steps">
+                  ${yearSteps.map((st) => html`<li class="year-step">
+                    <p class="year-step-when"${ek(s, st.whenKey)}>${s[st.whenKey]}</p>
+                    <h3 class="year-step-title"${ek(s, st.titleKey)}>${s[st.titleKey]}</h3>
+                    ${s[st.textKey] ? html`<p class="year-step-text"${ek(s, st.textKey)}>${s[st.textKey]}</p>` : ""}
+                  </li>`)}
+                </ol>
+              </div>
+            </section>`
+          : "",
       paket: () => html`
     ${packages.length
       ? html`<section class="section section-surface packages packages--${packageStyle}" aria-labelledby="paket">
