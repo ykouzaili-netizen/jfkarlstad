@@ -207,3 +207,105 @@
 
   render();
 })();
+
+/* Produktens bilder i helbild (/butik/:produkt). Samma bildruta som i bildgalleriet (gal-lb i site.css): pilar,
+   piltangenter och svep byter bild, Esc/krysset/klick bredvid bilden stänger, och Helskärm finns där webbläsaren
+   kan det. Utan JS (eller med Ctrl/Cmd-klick) öppnas bilden som en vanlig länk. */
+(function () {
+  "use strict";
+  var dlg = document.querySelector("[data-shop-lb]");
+  if (!dlg || typeof dlg.showModal !== "function") return;
+  var items = Array.prototype.slice.call(document.querySelectorAll("a[data-shop-lb-item]"));
+  if (!items.length) return;
+  var img = dlg.querySelector("[data-shop-lb-img]"), cap = dlg.querySelector("[data-shop-lb-caption]");
+  var count = dlg.querySelector("[data-shop-lb-count]");
+  var prev = dlg.querySelector('[data-shop-lb-step="-1"]'), next = dlg.querySelector('[data-shop-lb-step="1"]');
+  var root = dlg.querySelector("[data-shop-lb-inner]");
+  var fsBtn = dlg.querySelector("[data-shop-lb-fs]"), fsLabel = dlg.querySelector("[data-shop-lb-fs-label]");
+  var template = dlg.getAttribute("data-count") || "{nr} / {antal}";
+  var index = 0, opener = null, savedY = 0;
+
+  function show(i) {
+    index = (i + items.length) % items.length;
+    var a = items[index], thumb = a.querySelector("img");
+    img.removeAttribute("srcset");
+    img.src = thumb ? thumb.currentSrc || thumb.src : a.href; // det som redan är laddat visas direkt …
+    if (thumb && thumb.getAttribute("srcset")) {
+      img.sizes = "(min-width: 1400px) 1400px, 100vw"; // … och den skarpa versionen tar över
+      img.srcset = thumb.getAttribute("srcset");
+    }
+    img.alt = thumb ? thumb.alt : "";
+    var text = a.getAttribute("data-caption") || "";
+    cap.textContent = text;
+    cap.hidden = !text;
+    var label = template.replace("{nr}", String(index + 1)).replace("{antal}", String(items.length));
+    count.textContent = items.length > 1 ? label : "";
+    dlg.setAttribute("aria-label", label);
+    prev.hidden = next.hidden = items.length < 2;
+    var nextThumb = items.length > 1 && items[(index + 1) % items.length].querySelector("img");
+    if (nextThumb && nextThumb.getAttribute("srcset")) { var pre = new Image(); pre.sizes = img.sizes; pre.srcset = nextThumb.getAttribute("srcset"); }
+  }
+
+  // Helskärm: bildrutans innehåll går i helskärm (en dialogruta får inte göra det själv). Inte på iPhone.
+  var canFs = !!(document.fullscreenEnabled && root && root.requestFullscreen);
+  fsBtn.hidden = !canFs;
+  function syncFs() {
+    var on = document.fullscreenElement === root;
+    dlg.classList.toggle("is-fullscreen", on);
+    fsBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    var text = fsBtn.getAttribute(on ? "data-exit" : "data-enter");
+    fsLabel.textContent = text;
+    fsBtn.title = text;
+  }
+  if (canFs) {
+    fsBtn.addEventListener("click", function () {
+      if (document.fullscreenElement) document.exitFullscreen().catch(function () {});
+      else root.requestFullscreen().catch(function () {});
+    });
+    document.addEventListener("fullscreenchange", syncFs);
+  }
+
+  function restoreScroll() {
+    if (Math.abs(window.scrollY - savedY) > 1) window.scrollTo({ top: savedY, left: 0, behavior: "instant" });
+  }
+  items.forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      e.preventDefault();
+      opener = a;
+      savedY = window.scrollY;
+      document.documentElement.classList.add("gal-lb-open");
+      dlg.showModal();
+      show(items.indexOf(a));
+    });
+  });
+  dlg.addEventListener("close", function () {
+    if (document.fullscreenElement === root) document.exitFullscreen().catch(function () {});
+    document.documentElement.classList.remove("gal-lb-open");
+    img.removeAttribute("srcset");
+    img.removeAttribute("src");
+    if (opener) opener.focus({ preventScroll: true });
+    restoreScroll();
+    requestAnimationFrame(function () { restoreScroll(); setTimeout(restoreScroll, 60); });
+  });
+  dlg.addEventListener("click", function (e) {
+    var step = e.target.closest("[data-shop-lb-step]");
+    if (step) { show(index + Number(step.getAttribute("data-shop-lb-step"))); return; }
+    if (e.target.closest("[data-shop-lb-close]")) { dlg.close(); return; }
+    if (!e.target.closest("img, button, figcaption")) dlg.close(); // klick bredvid bilden
+  });
+  dlg.addEventListener("keydown", function (e) {
+    if ((e.key === "f" || e.key === "F") && canFs && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); fsBtn.click(); return; }
+    if (items.length < 2) return;
+    if (e.key === "ArrowLeft") { e.preventDefault(); show(index - 1); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); show(index + 1); }
+  });
+  var x0 = null;
+  dlg.addEventListener("touchstart", function (e) { x0 = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });
+  dlg.addEventListener("touchend", function (e) {
+    if (x0 === null || items.length < 2) return;
+    var dx = e.changedTouches[0].clientX - x0;
+    x0 = null;
+    if (Math.abs(dx) > 50) show(index + (dx < 0 ? 1 : -1));
+  });
+})();

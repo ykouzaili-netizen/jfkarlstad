@@ -20,7 +20,7 @@ import {
   type ShopData,
 } from "../lib/shop.js";
 import type { RequestContext } from "../router.js";
-import { layout, picture } from "../views/layout.js";
+import { layout, mediaUrl, picture } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 import { notFoundPage } from "./errors.js";
 
@@ -59,7 +59,7 @@ function shopCss(c: RequestContext, products: ProductRow[]): SafeHtml {
 function productMedia(p: ProductRow, opts: { sizes: string; eager?: boolean; large?: boolean }): SafeHtml {
   const images = productImages(p);
   if (images[0]) {
-    return picture(images[0].key, { alt: images[0].caption || p.name, sizes: opts.sizes, width: 900, height: 1000, eager: opts.eager, className: "shop-photo" });
+    return picture(images[0].key, { alt: images[0].alt, sizes: opts.sizes, width: 900, height: 1000, eager: opts.eager, className: "shop-photo" });
   }
   const hex = parseColors(p.colors)[0]?.hex ?? "#ece4d0";
   const dark = luminance(hex) < 0.35;
@@ -284,10 +284,41 @@ export async function shopProductPage(c: RequestContext): Promise<Response> {
   const images = productImages(p);
   const sizes = parseSizes(p.sizes);
 
+  // Bilderna öppnas i helbild (bildrutan nedan, butik.js). Utan JS öppnas bilden som en vanlig länk.
+  const zoom = (i: number, inner: SafeHtml, cls: string) => {
+    const im = images[i]!;
+    return html`<a class="${cls}" href="${mediaUrl(im.key)}" data-shop-lb-item data-caption="${im.caption}" aria-label="${fill(s.shop_zoom, { nr: String(i + 1), antal: String(images.length) })}">${inner}</a>`;
+  };
+  const mainMedia = images.length
+    ? zoom(
+        0,
+        html`${picture(images[0]!.key, { alt: images[0]!.alt, sizes: "(min-width: 900px) 46vw, 100vw", width: 900, height: 1000, eager: true, className: "shop-photo" })}<span class="shop-zoom-badge" aria-hidden="true">${icon("expand", "icon icon-sm")}<span${ek(s, "shop_zoom_hint")}>${images.length > 1 ? `1 / ${images.length}` : s.shop_zoom_hint}</span></span>`,
+        "shop-feature-media shop-zoom",
+      )
+    : html`<div class="shop-feature-media">${productMedia(p, { sizes: "(min-width: 900px) 46vw, 100vw", eager: true })}</div>`;
   const gallery = images.length > 1
-    ? html`<ul class="shop-gallery-thumbs">${images.slice(1).map(
-        (im) => html`<li><figure>${picture(im.key, { alt: im.caption || p.name, sizes: "(min-width: 900px) 15vw, 30vw", width: 400, height: 440 })}${im.caption ? html`<figcaption>${im.caption}</figcaption>` : ""}</figure></li>`,
+    ? html`<ul class="shop-gallery-thumbs${images.length > 4 ? " is-many" : ""}">${images.slice(1).map(
+        (im, k) => html`<li><figure>${zoom(k + 1, picture(im.key, { alt: im.alt, sizes: "(min-width: 900px) 12vw, 30vw", width: 400, height: 440 }), "shop-zoom")}${im.caption ? html`<figcaption>${im.caption}</figcaption>` : ""}</figure></li>`,
       )}</ul>`
+    : "";
+  const lightbox = images.length
+    ? html`<dialog class="gal-lb shop-lb" data-shop-lb aria-label="${fill(s.gallery_lb_count, { nr: "1", antal: String(images.length) })}" data-count="${s.gallery_lb_count}">
+        <div class="gal-lb-inner" data-shop-lb-inner>
+          <div class="gal-lb-bar">
+            <p class="gal-lb-count"><span data-shop-lb-count aria-live="polite"></span></p>
+            <div class="gal-lb-actions">
+              <button class="gal-lb-btn gal-lb-fs" type="button" data-shop-lb-fs hidden aria-pressed="false" data-enter="${s.gallery_lb_fullscreen}" data-exit="${s.gallery_lb_fullscreen_exit}" title="${s.gallery_lb_fullscreen}">${icon("expand", "icon icon-sm gal-lb-i-expand")}${icon("shrink", "icon icon-sm gal-lb-i-shrink")}<span data-shop-lb-fs-label>${s.gallery_lb_fullscreen}</span></button>
+              <button class="gal-lb-close" type="button" data-shop-lb-close autofocus aria-label="${s.gallery_lb_close}">${icon("close", "icon")}</button>
+            </div>
+          </div>
+          <figure class="gal-lb-stage">
+            <img class="gal-lb-img" alt="" data-shop-lb-img>
+            <figcaption class="gal-lb-caption" data-shop-lb-caption hidden></figcaption>
+          </figure>
+          <button class="gal-lb-nav gal-lb-prev" type="button" data-shop-lb-step="-1" aria-label="${s.gallery_lb_prev}">${icon("chevronLeft", "icon")}</button>
+          <button class="gal-lb-nav gal-lb-next" type="button" data-shop-lb-step="1" aria-label="${s.gallery_lb_next}">${icon("chevronRight", "icon")}</button>
+        </div>
+      </dialog>`
     : "";
 
   const closedNote = drop && !orderable ? html`<p class="shop-closed">${fill(s.shop_archive_closed, { datum: dropDay(drop.ends_at, now) })}</p>` : "";
@@ -324,7 +355,7 @@ export async function shopProductPage(c: RequestContext): Promise<Response> {
     <section class="shop-product shop-tone-dark" aria-labelledby="h-${p.slug}"${ec(s, `/admin/butik/${p.id}`, `Butik › ${p.name}`)}>
       <div class="container shop-feature-inner">
         <div class="shop-product-gallery">
-          <div class="shop-feature-media">${productMedia(p, { sizes: "(min-width: 900px) 46vw, 100vw", eager: true })}</div>
+          ${mainMedia}
           ${gallery}
         </div>
         <div class="shop-feature-body">
@@ -343,6 +374,7 @@ export async function shopProductPage(c: RequestContext): Promise<Response> {
     ${whySection(s)}
     ${termsLine(s)}
     ${toast(s)}
+    ${lightbox}
   </div>`;
   const ogImage = images[0] ? `/media/${encodeURI(images[0].key)}` : undefined;
   return htmlResponse(c, layout(c, s, { title: `${p.name} – ${s.shop_title}`, description: p.summary || s.shop_lead, pageId: "butik", assets: ASSETS, ogImage }, content));

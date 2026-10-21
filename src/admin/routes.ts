@@ -20,6 +20,7 @@ import {
   userRole,
   usersPage,
 } from "./pages.js";
+import { shopPhotosAdd, shopPhotosChange, shopPhotosDone } from "./shop-images.js";
 import { previewHandler, siteMapHandler } from "./preview.js";
 import { jobStatsCsv, jobStatsPage } from "./job-stats.js";
 import { RESOURCES, instagramSyncSubmit, deleteHandler, duplicateHandler, editHandler, listHandler, moveHandler, newHandler, orderHandler, saveHandler, toggleHandler } from "./resources.js";
@@ -95,6 +96,10 @@ export function registerAdminRoutes(router: Router): void {
     .get("/admin/galleri/zip", requireUser(galleryZipList))
     .get("/admin/galleri-kategorier/:id/omslag", requireUser(galleryCoverPage))
     .post("/admin/galleri-kategorier/:id/omslag", requireUser(galleryCoverSubmit));
+  router
+    .get("/admin/butik/:id/bilder", requireUser(shopPhotosDone))
+    .post("/admin/butik/:id/bilder", requireUser(shopPhotosAdd))
+    .post("/admin/butik/:id/bilder/andra", requireUser(shopPhotosChange));
   for (const r of RESOURCES) {
     // Före /:id, annars tolkas "ordning" som ett id
     if (r.movable) router.post(`/admin/${r.path}/ordning`, requireUser(orderHandler(r)));

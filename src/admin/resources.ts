@@ -24,6 +24,7 @@ import { MEDAL_GROUPS, MEDAL_KINDS, medalImageUrl } from "../lib/medals.js";
 import { competitionDates, currentPhase, dayMonth, dayMonthClock, period, type Phase } from "../lib/competition.js";
 import { loadSettings } from "../lib/settings.js";
 import { LAYOUT_PREFIX } from "../lib/pagelayout.js";
+import { copyShopPhotos, deleteShopPhotos, shopPhotosPanel } from "./shop-images.js";
 import { dropDay, dropState, GARMENTS, kr, loadShop, type DropRow, type DropState } from "../lib/shop.js";
 
 /**
@@ -129,6 +130,10 @@ export interface Resource {
   listQuery?: string;
   /** Extra ruta överst på redigeringssidan för en befintlig post (t.ex. annonsens statistik). */
   editIntro?: (db: D1Database, row: Row) => Promise<SafeHtml | string>;
+  /** Extra ruta under formuläret för en befintlig post (t.ex. produktens fler bilder). Har egna formulär. */
+  editOutro?: (db: D1Database, session: Session, row: Row) => Promise<SafeHtml | string>;
+  /** Körs efter att en post har kopierats (t.ex. kopierar produktens bilder). */
+  afterDuplicate?: (db: D1Database, fromId: number, toId: number) => Promise<void>;
   /** Ruta överst i formuläret som följer de osparade värdena (t.ex. förhandsvisningen av en medalj). */
   formIntro?: (values: Values) => SafeHtml;
   /** Körs efter att posten har sparats (t.ex. byter namn på kategorin även på bilderna). existing = posten före ändringen. */
@@ -431,14 +436,8 @@ const SHOP_PRODUCTS: Resource = {
       options: GARMENTS,
       help: "Visas tills det finns ett foto, i produktens första färg och med JFK:s logotyp.",
     },
-    { name: "image_key", label: "Foto 1 (huvudbild)", type: "text", upload: "image", nullable: true, help: "Gärna plagget mot en enfärgad bakgrund. Samma ljus och vinkel på alla produkter gör att butiken hänger ihop." },
-    { name: "image_alt", label: "Foto 1 – beskrivning", type: "text", max: 200, help: "T.ex. ”Svart hoodie med JFK:s logotyp på bröstet”." },
-    { name: "image2_key", label: "Foto 2", type: "text", upload: "image", nullable: true, help: "T.ex. baksidan, en närbild på trycket eller en medlem som bär plagget på campus (bara med samtycke)." },
-    { name: "image2_caption", label: "Foto 2 – bildtext", type: "text", max: 160 },
-    { name: "image3_key", label: "Foto 3", type: "text", upload: "image", nullable: true },
-    { name: "image3_caption", label: "Foto 3 – bildtext", type: "text", max: 160 },
-    { name: "image4_key", label: "Foto 4", type: "text", upload: "image", nullable: true },
-    { name: "image4_caption", label: "Foto 4 – bildtext", type: "text", max: 160 },
+    { name: "image_key", label: "Huvudbild", type: "text", upload: "image", nullable: true, help: "Visas i butiken och först på produktens sida. Gärna plagget mot en enfärgad bakgrund – samma ljus och vinkel på alla produkter gör att butiken hänger ihop. Fler bilder lägger du till under formuläret när produkten är skapad." },
+    { name: "image_alt", label: "Huvudbilden – beskrivning", type: "text", max: 200, help: "För den som inte ser bilden, t.ex. ”Svart hoodie med JFK:s logotyp på bröstet”." },
     { name: "model_note", label: "Så sitter den", type: "text", max: 160, placeholder: "T.ex. Elsa är 172 cm och bär M – den sitter rakt, inte tight.", help: "Visas vid storlekarna på produktens sida." },
     { name: "designer", label: "Designer", type: "text", max: 100, help: "Valfritt. Visas som ”Ritad av …”, t.ex. vinnaren av märkestävlingen." },
     { name: "designer_program", label: "Designerns program", type: "text", max: 100, placeholder: "T.ex. Juristprogrammet, termin 3" },
@@ -465,6 +464,12 @@ const SHOP_PRODUCTS: Resource = {
     return e;
   },
   extraColumns: (v) => ({ drop_id: v.kind === "slapp" && v.drop_id ? Number(v.drop_id) : null, updated_at: nowUtc() }),
+  editOutro: (db, session, row) => shopPhotosPanel(db, session, { id: row.id, name: String(row.name), image_key: (row.image_key as string | null) ?? null }),
+  afterDuplicate: copyShopPhotos,
+  beforeDelete: async (db, row) => {
+    await deleteShopPhotos(db, row.id);
+    return null;
+  },
 };
 
 const SHOP_DROPS: Resource = {
@@ -1616,6 +1621,7 @@ async function renderEdit(c: RequestContext, session: Session, r: Resource, fiel
     })}
     ${row && r.editIntro ? await r.editIntro(c.env.DB, row) : ""}
     ${editForm(r, fields, session, isNew ? `/admin/${r.path}/ny` : `/admin/${r.path}/${row!.id}`, values, errors, isNew)}
+    ${row && r.editOutro ? await r.editOutro(c.env.DB, session, row) : ""}
   `;
   return adminLayout(c, session, { title: isNew ? r.newLabel : `Redigera ${r.singular}`, active: r.navActive ?? `/admin/${r.path}`, newCount: await newMessageCount(c.env.DB), narrow: true }, content, status);
 }
@@ -1886,6 +1892,7 @@ export function duplicateHandler(r: Resource) {
     if (r.slugFrom) data.slug = await uniqueSlug(db, r.table, slugify(String(data[titleCol])));
     const cols = Object.keys(data);
     const res = await db.prepare(`INSERT INTO ${r.table} (${cols.join(", ")}) VALUES (${cols.map(() => "?").join(", ")})`).bind(...cols.map((k) => data[k])).run();
+    if (r.afterDuplicate) await r.afterDuplicate(db, row.id, Number(res.meta.last_row_id));
     await audit(c.env, session, "kopierade", r.singular, res.meta.last_row_id, String(row[titleCol] ?? ""));
     return redirect(`/admin/${r.path}/${res.meta.last_row_id}?klart=kopierat`, 303);
   };

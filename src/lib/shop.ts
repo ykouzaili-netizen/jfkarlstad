@@ -49,12 +49,8 @@ export interface ProductRow {
   sold_out: string;
   image_key: string | null;
   image_alt: string;
-  image2_key: string | null;
-  image2_caption: string;
-  image3_key: string | null;
-  image3_caption: string;
-  image4_key: string | null;
-  image4_caption: string;
+  /** Fler bilder (tabellen shop_product_images), i visningsordning. Fylls i av loadShop. */
+  photos?: ProductPhoto[];
   model_note: string;
   designer: string;
   designer_program: string;
@@ -64,6 +60,11 @@ export interface ProductRow {
   care: string;
   sort_order: number;
   published: number;
+}
+
+export interface ProductPhoto {
+  key: string;
+  caption: string;
 }
 
 export type DropState = "upcoming" | "open" | "closed";
@@ -144,6 +145,18 @@ export async function loadShop(db: D1Database, now = stockholmNow()): Promise<Sh
   } catch {
     // Tabellerna finns inte än.
   }
+  if (products.length) {
+    try {
+      const rows = (await db.prepare("SELECT product_id, image_key, caption FROM shop_product_images ORDER BY sort_order, id").all<{ product_id: number; image_key: string; caption: string }>()).results;
+      const byId = new Map(products.map((p) => [p.id, p]));
+      for (const r of rows) {
+        const p = byId.get(r.product_id);
+        if (p) (p.photos ??= []).push({ key: r.image_key, caption: r.caption });
+      }
+    } catch {
+      // Tabellen finns inte än (före migrering 0025) – bara huvudbilden visas.
+    }
+  }
   const open = drops.filter((d) => dropState(d, now) === "open").sort((a, b) => a.ends_at.localeCompare(b.ends_at));
   const current = open[0] ?? null;
   const next = drops.find((d) => dropState(d, now) === "upcoming") ?? null;
@@ -166,14 +179,15 @@ export function findProduct(data: ShopData, slug: string, now = stockholmNow()):
   return { product, drop, orderable: state === "open" };
 }
 
-/** Produktens bilder med bildtexter (de som finns). */
-export function productImages(p: ProductRow): { key: string; caption: string }[] {
-  return [
-    { key: p.image_key, caption: p.image_alt },
-    { key: p.image2_key, caption: p.image2_caption },
-    { key: p.image3_key, caption: p.image3_caption },
-    { key: p.image4_key, caption: p.image4_caption },
-  ].filter((i): i is { key: string; caption: string } => Boolean(i.key));
+/**
+ * Produktens bilder: huvudbilden först, sedan de övriga i sin ordning. `alt` beskriver bilden för skärmläsare,
+ * `caption` är bildtexten som visas (huvudbilden har ingen – dess beskrivning är bara alt-text).
+ */
+export function productImages(p: ProductRow): { key: string; alt: string; caption: string }[] {
+  const out: { key: string; alt: string; caption: string }[] = [];
+  if (p.image_key) out.push({ key: p.image_key, alt: p.image_alt || p.name, caption: "" });
+  for (const ph of p.photos ?? []) if (ph.key) out.push({ key: ph.key, alt: ph.caption || p.name, caption: ph.caption });
+  return out;
 }
 
 /** Pris med mellanslag som tusentalsavgränsare: "1 299 kr". */

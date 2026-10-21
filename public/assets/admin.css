@@ -1005,3 +1005,22 @@ a.admin-user:hover { background: var(--c-hover); }
 .upload-dup-thumb { flex: none; width: 56px; height: 42px; border-radius: 6px; object-fit: cover; background: #fff; }
 .upload-dup-list { list-style: none; padding: 0 !important; display: grid; gap: 6px; }
 .upload-dup-help { font-size: 0.8125rem; opacity: 0.85; }
+
+/* ---------- Butik → produkt → Fler bilder (src/admin/shop-images.ts) ---------- */
+.shop-photos { margin-top: 36px; scroll-margin-top: 96px; }
+.shop-photos-title { font-size: 1.125rem; margin-bottom: 4px; }
+.shop-photos-empty { margin: 12px 0 20px; color: var(--c-muted); }
+.shop-photo-list { list-style: none; margin: 16px 0 12px; padding: 0; display: grid; gap: 12px; }
+.shop-photo-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 16px; align-items: start; padding: 12px; border: 1px solid var(--c-border); border-radius: 14px; background: var(--c-bg); }
+.shop-photo-thumb { display: block; border-radius: 10px; overflow: hidden; }
+.shop-photo-thumb img { display: block; width: 96px; height: 96px; object-fit: cover; background: var(--c-surface); }
+.shop-photo-thumb:focus-visible { outline: 3px solid var(--c-primary); outline-offset: 2px; }
+.shop-photo-fields { display: grid; gap: 8px; min-width: 0; }
+.shop-photo-fields input[type="text"] { width: 100%; }
+.shop-photo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.shop-photo-actions .btn[disabled] { opacity: 0.4; cursor: default; }
+.shop-photo-add { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--c-border); }
+@media (max-width: 520px) {
+  .shop-photo-row { grid-template-columns: 64px minmax(0, 1fr); gap: 12px; }
+  .shop-photo-thumb img { width: 64px; height: 64px; }
+}

@@ -1327,6 +1327,8 @@ export const PAGES = [
       text("shop_delivery_title", "Rubrik: leverans", "Leverans, ångerrätt och byten", small),
       md("shop_delivery_text", "Leverans, ångerrätt och byten – text", "Varan skickas hem till dig eller till ett ombud nära dig – du väljer i kassan.\n\nDu har 14 dagars ångerrätt från att du fått varan. Byten och reklamationer sköts av {leverantor}, som säljer och skickar varorna.", { help: "{leverantor} byts mot leverantörens namn. " + MD_HELP }),
       text("shop_back", "Länk tillbaka", "Butiken", small),
+      text("shop_zoom", "Bilderna – visa i helbild (för skärmläsare; {nr} och {antal} byts mot siffror)", "Visa bild {nr} av {antal} i helbild", small),
+      text("shop_zoom_hint", "Bilderna – märket på huvudbilden", "Helbild", small),
     ]),
     sec("varukorg", "Varukorgen", [
       text("shop_cart_title", "Rubrik", "Varukorg", small),

@@ -376,9 +376,38 @@ a.shop-bar-title:hover { text-decoration: underline; text-decoration-color: var(
 .shop-product .shop-feature-inner { align-items: start; }
 .shop-product-gallery { display: flex; flex-direction: column; gap: 10px; }
 .shop-gallery-thumbs { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.shop-gallery-thumbs.is-many { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .shop-gallery-thumbs figure { margin: 0; }
-.shop-gallery-thumbs img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 16px; }
+.shop-gallery-thumbs img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 16px; transition: transform 0.25s ease; }
 .shop-gallery-thumbs figcaption { margin-top: 4px; font-size: 0.75rem; opacity: 0.8; }
+
+/* Bilderna öppnas i helbild (bildrutan .gal-lb från bildgalleriet, butik.js). */
+.shop-zoom { display: block; position: relative; overflow: hidden; border-radius: 16px; color: inherit; cursor: zoom-in; }
+.shop-zoom.shop-feature-media { border-radius: var(--shop-radius); }
+.shop-zoom:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 3px; }
+.shop-zoom-badge {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: rgb(10 10 12 / 0.62);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  transition: background-color 0.15s ease;
+}
+.shop-zoom:hover .shop-zoom-badge { background: rgb(10 10 12 / 0.82); }
+.shop-zoom:hover img { transform: scale(1.03); }
+.shop-feature-media.shop-zoom img { transition: transform 0.4s ease; }
+@media (max-width: 560px) { .shop-gallery-thumbs.is-many { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .shop-back { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; min-height: 44px; color: inherit; font-weight: 600; font-size: 0.9375rem; text-decoration: none; }
 .shop-back:hover { text-decoration: underline; }
 .shop-price { font-size: 1.5rem; font-weight: 700; }

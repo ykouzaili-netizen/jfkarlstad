@@ -19,6 +19,7 @@ function multiUploadFlash(c: RequestContext, code: string): { kind: "ok" | "erro
 
 const FLASH: Record<string, { kind: "ok" | "error"; text: string }> = {
   sparat: { kind: "ok", text: "Ändringarna är sparade och syns direkt på webbplatsen." },
+  huvudbild: { kind: "ok", text: "Bilden är nu huvudbild. Den gamla huvudbilden ligger kvar bland de andra bilderna." },
   skapat: { kind: "ok", text: "Klart! Det nya innehållet är skapat." },
   raderat: { kind: "ok", text: "Borttaget." },
   uppbyggnad_aterstalld: { kind: "ok", text: "Sidans uppbyggnad är återställd: ordinarie ordning, alla avsnitt synliga och standardstorlek på alla texter." },

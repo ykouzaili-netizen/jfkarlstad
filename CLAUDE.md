@@ -48,6 +48,8 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   slutminuten räknas med) under Innehåll → Butik; texterna `shop_*` under Texter och sidor → Butik. Utseendet "Ett plagg
   i taget": utvalda produkter och släppets produkter får egna avsnitt som växlar primär-/accent-/bakgrundsfärg, övriga
   blir kort. Utan foto ritas plagget (`garmentSvg`, färgen `--g` i en `<style nonce>`, butik.js byter färg via CSSOM).
+  Produktbilder: huvudbilden i `shop_products.image_key`, fler bilder i `shop_product_images` (migrering 0025) – rutan "Fler bilder"
+  under produktens formulär (`src/admin/shop-images.ts`, `editOutro`). På produktsidan öppnas bilderna i helbild (gal-lb-rutan, butik.js).
   Varukorgen finns bara i webbläsaren (localStorage `jfk-butik-korg`), kontrolleras mot `#shop-data` på /butik/varukorg.
   **Ingen betalning än** – kassan visar `shop_checkout_soon` tills leverantör och Stripe är kopplade. Test: `tools/e2e/test_shop.py`.
 - **Schemaläggning:** `news.published_at`, `events.publish_at`, `jobs.publish_at` (UTC). Publika frågor filtrerar via

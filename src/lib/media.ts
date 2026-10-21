@@ -74,6 +74,15 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
   each(insta, "Instagram", "instagram");
   each(entries, "Tävlingsbidrag", "tavling");
   each(resources, "Tävlingsmaterial", "tavling-material");
+  // Butikens tabeller (migrering 0024 och 0025) – också för sig.
+  const shop = await db
+    .batch([
+      db.prepare("SELECT id, name AS title, image_key AS k FROM shop_products WHERE image_key IS NOT NULL AND image_key != ''"),
+      db.prepare("SELECT id, name || ' (skissen)' AS title, sketch_key AS k FROM shop_products WHERE sketch_key IS NOT NULL AND sketch_key != ''"),
+      db.prepare("SELECT p.id, p.name AS title, i.image_key AS k FROM shop_product_images i JOIN shop_products p ON p.id = i.product_id"),
+    ])
+    .catch(() => [] as D1Result[]);
+  for (const r of shop) each(r, "Butik", "butik");
   for (const r of [cm1, cm2, cm3]) each(r, "Utskott", "utskott");
   for (const r of (settings?.results ?? []) as { key: string; k: string }[]) {
     if (r.key === "ig:profil") {
