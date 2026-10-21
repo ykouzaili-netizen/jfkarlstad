@@ -1,4 +1,5 @@
 import { slugify } from "./slug.js";
+import { splitByYear } from "./years.js";
 
 /**
  * Utskotten: en egen innehållstyp (Styrelse och uppdrag → Utskott) med namn, kort beskrivning, en längre
@@ -29,6 +30,8 @@ export interface CommitteeRow {
   /** Vad som alltid ska synas när bilden beskärs: mitten, upptill, nertill, vanster, hoger. */
   cover_focus?: string;
   email?: string | null;
+  /** Hur medlemmarna visas på utskottets sida: "portratt" (standard) eller "lagbild" (gruppbilden med siffror). */
+  meet_style?: string;
   sort_order: number;
   published: number;
 }
@@ -43,8 +46,44 @@ export interface CommitteeMemberRow {
   program: string;
   quote: string;
   photo_key: string | null;
+  /** Var personen står på årets lagbild, i procent av bildens bredd och höjd. null = inte utplacerad. */
+  marker_x?: number | null;
+  marker_y?: number | null;
   sort_order: number;
   published: number;
+}
+
+/** Gruppbild för ett verksamhetsår: för ett utskott, eller styrelsen (committee_id = 0). Migrering 0026. */
+export interface GroupPhotoRow {
+  id: number;
+  committee_id: number;
+  year: string;
+  image_key: string;
+  image_alt: string;
+}
+
+/** Styrelsens gruppbilder har committee_id 0. */
+export const BOARD_GROUP = 0;
+
+/** Gruppbilderna för ett utskott (eller styrelsen) per år. Tål att tabellen saknas. */
+export async function loadGroupPhotos(db: D1Database, committeeId: number): Promise<Map<string, GroupPhotoRow>> {
+  try {
+    const { results } = await db.prepare("SELECT * FROM group_photos WHERE committee_id = ? ORDER BY year DESC").bind(committeeId).all<GroupPhotoRow>();
+    return new Map(results.map((r) => [r.year, r]));
+  } catch {
+    return new Map();
+  }
+}
+
+/** Visas medlemmarna som lagbild? Bara om utskottet valt det och årets gruppbild finns. */
+export function usesTeamPhoto(c: CommitteeRow, photo: GroupPhotoRow | undefined): photo is GroupPhotoRow {
+  return c.meet_style === "lagbild" && !!photo;
+}
+
+/** En position i procent (0–100), eller null. */
+export function markerValue(v: unknown): number | null {
+  const n = typeof v === "number" ? v : parseFloat(String(v ?? "").replace(",", "."));
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? Math.round(n * 10) / 10 : null;
 }
 
 const IMPORTED = "utskott:importerat";
@@ -215,4 +254,14 @@ export async function loadCommitteeMembers(db: D1Database, committeeId?: number)
 /** Ordföranden bland årets medlemmar: den första vars roll är ordförande (inte vice). */
 export function chairOf(members: CommitteeMemberRow[]): CommitteeMemberRow | null {
   return members.find((m) => /ordf/i.test(m.role) && !/vice/i.test(m.role)) ?? null;
+}
+
+/** Årets medlemmar per utskott (för korten på Om oss). */
+export function currentMembersBy(members: CommitteeMemberRow[], year: string): Map<number, CommitteeMemberRow[]> {
+  const map = new Map<number, CommitteeMemberRow[]>();
+  for (const m of splitByYear(members, year).current) {
+    if (!map.has(m.committee_id)) map.set(m.committee_id, []);
+    map.get(m.committee_id)!.push(m);
+  }
+  return map;
 }

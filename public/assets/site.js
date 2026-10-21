@@ -1097,3 +1097,50 @@ document.addEventListener("click", function (e) {
     if (Math.abs(dx) > 50) show(index + (dx < 0 ? 1 : -1));
   });
 })();
+
+/* ---------- Lagbilden på utskottets sida ----------
+   Utan JS leder siffrorna i bilden till personen i listan (:target). Här visas i stället bara den valda personens
+   detaljer, och siffran och namnet markeras tillsammans. */
+(function () {
+  "use strict";
+  document.querySelectorAll("[data-team]").forEach(function (team) {
+    team.classList.add("is-enhanced");
+    var people = team.querySelectorAll("[data-team-person]");
+    var select = function (id, focusDot) {
+      people.forEach(function (li) {
+        var on = li.getAttribute("data-team-person") === id;
+        li.classList.toggle("is-selected", on);
+        var head = li.querySelector(".team-person-head");
+        if (head) head.setAttribute("aria-expanded", on ? "true" : "false");
+      });
+      team.querySelectorAll(".team-dot").forEach(function (d) {
+        var on = d.getAttribute("data-team-pick") === id;
+        d.classList.toggle("is-selected", on);
+        if (on) d.setAttribute("aria-current", "true"); else d.removeAttribute("aria-current");
+        if (on && focusDot) d.focus();
+      });
+    };
+    team.addEventListener("click", function (e) {
+      var t = e.target.closest("[data-team-pick]");
+      if (!t || !team.contains(t)) return;
+      e.preventDefault();
+      select(t.getAttribute("data-team-pick"), false);
+      // På mobilen ligger listan under bilden: visa den valda personen.
+      if (t.classList.contains("team-dot") && !window.matchMedia("(min-width: 900px)").matches) {
+        var li = team.querySelector('[data-team-person="' + t.getAttribute("data-team-pick") + '"]');
+        if (li) li.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      }
+    });
+    // Peka på ett namn: siffran i bilden lyser upp (och tvärtom).
+    team.addEventListener("pointerover", function (e) {
+      var t = e.target.closest("[data-team-pick]");
+      var id = t ? t.getAttribute("data-team-pick") : null;
+      team.querySelectorAll("[data-team-pick]").forEach(function (x) { x.classList.toggle("is-hover", !!id && x.getAttribute("data-team-pick") === id); });
+    });
+    team.addEventListener("pointerleave", function () {
+      team.querySelectorAll(".is-hover").forEach(function (x) { x.classList.remove("is-hover"); });
+    });
+    var first = people[0];
+    if (first) select(first.getAttribute("data-team-person"), false);
+  });
+})();

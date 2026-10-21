@@ -6,6 +6,7 @@ import { icon } from "../views/icons.js";
 import { initials } from "../views/page.js";
 import type { Session } from "./auth.js";
 import { csrfField } from "./layout.js";
+import { groupPhotosPanel, keepForm } from "./group-photos.js";
 
 /**
  * Styrelse och uppdrag → Utskott → utskottet: rutan Medlemmar under formuläret. Årets medlemmar kan dras i
@@ -22,6 +23,8 @@ interface MemberRow {
   role: string;
   program: string;
   photo_key: string | null;
+  marker_x: number | null;
+  marker_y: number | null;
   published: number;
 }
 
@@ -80,7 +83,7 @@ export async function committeeMembersPanel(db: D1Database, session: Session, co
   try {
     all = (
       await db
-        .prepare("SELECT id, committee_id, year, name, role, program, photo_key, published FROM committee_members WHERE committee_id = ? ORDER BY year DESC, sort_order, id")
+        .prepare("SELECT id, committee_id, year, name, role, program, photo_key, marker_x, marker_y, published FROM committee_members WHERE committee_id = ? ORDER BY year DESC, sort_order, id")
         .bind(committee.id)
         .all<MemberRow>()
     ).results;
@@ -109,7 +112,10 @@ export async function committeeMembersPanel(db: D1Database, session: Session, co
       <h3 class="cmm-subtitle">Nästa år, ${coming}${next.length ? html` <span class="muted">(${next.length})</span>` : ""}</h3>
       <p class="field-help">Lägg in nästa års utskott i förväg. De syns på webbplatsen först när ni byter verksamhetsår under Styrelseskifte.</p>
       ${next.length ? memberRows(session, next, true) : ""}
-      <a class="link-btn" href="${addHref(coming)}">+ Lägg till medlem för ${coming}</a>
+      <div class="cmm-next-actions">
+        <a class="link-btn" href="${addHref(coming)}">+ Lägg till medlem för ${coming}</a>
+        ${keepForm(session, String(committee.id), year, now, new Set(next.map((m) => m.name.trim().toLocaleLowerCase("sv"))))}
+      </div>
     </div>
 
     ${older.length
@@ -121,5 +127,6 @@ export async function committeeMembersPanel(db: D1Database, session: Session, co
           )}
         </details>`
       : ""}
-  </section>`;
+  </section>
+  ${await groupPhotosPanel(db, session, { committeeId: committee.id, name: committee.name }, new Map([[year, now], [coming, next]]))}`;
 }

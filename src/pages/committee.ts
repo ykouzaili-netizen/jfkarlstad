@@ -7,8 +7,11 @@ import {
   coverFocus,
   loadCommitteeMembers,
   loadCommittees,
+  loadGroupPhotos,
+  usesTeamPhoto,
   type CommitteeMemberRow,
   type CommitteeRow,
+  type GroupPhotoRow,
 } from "../lib/committees.js";
 import { eventQuery, rows, type EventRow } from "../lib/content.js";
 import { renderMarkdown, plainText } from "../lib/markdown.js";
@@ -16,7 +19,7 @@ import { stockholmNow, truncate } from "../lib/format.js";
 import { fill } from "../lib/texts.js";
 import { htmlResponse } from "../lib/http.js";
 import { isLinkVisible } from "../lib/pagelayout.js";
-import { shownYear, splitByYear } from "../lib/years.js";
+import { shownYear, splitByYear, yearState } from "../lib/years.js";
 import type { RequestContext } from "../router.js";
 import { layout, mediaUrl, picture } from "../views/layout.js";
 import { arrowLink, eventCard } from "../views/components.js";
@@ -48,15 +51,6 @@ export function softHyphen(name: string): string {
   return name.replace(/([a-zåäö])(utskott)/giu, "$1­$2");
 }
 
-/** Årets medlemmar per utskott (för korten på Om oss). */
-export function currentMembersBy(members: CommitteeMemberRow[], year: string): Map<number, CommitteeMemberRow[]> {
-  const map = new Map<number, CommitteeMemberRow[]>();
-  for (const m of splitByYear(members, year).current) {
-    if (!map.has(m.committee_id)) map.set(m.committee_id, []);
-    map.get(m.committee_id)!.push(m);
-  }
-  return map;
-}
 
 /** "Ordförande: {namn}" med namnet i fetstil. */
 function withName(template: string, name: string): SafeHtml {
@@ -129,15 +123,76 @@ function leadMember(s: Settings, m: CommitteeMemberRow, email: string | null | u
   </article>`;
 }
 
-/** Tidigare år: bara namn och roll (inga foton). Används för utskotten och för styrelsen på Om oss. */
-export function archiveYears<T extends { name: string; role: string }>(archive: { year: string; rows: T[] }[]): SafeHtml {
+/**
+ * Tidigare år: namn och roll, och årets gruppbild om den finns (inga porträtt). Används för utskotten och för
+ * styrelsen på Om oss. År som bara har en gruppbild (inga inlagda personer) visas också.
+ */
+export function archiveYears<T extends { name: string; role: string }>(
+  archive: { year: string; rows: T[] }[],
+  photos: Map<string, GroupPhotoRow> = new Map(),
+  shown = "",
+): SafeHtml {
+  const years = new Map(archive.map((a) => [a.year, a.rows]));
+  for (const y of photos.keys()) if (shown && yearState(y, shown) === "tidigare" && !years.has(y)) years.set(y, []);
+  const list = [...years.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
   return html`<div class="archive-years">
-    ${archive.map(
-      (a) => html`<section class="archive-year" aria-label="${a.year}">
-        <h3 class="archive-year-title">${a.year}</h3>
-        <ul class="archive-list">${a.rows.map((r) => html`<li><span class="archive-name">${r.name}</span>${r.role ? html`<span class="archive-role">${r.role}</span>` : ""}</li>`)}</ul>
-      </section>`,
-    )}
+    ${list.map(([year, rows]) => {
+      const photo = photos.get(year);
+      return html`<section class="archive-year${photo ? " has-photo" : ""}" aria-label="${year}">
+        <h3 class="archive-year-title">${year}</h3>
+        ${photo
+          ? html`<figure class="archive-photo"><a href="${mediaUrl(photo.image_key)}" target="_blank" rel="noopener">${picture(photo.image_key, { alt: photo.image_alt, sizes: "(min-width: 900px) 360px, 90vw", width: 800, height: 533 })}<span class="sr-only"> (öppnas i ny flik)</span></a></figure>`
+          : ""}
+        ${rows.length ? html`<ul class="archive-list">${rows.map((r) => html`<li><span class="archive-name">${r.name}</span>${r.role ? html`<span class="archive-role">${r.role}</span>` : ""}</li>`)}</ul>` : ""}
+      </section>`;
+    })}
+  </div>`;
+}
+
+/** Har arkivet något att visa (personer eller en gruppbild från ett tidigare år)? */
+export function hasArchive(archive: { year: string }[], photos: Map<string, GroupPhotoRow>, shown: string): boolean {
+  return archive.length > 0 || [...photos.keys()].some((y) => yearState(y, shown) === "tidigare");
+}
+
+/**
+ * Lagbild: årets gruppbild med en numrerad punkt på varje utplacerad person och listan bredvid. Utan JS leder
+ * punkterna till personen i listan (:target); med JS (site.js, [data-team]) visas den valda personens kort.
+ */
+function teamPhoto(s: Settings, nonce: string, photo: GroupPhotoRow, members: CommitteeMemberRow[]): SafeHtml {
+  let n = 0;
+  const numbered = members.map((m) => ({ m, n: m.marker_x != null && m.marker_y != null ? ++n : 0 }));
+  const placed = numbered.filter((x) => x.n);
+  const first = numbered[0]!;
+  // Positionerna är kontrollerade tal (0–100), så de kan skrivas rakt in i CSS:en.
+  const css = placed.map(({ m }) => `#lag-punkt-${m.id}{left:${Number(m.marker_x)}%;top:${Number(m.marker_y)}%}`).join("");
+  return html`${css ? html`<style nonce="${nonce}">${css}</style>` : ""}<div class="team" data-team>
+    <figure class="team-photo">
+      ${picture(photo.image_key, { alt: photo.image_alt, sizes: "(min-width: 1000px) 720px, 100vw", width: 1600, height: 1067 })}
+      ${placed.map(
+        ({ m, n }) => html`<a class="team-dot" id="lag-punkt-${m.id}" href="#lag-${m.id}" data-team-pick="${m.id}" aria-label="${n}. ${m.name}">${n}</a>`,
+      )}
+    </figure>
+    <div class="team-side">
+      ${placed.length ? html`<p class="team-hint"${ek(s, "committee_team_hint")}>${s.committee_team_hint}</p>` : ""}
+      <ol class="team-list">
+        ${numbered.map(
+          ({ m, n }) => html`<li class="team-person${m === first.m ? " is-selected" : ""}" id="lag-${m.id}" data-team-person="${m.id}"${ec(s, `/admin/utskottsmedlemmar/${m.id}`, `Utskottsmedlem › ${m.name}`)}>
+            <button class="team-person-head" type="button" data-team-pick="${m.id}" aria-expanded="${m === first.m ? "true" : "false"}">
+              <span class="team-num${n ? "" : " is-missing"}" aria-hidden="true">${n || "–"}</span>
+              <span class="team-name">${m.name}</span>
+              ${m.role ? html`<span class="team-role">${m.role}</span>` : ""}
+            </button>
+            ${m.program || m.quote || !n
+              ? html`<div class="team-detail">
+                  ${m.program ? html`<p class="team-program">${m.program}</p>` : ""}
+                  ${m.quote ? html`<blockquote class="team-quote"><p>${m.quote}</p></blockquote>` : ""}
+                  ${!n ? html`<p class="team-missing"${ek(s, "committee_team_missing")}>${s.committee_team_missing}</p>` : ""}
+                </div>`
+              : ""}
+          </li>`,
+        )}
+      </ol>
+    </div>
   </div>`;
 }
 
@@ -147,10 +202,12 @@ export async function committeePage(c: RequestContext): Promise<Response> {
   const cm = all.find((x) => x.slug === (c.params.slug ?? ""));
   if (!cm) return notFoundPage(c);
   const year = shownYear(s.service_year);
-  const [members, events] = await Promise.all([
+  const [members, events, photos] = await Promise.all([
     loadCommitteeMembers(db, cm.id),
     rows<EventRow>(eventQuery.upcomingForCommittee(db, cm.id, stockholmNow(), 3)).catch(() => [] as EventRow[]),
+    loadGroupPhotos(db, cm.id),
   ]);
+  const yearPhoto = photos.get(year);
   const { current, archive } = splitByYear(members, year);
   const [lead, ...rest] = current;
   const cover = committeeCover(cm);
@@ -183,10 +240,13 @@ export async function committeePage(c: RequestContext): Promise<Response> {
   const meet = html`<section class="section" aria-labelledby="mot-utskottet">
     <div class="container">
       <h2 class="section-title cm-section-title" id="mot-utskottet"${ek(s, "committee_meet_title")}>${s.committee_meet_title}</h2>
-      ${lead
-        ? html`${leadMember(s, lead, cm.email)}
-            ${rest.length ? html`<ul class="person-grid cm-members">${rest.map((m) => memberCard(s, m))}</ul>` : ""}`
-        : html`<p class="cm-empty"${ek(s, "committee_empty")}>${s.committee_empty}</p>`}
+      ${!lead
+        ? html`<p class="cm-empty"${ek(s, "committee_empty")}>${s.committee_empty}</p>`
+        : usesTeamPhoto(cm, yearPhoto)
+          ? html`${teamPhoto(s, c.nonce, yearPhoto, current)}
+              ${cm.email ? html`<p class="cm-team-email"><a href="mailto:${cm.email}"${ek(s, "committee_contact")}>${icon("mail", "icon icon-sm")}${s.committee_contact}</a> <span>${cm.email}</span></p>` : ""}`
+          : html`${leadMember(s, lead, cm.email)}
+              ${rest.length ? html`<ul class="person-grid cm-members">${rest.map((m) => memberCard(s, m))}</ul>` : ""}`}
     </div>
   </section>`;
 
@@ -238,12 +298,12 @@ export async function committeePage(c: RequestContext): Promise<Response> {
       </section>`
     : "";
 
-  const archiveBlock = archive.length
+  const archiveBlock = hasArchive(archive, photos, year)
     ? html`<section class="section section-tight-top" aria-labelledby="tidigare-ar">
         <div class="container">
           <details class="archive">
             <summary><span class="archive-summary"><span class="archive-title" id="tidigare-ar"${ek(s, "committee_archive_title")}>${s.committee_archive_title}</span><span class="archive-lead"${ek(s, "committee_archive_lead")}>${fill(s.committee_archive_lead, vars)}</span></span>${icon("chevronDown", "icon icon-sm")}</summary>
-            ${archiveYears(archive)}
+            ${archiveYears(archive, photos, year)}
           </details>
         </div>
       </section>`

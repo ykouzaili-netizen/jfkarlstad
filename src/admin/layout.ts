@@ -9,6 +9,12 @@ import { ROLE_LABELS, type Session } from "./auth.js";
 /** Kvitton efter en åtgärd. Bara fördefinierade koder – ingen text från URL:en visas. */
 /** Meddelandet efter att flera bilder laddats upp på en gång (antalet står i adressen). */
 function multiUploadFlash(c: RequestContext, code: string): { kind: "ok" | "error"; text: string } | undefined {
+  if (code === "behallna") {
+    const k = Math.max(0, Math.min(999, parseInt(c.url.searchParams.get("antal") ?? "0", 10) || 0));
+    return k
+      ? { kind: "ok", text: `Klart! ${k === 1 ? "1 person är inlagd" : `${k} personer är inlagda`} för nästa år, med samma roll och foto. Ändra det som är nytt.` }
+      : { kind: "ok", text: "De du kryssade i var redan inlagda för nästa år." };
+  }
   if (code !== "flera" && code !== "flera-delvis") return undefined;
   const n = (k: string) => Math.max(0, Math.min(9999, parseInt(c.url.searchParams.get(k) ?? "0", 10) || 0));
   const ok = n("antal"), failed = n("misslyckade"), skipped = n("hoppade");
@@ -39,7 +45,8 @@ const FLASH: Record<string, { kind: "ok" | "error"; text: string }> = {
   uppladdning: { kind: "error", text: "Filen kunde inte laddas upp. Kontrollera filtyp och storlek." },
   "ar-satt": { kind: "ok", text: "Året är sparat på de markerade bilderna och syns direkt i bildgalleriet." },
   "ar-inga": { kind: "error", text: "Bocka i minst en bild först." },
-  "utskott-har-medlemmar": { kind: "error", text: "Utskottet har medlemmar (även tidigare år) och kan inte tas bort. Vill ni bara att det inte syns? Tryck på Dölj. Annars: ta bort medlemmarna först, längst ned på utskottets sida." },
+  "utskott-har-medlemmar": { kind: "error", text: "Utskottet har medlemmar eller gruppbilder (även tidigare år) och kan inte tas bort. Vill ni bara att det inte syns? Tryck på Dölj. Annars: ta bort medlemmarna och gruppbilderna först, längst ned på utskottets sida." },
+  "inga-valda": { kind: "error", text: "Kryssa i minst en person att behålla." },
   "verksamhetsar-bytt": { kind: "ok", text: "Verksamhetsåret är bytt. Webbplatsen visar nu den nya styrelsen och de nya utskotten – de tidigare finns under Tidigare år." },
   "kategori-har-bilder": { kind: "error", text: "Kategorin har bilder kvar och kan inte tas bort. Flytta bilderna först: markera dem under Bilder och välj en annan kategori – eller byt bara namn på kategorin." },
   "flera-andrade": { kind: "ok", text: "Klart! Ändringen är sparad på de markerade bilderna." },

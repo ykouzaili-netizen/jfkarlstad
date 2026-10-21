@@ -35,3 +35,21 @@ INSERT OR IGNORE INTO settings (key, value) VALUES ('service_year', '2026/27');
 
 -- Evenemang som ett utskott arrangerar (visas på utskottets sida och på eventet).
 ALTER TABLE events ADD COLUMN committee_id INTEGER;
+
+-- Lagbild: utskottets gruppbild för ett år med numrerade punkter på personerna (committee_members.marker_x/y,
+-- procent av bildens bredd/höjd). Utskottet väljer om medlemmarna visas som porträtt eller lagbild (meet_style).
+ALTER TABLE committees ADD COLUMN meet_style TEXT NOT NULL DEFAULT 'portratt';
+ALTER TABLE committee_members ADD COLUMN marker_x REAL;
+ALTER TABLE committee_members ADD COLUMN marker_y REAL;
+
+-- Gruppbilder per verksamhetsår: för ett utskott (committee_id) eller styrelsen (committee_id = 0).
+-- Visas som lagbild, överst bland årets styrelse och under Tidigare år. Raderas helt när de tas bort (personer).
+CREATE TABLE IF NOT EXISTS group_photos (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  committee_id INTEGER NOT NULL DEFAULT 0,
+  year         TEXT NOT NULL,
+  image_key    TEXT NOT NULL,
+  image_alt    TEXT NOT NULL DEFAULT '',
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (committee_id, year)
+);

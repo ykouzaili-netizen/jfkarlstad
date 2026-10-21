@@ -22,6 +22,7 @@ import {
 } from "./pages.js";
 import { shareSubmit } from "./share-pages.js";
 import { shopPhotosAdd, shopPhotosChange, shopPhotosDone } from "./shop-images.js";
+import { groupPhotoChange, groupPhotoUpload, keepForNextYear } from "./group-photos.js";
 import { previewHandler, siteMapHandler } from "./preview.js";
 import { jobStatsCsv, jobStatsPage } from "./job-stats.js";
 import { RESOURCES, instagramSyncSubmit, deleteHandler, duplicateHandler, editHandler, listHandler, moveHandler, newHandler, orderHandler, saveHandler, toggleHandler } from "./resources.js";
@@ -101,7 +102,10 @@ export function registerAdminRoutes(router: Router): void {
     .post("/admin/dela/:sida", requireUser(shareSubmit))
     .get("/admin/butik/:id/bilder", requireUser(shopPhotosDone))
     .post("/admin/butik/:id/bilder", requireUser(shopPhotosAdd))
-    .post("/admin/butik/:id/bilder/andra", requireUser(shopPhotosChange));
+    .post("/admin/butik/:id/bilder/andra", requireUser(shopPhotosChange))
+    .post("/admin/gruppbild/:scope", requireUser(groupPhotoUpload))
+    .post("/admin/gruppbild/:scope/andra", requireUser(groupPhotoChange))
+    .post("/admin/behall/:scope", requireUser(keepForNextYear));
   for (const r of RESOURCES) {
     // Före /:id, annars tolkas "ordning" som ett id
     if (r.movable) router.post(`/admin/${r.path}/ordning`, requireUser(orderHandler(r)));

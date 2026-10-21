@@ -84,14 +84,18 @@ export async function mediaUsage(db: D1Database): Promise<Map<string, Usage[]>> 
     .catch(() => [] as D1Result[]);
   for (const r of shop) each(r, "Butik", "butik");
   // Utskottens anslagsbilder och medlemmarnas porträtt (migrering 0026) – också för sig.
-  const [covers, members] = await db
+  const [covers, members, groups] = await db
     .batch([
       db.prepare("SELECT id, name AS title, cover_key AS k FROM committees WHERE cover_key IS NOT NULL AND cover_key != ''"),
       db.prepare("SELECT id, name AS title, photo_key AS k FROM committee_members WHERE photo_key IS NOT NULL AND photo_key != ''"),
+      db.prepare("SELECT g.committee_id AS id, COALESCE(c.name, 'Styrelsen') || ' ' || g.year AS title, g.image_key AS k FROM group_photos g LEFT JOIN committees c ON c.id = g.committee_id"),
     ])
-    .catch(() => [undefined, undefined] as (D1Result | undefined)[]);
+    .catch(() => [undefined, undefined, undefined] as (D1Result | undefined)[]);
   each(covers, "Utskott (anslagsbild)", "utskott");
   each(members, "Utskottsmedlem", "utskottsmedlemmar");
+  for (const r of (groups?.results ?? []) as R[]) {
+    add(r.k, { label: `Gruppbild: ${r.title}`, href: r.id ? `/admin/utskott/${r.id}#lagbild` : "/admin/styrelsen#gruppbilder" });
+  }
   for (const r of [cm1, cm2, cm3]) each(r, "Utskott", "utskott");
   for (const r of (settings?.results ?? []) as { key: string; k: string }[]) {
     if (r.key === "ig:profil") {

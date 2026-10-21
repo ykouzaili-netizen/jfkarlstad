@@ -1,7 +1,7 @@
 import { html, paragraphs, raw, safeUrl, type SafeHtml } from "../lib/html.js";
 import { ec, ek, lines, loadSettings, type SettingKey, type Settings, arrange, siteLayout } from "../lib/settings.js";
 import { fill } from "../lib/texts.js";
-import { committeeCover, committeeImages, loadCommittees, type CommitteeRow } from "../lib/committees.js";
+import { committeeCover, committeeImages, currentMembersBy, loadCommitteeMembers, loadCommittees, type CommitteeMemberRow, type CommitteeRow } from "../lib/committees.js";
 import { shownYear, splitByYear } from "../lib/years.js";
 import { isLinkVisible } from "../lib/pagelayout.js";
 import { boardQuery, partnerQuery, positionQuery, rows, type BoardRow, type PartnerRow, type PositionRow } from "../lib/content.js";
@@ -16,7 +16,7 @@ import type { RequestContext } from "../router.js";
 import type { Env } from "../env.js";
 import { layout, picture } from "../views/layout.js";
 import { icon } from "../views/icons.js";
-import { checkList, contentPhoto, pageHeader } from "../views/page.js";
+import { checkList, contentPhoto, initials, pageHeader } from "../views/page.js";
 import { arrowLink, partnerLogo } from "../views/components.js";
 import { loadMedals } from "../lib/medals.js";
 
@@ -451,7 +451,13 @@ export async function paverkaPage(c: RequestContext, values?: Values, errors?: E
 
 export async function engagePage(c: RequestContext, values?: Values, errors?: Errors, topError?: string, status = 200): Promise<Response> {
   const db = c.env.DB;
-  const [s, positions, committees] = await Promise.all([loadSettings(db, c.preview), rows<PositionRow>(positionQuery.open(db, stockholmToday())), loadCommittees(db)]);
+  const [s, positions, committees, members] = await Promise.all([
+    loadSettings(db, c.preview),
+    rows<PositionRow>(positionQuery.open(db, stockholmToday())),
+    loadCommittees(db),
+    loadCommitteeMembers(db),
+  ]);
+  const byCommittee = currentMembersBy(members, shownYear(s.service_year));
   // "Jag är intresserad" på ett uppdrag förväljer det i formuläret.
   const chosen = positions.find((p) => String(p.id) === c.url.searchParams.get("uppdrag"));
   const chosenCommittee = committees.find((cm) => cm.slug === c.url.searchParams.get("utskott"));
@@ -489,7 +495,7 @@ export async function engagePage(c: RequestContext, values?: Values, errors?: Er
           : html`<div class="empty-state empty-state-soft"${ek(s, "engage_positions_empty")}>${paragraphs(s.engage_positions_empty)}</div>`}
       </div>
     </section>`,
-      utskott: () => (committees.length ? committeeSection(s, committees, signup) : ""),
+      utskott: () => (committees.length ? committeeSection(s, committees, signup, byCommittee) : ""),
       formular: () =>
         signup.open
           ? html`
@@ -585,7 +591,29 @@ function deadline(c: RequestContext, s: Settings, signup: SignupState): SafeHtml
  * intresseformuläret. Byggt på <details>, så det fungerar även utan JavaScript; site.js stänger övriga kort,
  * skrollar till det öppnade och öppnar kortet direkt om adressen slutar med #utskott-namn.
  */
-function committeeSection(s: Settings, committees: CommitteeRow[], signup: SignupState): SafeHtml {
+/** "Det här är vi": årets medlemmar i utskottet, högst åtta, med porträtt eller initialer. Inget om ingen är inlagd. */
+function committeePeople(s: Settings, members: CommitteeMemberRow[]): SafeHtml | string {
+  if (!members.length) return "";
+  const MAX = 8;
+  const shown = members.slice(0, MAX);
+  return html`<div class="cm-people">
+    <p class="cm-people-title"${ek(s, "engage_committee_people")}>${s.engage_committee_people}</p>
+    <ul class="cm-faces">
+      ${shown.map(
+        (m) => html`<li class="cm-face">
+          ${m.photo_key
+            ? picture(m.photo_key, { alt: "", sizes: "56px", className: "cm-face-img", width: 120, height: 160 })
+            : html`<span class="cm-face-img cm-face-initials" aria-hidden="true">${initials(m.name)}</span>`}
+          <span class="cm-face-name">${m.name}</span>
+          ${m.role ? html`<span class="cm-face-role">${m.role}</span>` : ""}
+        </li>`,
+      )}
+      ${members.length > MAX ? html`<li class="cm-face cm-face-more"${ek(s, "engage_committee_people_more")}>${fill(s.engage_committee_people_more, { antal: members.length - MAX })}</li>` : ""}
+    </ul>
+  </div>`;
+}
+
+function committeeSection(s: Settings, committees: CommitteeRow[], signup: SignupState, byCommittee: Map<number, CommitteeMemberRow[]>): SafeHtml {
   const aboutVisible = isLinkVisible(siteLayout(s), "/om-oss");
   const mark = (name: string) => name.replace(/utskottet$/i, "").trim().charAt(0).toUpperCase() || name.charAt(0);
   return html`<section class="section section-surface" aria-labelledby="utskotten">
@@ -620,6 +648,7 @@ function committeeSection(s: Settings, committees: CommitteeRow[], signup: Signu
                 : ""}
               <div class="cm-text">
                 ${cm.body ? html`<div class="prose">${renderMarkdown(cm.body)}</div>` : cm.summary ? html`<p>${cm.summary}</p>` : ""}
+                ${committeePeople(s, byCommittee.get(cm.id) ?? [])}
                 ${cm.commitment ? html`<p class="cm-commitment">${icon("clock", "icon icon-sm")}<span><strong${ek(s, "engage_commitment_label")}>${s.engage_commitment_label}:</strong> ${cm.commitment}</span></p>` : ""}
                 ${signup.open
                   ? html`<a class="btn btn-primary" href="/engagera-dig?utskott=${cm.slug}#anmalan"${ek(s, "engage_committee_join")}>${fill(s.engage_committee_join, { utskott: cm.name })}</a>`

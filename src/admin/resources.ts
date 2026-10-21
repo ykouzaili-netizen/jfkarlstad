@@ -27,7 +27,8 @@ import { LAYOUT_PREFIX } from "../lib/pagelayout.js";
 import { sharePanel } from "./share-pages.js";
 import { copyShopPhotos, deleteShopPhotos, shopPhotosPanel } from "./shop-images.js";
 import { committeeMembersPanel, currentServiceYear, serviceYearOptions } from "./committee-members.js";
-import { COVER_FOCUS } from "../lib/committees.js";
+import { BOARD_GROUP, COVER_FOCUS } from "../lib/committees.js";
+import { groupPhotosPanel, keepForm } from "./group-photos.js";
 import { isServiceYear, nextYear, shownYear, yearState } from "../lib/years.js";
 import { dropDay, dropState, GARMENTS, kr, loadShop, type DropRow, type DropState } from "../lib/shop.js";
 
@@ -293,7 +294,7 @@ export async function instagramSyncSubmit(c: RequestContext, session: Session): 
 
 /** Samarbetspartnerna (byråerna under Partners) som val för ett event – huvudpartners först. */
 /** Styrelsen: vilket år som visas och genvägen för att lägga in nästa styrelse. */
-async function boardYearIntro(c: RequestContext): Promise<SafeHtml> {
+async function boardYearIntro(c: RequestContext, session: Session): Promise<SafeHtml> {
   const year = await currentServiceYear(c.env.DB);
   const coming = nextYear(year);
   let counts = { next: 0 };
@@ -302,7 +303,19 @@ async function boardYearIntro(c: RequestContext): Promise<SafeHtml> {
   } catch {
     /* kolumnen finns inte än */
   }
-  return html`<div class="admin-card admin-card-inline year-intro">
+  let current: { id: number; name: string; role: string }[] = [];
+  let nextNames = new Set<string>();
+  try {
+    const [cur, nxt] = await c.env.DB.batch([
+      c.env.DB.prepare("SELECT id, name, role FROM board_members WHERE year = ? OR year = '' ORDER BY sort_order, name").bind(year),
+      c.env.DB.prepare("SELECT name FROM board_members WHERE year = ?").bind(coming),
+    ]);
+    current = (cur?.results ?? []) as typeof current;
+    nextNames = new Set(((nxt?.results ?? []) as { name: string }[]).map((r) => r.name.trim().toLocaleLowerCase("sv")));
+  } catch {
+    /* kolumnen finns inte än */
+  }
+  return html`<div class="admin-card admin-card-inline year-intro" id="nasta-ar">
     <p><strong>Webbplatsen visar styrelsen för ${year}.</strong> ${counts.next
       ? html`${counts.next} ${counts.next === 1 ? "ledamot är" : "ledamöter är"} inlagda för ${coming} och syns när ni byter år.`
       : html`Ny styrelse? Lägg in den som ${coming} – den syns på webbplatsen först när ni byter år.`}</p>
@@ -310,7 +323,9 @@ async function boardYearIntro(c: RequestContext): Promise<SafeHtml> {
       <a class="btn btn-outline btn-sm" href="/admin/styrelsen/ny?ar=${encodeURIComponent(coming)}">+ Lägg in styrelsen för ${coming}</a>
       <a class="link-btn" href="/admin/styrelseskifte#verksamhetsar">Byt verksamhetsår</a>
     </div>
-  </div>`;
+    ${keepForm(session, "styrelsen", year, current, nextNames)}
+  </div>
+  ${await groupPhotosPanel(c.env.DB, session, { committeeId: BOARD_GROUP, name: "Styrelsen" }, null)}`;
 }
 
 async function eventPartnerOptions(db: D1Database): Promise<{ value: string; label: string }[]> {
@@ -338,6 +353,8 @@ async function nextOrder(db: D1Database, sql: string, ...binds: unknown[]): Prom
 
 /** Året som visas, som en extra kolumn i listornas frågor (inställningen service_year). */
 const SHOWN_YEAR_SQL = "(SELECT value FROM settings WHERE key = 'service_year') AS shown_year";
+/** Sorterar året som visas (eller utan år) först, sedan nästa år och sist tidigare år (nyast först). */
+const YEAR_ORDER_SQL = "(year IN ('', COALESCE((SELECT value FROM settings WHERE key = 'service_year'), ''))) DESC, year DESC";
 
 /** Etikett för ett verksamhetsår i listorna. r.shown_year kommer från SHOWN_YEAR_SQL. */
 function yearPill(r: Row): SafeHtml {
@@ -864,8 +881,8 @@ export const RESOURCES: Resource[] = [
     singular: "styrelseledamot",
     newLabel: "Lägg till ledamot",
     lead: "Visas på Om oss och på kontaktsidan. Varje ledamot hör till ett verksamhetsår: lägg in en ny styrelse som nästa år, så flyttar den gamla till Tidigare styrelser när ni byter år under Styrelseskifte.",
-    orderBy: "year DESC, sort_order, name",
-    listQuery: `SELECT *, ${SHOWN_YEAR_SQL} FROM board_members ORDER BY year DESC, sort_order, name`,
+    orderBy: `${YEAR_ORDER_SQL}, sort_order, name`,
+    listQuery: `SELECT *, ${SHOWN_YEAR_SQL} FROM board_members ORDER BY ${YEAR_ORDER_SQL}, sort_order, name`,
     moveGroup: ["year"],
     publishable: true,
     publishLabels: ["Visas", "Dold"],
@@ -1475,6 +1492,16 @@ export const RESOURCES: Resource[] = [
         options: Object.entries(COVER_FOCUS).map(([value, f]) => ({ value, label: f.label })),
         help: "Bilden beskärs olika på affischen och överst på sidan. Välj den del av bilden som inte får klippas bort.",
       },
+      {
+        name: "meet_style",
+        label: "Visa medlemmarna som",
+        type: "radio",
+        options: [
+          { value: "portratt", label: "Porträtt", hint: "Den som står först visas stort med sitt citat, de andra i en porträttvägg" },
+          { value: "lagbild", label: "Lagbild", hint: "Årets gruppbild med en siffra på varje person och namnen bredvid. Kräver en gruppbild för året – annars visas porträtten" },
+        ],
+        help: "Gruppbilden och var personerna står lägger du in under Lagbild och gruppbilder längst ned.",
+      },
       { name: "email", label: "E-post till utskottet", type: "email", nullable: true, max: 200, help: "Valfritt. Visas på utskottets sida som ”Mejla utskottet”." },
       { name: "body", label: "Hela beskrivningen", type: "textarea", rows: 12, max: 8000, help: `Visas under Vad vi gör på utskottets sida och när man öppnar utskottet på Engagera dig: vad ni gör, hur ett år ser ut och vad man får ut av att vara med. ${MARKDOWN_HELP}` },
       { name: "commitment", label: "Tidsåtgång", type: "text", max: 120, placeholder: "T.ex. Ett par timmar i veckan" },
@@ -1493,7 +1520,7 @@ export const RESOURCES: Resource[] = [
       { label: "Status", render: (r) => statusPill(!!r.published, "Visas", "Dold") },
     ],
     listQuery: `SELECT c.*, (SELECT COUNT(*) FROM committee_members m WHERE m.committee_id = c.id AND m.year = COALESCE((SELECT value FROM settings WHERE key = 'service_year'), '')) AS member_count FROM committees c ORDER BY c.sort_order, c.id`,
-    toValues: (r) => ({ cover_focus: COVER_FOCUS[String(r.cover_focus ?? "")] ? String(r.cover_focus) : "mitten" }),
+    toValues: (r) => ({ cover_focus: COVER_FOCUS[String(r.cover_focus ?? "")] ? String(r.cover_focus) : "mitten", meet_style: r.meet_style === "lagbild" ? "lagbild" : "portratt" }),
     titleOf: (r) => String(r.name),
     publicUrl: (r) => (r.published ? `/om-oss/utskott/${r.slug}` : null),
     // Medlemmarna ligger under formuläret – en genväg överst så att man hittar dit direkt.
@@ -1504,7 +1531,11 @@ export const RESOURCES: Resource[] = [
     },
     editOutro: (db, session, row) => committeeMembersPanel(db, session, { id: row.id, name: String(row.name) }),
     beforeDelete: async (db, row) => {
-      const n = await db.prepare("SELECT COUNT(*) AS n FROM committee_members WHERE committee_id = ?").bind(row.id).first<{ n: number }>().catch(() => null);
+      const n = await db
+        .prepare("SELECT (SELECT COUNT(*) FROM committee_members WHERE committee_id = ?1) + (SELECT COUNT(*) FROM group_photos WHERE committee_id = ?1) AS n")
+        .bind(row.id)
+        .first<{ n: number }>()
+        .catch(() => null);
       return n?.n ? "utskott-har-medlemmar" : null;
     },
     extraColumns: () => ({ updated_at: nowUtc() }),
@@ -1517,8 +1548,8 @@ export const RESOURCES: Resource[] = [
     singular: "utskottsmedlem",
     newLabel: "Lägg till medlem",
     lead: "Alla som sitter i ett utskott, per verksamhetsår. Det enklaste är att lägga till och ändra medlemmar inne på varje utskott under fliken Utskott.",
-    orderBy: "committee_id, year DESC, sort_order, id",
-    listQuery: `SELECT m.*, c.name AS committee_name, ${SHOWN_YEAR_SQL} FROM committee_members m LEFT JOIN committees c ON c.id = m.committee_id ORDER BY c.sort_order, c.id, m.year DESC, m.sort_order, m.id`,
+    orderBy: `committee_id, ${YEAR_ORDER_SQL}, sort_order, id`,
+    listQuery: `SELECT m.*, c.name AS committee_name, ${SHOWN_YEAR_SQL} FROM committee_members m LEFT JOIN committees c ON c.id = m.committee_id ORDER BY c.sort_order, c.id, (m.year IN ('', COALESCE((SELECT value FROM settings WHERE key = 'service_year'), ''))) DESC, m.year DESC, m.sort_order, m.id`,
     moveGroup: ["committee_id", "year"],
     publishable: true,
     publishLabels: ["Visas", "Dold"],
@@ -1777,7 +1808,7 @@ export function newHandler(r: Resource) {
     const q = c.url.searchParams;
     const pre = q.get("partner") ? `p:${q.get("partner")}` : q.get("arbetsgivare") ? `c:${q.get("arbetsgivare")}` : "";
     if (r.path === "jobb" && pre && fields.find((f) => f.name === "employer_pick")?.options?.some((o) => o.value === pre)) values.employer_pick = pre;
-    if (r.path === "utskott") values.cover_focus = "mitten";
+    if (r.path === "utskott") Object.assign(values, { cover_focus: "mitten", meet_style: "portratt" });
     // Verksamhetsåret: året som visas, eller det år man valde (t.ex. "Lägg in styrelsen för 2027/28").
     if (r.path === "styrelsen" || r.path === "utskottsmedlemmar") {
       const ar = q.get("ar") ?? "";

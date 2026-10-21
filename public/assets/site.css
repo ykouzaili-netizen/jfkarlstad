@@ -4952,3 +4952,77 @@ button.pd-plaque:hover { transform: translateY(-2px); filter: brightness(1.06); 
 @media (max-width: 559px) { .cm-members { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .cm-join { min-width: 0; }
 .cm-join .btn { max-width: 100%; white-space: normal; text-align: left; }
+
+/* Lagbilden: årets gruppbild med numrerade punkter och listan bredvid (site.js, [data-team]) */
+.team { display: grid; gap: clamp(20px, 3vw, 36px); align-items: start; }
+@media (min-width: 900px) { .team { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); } }
+.team-photo { position: relative; margin: 0; border-radius: var(--radius-lg); overflow: hidden; background: var(--c-primary); }
+.team-photo img { display: block; width: 100%; height: auto; }
+.team-dot {
+  position: absolute; z-index: 1;
+  display: grid; place-items: center;
+  width: 36px; height: 36px; margin: -18px 0 0 -18px;
+  border-radius: 50%; border: 2px solid #fff;
+  background: var(--c-primary); color: var(--c-on-primary);
+  font-size: 0.875rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
+  transition: transform 0.15s var(--ease), background-color 0.15s var(--ease);
+}
+.team-dot.is-selected, .team-dot.is-hover, .team-dot:hover { background: var(--c-accent); color: var(--c-on-accent); transform: scale(1.12); }
+.team-dot:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 3px; }
+@media (max-width: 599px) { .team-dot { width: 28px; height: 28px; margin: -14px 0 0 -14px; font-size: 0.75rem; } }
+.team-hint { margin-bottom: 10px; color: var(--c-muted); font-size: 0.875rem; }
+.team-list { list-style: none; border-top: 1px solid var(--c-border); }
+.team-person { border-bottom: 1px solid var(--c-border); scroll-margin-top: calc(var(--header-h) + 80px); }
+.team-person-head {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  width: 100%; min-height: 48px; padding: 8px 4px;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.team-person-head:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 2px; border-radius: 8px; }
+.team-num {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--c-primary); color: var(--c-on-primary);
+  font-size: 0.8125rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.team-num.is-missing { background: transparent; color: var(--c-muted); border: 1px dashed var(--c-border); }
+.team-name { font-weight: 600; min-width: 0; }
+.team-role { color: var(--c-muted); font-size: 0.8125rem; text-align: right; }
+.team-person.is-selected .team-num, .team-person-head.is-hover .team-num, .team-person:target .team-num { background: var(--c-accent); color: var(--c-on-accent); }
+.team-detail { padding: 0 4px 14px 48px; display: grid; gap: 6px; }
+.team-program { color: var(--c-muted); font-size: 0.875rem; }
+.team-quote { margin: 0; }
+.team-quote p { font-family: var(--font-display); font-style: italic; font-size: calc(1.0625rem * var(--display-scale)); line-height: 1.45; }
+.team-quote p::before { content: "”"; color: var(--c-primary); }
+.team-quote p::after { content: "”"; color: var(--c-primary); }
+.team-missing { color: var(--c-muted); font-size: 0.8125rem; }
+/* Med JS visas bara den valdas detaljer */
+.team.is-enhanced .team-person:not(.is-selected) .team-detail { display: none; }
+.team.is-enhanced .team-person.is-selected { background: color-mix(in srgb, var(--c-accent) 14%, transparent); }
+@media (prefers-reduced-motion: reduce) { .team-dot { transition: none; } .team-dot.is-selected, .team-dot:hover, .team-dot.is-hover { transform: none; } }
+.cm-team-email { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 20px; }
+.cm-team-email a { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; text-decoration-color: var(--c-accent); }
+.cm-team-email span { color: var(--c-muted); font-size: 0.875rem; }
+
+/* Gruppbilder: styrelsens år och Tidigare år */
+.board-photo { margin: 0 0 clamp(16px, 2.5vw, 24px); }
+.board-photo img { display: block; width: 100%; height: auto; max-height: 640px; object-fit: cover; border-radius: var(--radius-lg); }
+.board-photo figcaption { margin-top: 10px; color: var(--c-muted); font-size: 0.875rem; }
+.archive-photo { margin: 6px 0 10px; }
+.archive-photo a { display: block; border-radius: var(--radius-sm); overflow: hidden; }
+.archive-photo img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; transition: transform 0.4s var(--ease); }
+.archive-photo a:hover img { transform: scale(1.03); }
+.archive-photo a:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .archive-photo img { transition: none; } .archive-photo a:hover img { transform: none; } }
+
+/* Engagera dig: Det här är vi */
+.cm-people { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--c-border); }
+.cm-people-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-muted); margin-bottom: 12px; }
+.cm-faces { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 14px 10px; }
+.cm-face { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; min-width: 0; }
+.cm-face-img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; object-position: 50% 28%; margin-bottom: 6px; }
+.cm-face-initials { display: grid; place-items: center; background: var(--c-primary); color: var(--c-accent); font-family: var(--font-display); font-weight: 600; font-size: 1.125rem; }
+.cm-face-name { font-size: 0.8125rem; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.cm-face-role { font-size: 0.75rem; color: var(--c-muted); line-height: 1.25; }
+.cm-face-more { justify-content: center; min-height: 56px; color: var(--c-muted); font-size: 0.8125rem; font-weight: 600; }

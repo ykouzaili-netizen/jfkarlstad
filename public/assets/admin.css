@@ -1070,3 +1070,57 @@ a.admin-user:hover { background: var(--c-hover); }
 .year-card-body p { margin: 0; }
 .year-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .cmm-jump { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
+
+/* Behåll från i år */
+.cmm-next-actions { display: grid; gap: 10px; justify-items: start; }
+.keep { width: 100%; }
+.keep > summary { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; padding: 6px 0; }
+.keep-form { display: grid; gap: 10px; justify-items: start; padding: 4px 0 8px; }
+.keep-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 6px 16px; width: 100%; }
+.keep-person { display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; }
+.keep-person input { width: 18px; height: 18px; flex: none; }
+.year-intro .keep { flex-basis: 100%; }
+
+/* Lagbild och gruppbilder */
+.gp { display: grid; gap: 18px; margin-top: 20px; }
+.gp-year { display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid var(--c-border); }
+.gp-upload { display: grid; gap: 12px; justify-items: start; }
+.gp-upload .field { width: 100%; margin: 0; }
+.gp-photo { display: grid; gap: 12px; }
+.gp-photo form { display: grid; gap: 14px; }
+.gp-layout { display: grid; gap: 16px; }
+@media (min-width: 900px) { .gp-layout.has-markers { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items: start; } }
+.gp-image { position: relative; border-radius: 12px; overflow: hidden; background: var(--c-primary); }
+.gp-image img { display: block; width: 100%; height: auto; }
+.is-enhanced .gp-image { cursor: crosshair; }
+.gp-dot {
+  position: absolute; display: grid; place-items: center;
+  width: 30px; height: 30px; margin: -15px 0 0 -15px;
+  border-radius: 50%; border: 2px solid #fff; background: var(--c-primary); color: var(--c-on-primary);
+  font-size: 0.8125rem; font-weight: 700; pointer-events: none;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.35);
+}
+.gp-dot.is-active { background: var(--c-accent); color: var(--c-on-accent); }
+.gp-people { border: 0; padding: 0; margin: 0; min-width: 0; }
+.gp-people legend { font-weight: 700; margin-bottom: 4px; }
+.gp-list { list-style: none; display: grid; margin-top: 8px; border-top: 1px solid var(--c-border); }
+.gp-person { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding: 6px 0; border-bottom: 1px solid var(--c-border); }
+.gp-pick { display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; flex: 1 1 180px; min-width: 0; }
+.gp-pick input { width: 18px; height: 18px; flex: none; accent-color: var(--c-primary); }
+.gp-face { width: 28px; height: 37px; border-radius: 4px; object-fit: cover; flex: none; }
+.gp-face-initials { display: grid; place-items: center; background: var(--c-primary); color: var(--c-accent); font-size: 0.6875rem; font-weight: 700; }
+.gp-name { display: flex; flex-direction: column; font-weight: 600; font-size: 0.875rem; min-width: 0; }
+.gp-role { font-weight: 400; color: var(--c-muted); font-size: 0.75rem; }
+.gp-coords { display: flex; align-items: center; gap: 6px; flex: none; }
+.is-enhanced .gp-person { flex-wrap: nowrap; }
+.is-enhanced .gp-pick { flex: 1 1 auto; }
+.gp-clear { font-size: 0.75rem; }
+.gp-coords input { width: 64px; padding: 6px 8px; font-size: 0.8125rem; }
+/* Med JS placerar man genom att klicka i bilden – sifferfälten behövs inte synligt. */
+.is-enhanced .gp-coords label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.gp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.gp-replace > summary { cursor: pointer; font-weight: 600; font-size: 0.875rem; }
+.gp-replace[open] { display: grid; gap: 10px; }
+.gp-summary { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.gp-collapsible:not([open]) { gap: 0; }
+.gp-collapsible[open] > .gp-summary { padding-bottom: 6px; border-bottom: 1px solid var(--c-border); }

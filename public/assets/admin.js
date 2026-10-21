@@ -2589,3 +2589,80 @@
     });
   });
 })();
+
+/* ---------- Lagbilden: placera personerna ----------
+   [data-marker-editor]: välj en person (radioknapp) och klicka i bilden. Positionen sparas i procent i fälten
+   x_ID / y_ID (som också går att skriva i för hand). Nästa person utan punkt väljs automatiskt. */
+(function () {
+  "use strict";
+  document.querySelectorAll("[data-marker-editor]").forEach(function (box) {
+    var img = box.querySelector("[data-marker-img]");
+    if (!img) return;
+    box.classList.add("is-enhanced");
+    var radios = function () { return Array.prototype.slice.call(box.querySelectorAll("input[name=placera]")); };
+    var field = function (axis, id) { return box.querySelector("[data-marker-" + axis + '="' + id + '"]'); };
+    var renumber = function () {
+      var n = 0;
+      radios().forEach(function (r) {
+        var id = r.value, x = field("x", id), y = field("y", id), dot = box.querySelector('[data-marker="' + id + '"]');
+        var clear = box.querySelector('[data-marker-clear="' + id + '"]');
+        var placed = x && y && x.value !== "" && y.value !== "";
+        if (clear) clear.hidden = !placed;
+        if (!dot) return;
+        if (placed) {
+          n++;
+          dot.hidden = false;
+          dot.textContent = String(n);
+          dot.style.left = x.value + "%";
+          dot.style.top = y.value + "%";
+        } else {
+          dot.hidden = true;
+        }
+        dot.classList.toggle("is-active", r.checked);
+      });
+    };
+    img.addEventListener("click", function (e) {
+      var r = radios().filter(function (x) { return x.checked; })[0];
+      if (!r) return;
+      var rect = img.getBoundingClientRect();
+      var px = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      var py = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      field("x", r.value).value = px.toFixed(1);
+      field("y", r.value).value = py.toFixed(1);
+      // Nästa person utan punkt
+      var all = radios(), i = all.indexOf(r);
+      for (var k = 1; k <= all.length; k++) {
+        var cand = all[(i + k) % all.length];
+        if (field("x", cand.value).value === "") { cand.checked = true; break; }
+      }
+      renumber();
+      var form = box.querySelector("form");
+      if (form) form.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    box.addEventListener("change", renumber);
+    box.addEventListener("input", function (e) { if (e.target.matches("[data-marker-x],[data-marker-y]")) renumber(); });
+    box.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-marker-clear]");
+      if (!b) return;
+      var id = b.getAttribute("data-marker-clear");
+      field("x", id).value = "";
+      field("y", id).value = "";
+      var r = box.querySelector('input[name=placera][value="' + id + '"]');
+      if (r) r.checked = true;
+      renumber();
+    });
+    renumber();
+  });
+})();
+
+/* En länk eller omdirigering till #id på en hopfälld ruta (<details>) öppnar den. */
+(function () {
+  "use strict";
+  var open = function () {
+    var id = decodeURIComponent(location.hash.slice(1));
+    var el = id && document.getElementById(id);
+    if (el && el.tagName === "DETAILS" && !el.open) { el.open = true; el.scrollIntoView({ block: "start" }); }
+  };
+  open();
+  window.addEventListener("hashchange", open);
+})();

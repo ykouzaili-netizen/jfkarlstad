@@ -60,6 +60,11 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   har `returnTo` som skickar tillbaka till utskottet. Styrelsen (`board_members.year`) och utskottens medlemmar hör till ett
   verksamhetsår ("2026/27"); inställningen `service_year` är året som visas och byts under Styrelseskifte. Äldre år visas
   som Tidigare år/Tidigare styrelser (bara namn och roll), ett senare år är nästa styrelse som läggs in i förväg.
+  Gruppbilder per år i `group_photos` (`committee_id` 0 = styrelsen; `src/admin/group-photos.ts`, adresserna
+  `/admin/gruppbild/:scope` och `/admin/behall/:scope` – inte under `/admin/styrelsen/…`, som krockar med resursens `:id`).
+  Lagbild: `committees.meet_style = 'lagbild'` + årets gruppbild visar medlemmarna med siffror på
+  `committee_members.marker_x/y` (procent; positionerna skrivs i en `<style nonce>`, site.js `[data-team]`, admin.js
+  `[data-marker-editor]`). "Behåll från i år" kopierar valda personer till nästa år. Engagera dig visar "Det här är vi".
   Test: `tools/e2e/test_committees.py`.
 - **Schemaläggning:** `news.published_at`, `events.publish_at`, `jobs.publish_at` (UTC). Publika frågor filtrerar via
   `NEWS_LIVE`/`EVENT_LIVE`/`JOB_LIVE` i `content.ts`. Admin-fält med `schedule: true` visas i svensk tid.

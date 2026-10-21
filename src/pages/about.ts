@@ -1,11 +1,12 @@
-import { loadCommitteeMembers, loadCommittees, type CommitteeMemberRow, type CommitteeRow } from "../lib/committees.js";
+import { BOARD_GROUP, currentMembersBy, loadCommitteeMembers, loadCommittees, loadGroupPhotos, type CommitteeMemberRow, type CommitteeRow, type GroupPhotoRow } from "../lib/committees.js";
 import { shownYear, splitByYear } from "../lib/years.js";
-import { archiveYears, committeeMonogram, committeePosters, committeeUrl, currentMembersBy, softHyphen } from "./committee.js";
+import { archiveYears, hasArchive, committeeMonogram, committeePosters, committeeUrl, softHyphen } from "./committee.js";
 import { blockOrder, isBlockHidden, isLinkVisible } from "../lib/pagelayout.js";
 import { html, paragraphs, type SafeHtml } from "../lib/html.js";
 import { ec, ek, loadSettings, type SettingKey, type Settings, siteLayout, withBlockColors } from "../lib/settings.js";
 import { boardQuery, honorQuery, partnerQuery, type BoardRow, type HonorRow, type PartnerRow } from "../lib/content.js";
 import { htmlResponse } from "../lib/http.js";
+import { fill } from "../lib/texts.js";
 import { loadMedals } from "../lib/medals.js";
 import { loadNetworks, type NetworkRow } from "../lib/networks.js";
 import { networkCard } from "./networks.js";
@@ -19,13 +20,14 @@ import { HERO_FALLBACKS, heroStyle, heroTile, personCard, photoTop, sectionNav, 
 
 export async function aboutPage(c: RequestContext): Promise<Response> {
   const db = c.env.DB;
-  const [s, [boardRes, honorRes, partnerRes], committeeRows, medals, networks, members] = await Promise.all([
+  const [s, [boardRes, honorRes, partnerRes], committeeRows, medals, networks, members, boardPhotos] = await Promise.all([
     loadSettings(db, c.preview),
     db.batch([boardQuery.all(db), honorQuery.all(db), partnerQuery.all(db)]),
     loadCommittees(db),
     loadMedals(db),
     loadNetworks(db),
     loadCommitteeMembers(db),
+    loadGroupPhotos(db, BOARD_GROUP),
   ]);
   const year = shownYear(s.service_year);
   // Styrelsen för året som visas; äldre år blir Tidigare styrelser (bara namn och roll).
@@ -37,7 +39,7 @@ export async function aboutPage(c: RequestContext): Promise<Response> {
   const sections: { id: string; anchor: string; labelKey: SettingKey; icon: IconName; render: () => SafeHtml | string }[] = [
     { id: "om", anchor: "#om-jfk", labelKey: "about_section_title", icon: "sparkle", render: () => aboutSection(s) },
     { id: "styrning", anchor: "#sa-styrs-jfk", labelKey: "governance_title", icon: "network", render: () => governance(s) },
-    { id: "styrelsen", anchor: "#styrelsen", labelKey: "board_title", icon: "user", render: () => boardSection(s, board.current, board.archive) },
+    { id: "styrelsen", anchor: "#styrelsen", labelKey: "board_title", icon: "user", render: () => boardSection(s, board.current, board.archive, boardPhotos, year) },
     { id: "utskott", anchor: "#utskotten", labelKey: "committees_title", icon: "users", render: () => (committees.length ? committeesSection(s, committees, currentMembersBy(members, year)) : "") },
     { id: "utmarkelser", anchor: "#utmarkelser", labelKey: "honors_title", icon: "check", render: () => html`${honorsSection(s, honorsData(honors, medals))}${nominateCta(s)}` },
     { id: "pedagog", anchor: "#arets-pedagog", labelKey: "pedagog_title", icon: "megaphone", render: () => pedagogSection(s, honors) },
@@ -189,7 +191,8 @@ function committeesSection(s: Settings, committees: CommitteeRow[], byCommittee:
   </section>`;
 }
 
-function boardSection(s: Settings, board: BoardRow[], archive: { year: string; rows: BoardRow[] }[]): SafeHtml {
+function boardSection(s: Settings, board: BoardRow[], archive: { year: string; rows: BoardRow[] }[], photos: Map<string, GroupPhotoRow>, year: string): SafeHtml {
+  const groupPhoto = photos.get(year);
   return html`<section class="section" aria-labelledby="styrelsen">
     <div class="container">
       <div class="section-head">
@@ -198,11 +201,17 @@ function boardSection(s: Settings, board: BoardRow[], archive: { year: string; r
           <p class="section-lead"${ek(s, "board_lead")}>${s.board_lead}</p>
         </div>
       </div>
+      ${groupPhoto
+        ? html`<figure class="board-photo">
+            ${picture(groupPhoto.image_key, { alt: groupPhoto.image_alt, sizes: "(min-width: 1280px) 1200px, 100vw", width: 1600, height: 900 })}
+            <figcaption${ek(s, "board_group_caption")}>${fill(s.board_group_caption, { år: year })}</figcaption>
+          </figure>`
+        : ""}
       ${board.length ? html`<ul class="person-grid">${board.map((p) => personCard(s, p))}</ul>` : emptyState(s.board_empty, ek(s, "board_empty"))}
-      ${archive.length
+      ${hasArchive(archive, photos, year)
         ? html`<details class="archive archive-board">
             <summary><span class="archive-summary"><span class="archive-title"${ek(s, "board_archive_title")}>${s.board_archive_title}</span></span>${icon("chevronDown", "icon icon-sm")}</summary>
-            ${archiveYears(archive)}
+            ${archiveYears(archive, photos, year)}
           </details>`
         : ""}
     </div>
