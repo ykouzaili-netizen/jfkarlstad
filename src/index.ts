@@ -1,6 +1,8 @@
 import { ensureCommitteeSchema } from "./lib/committees.js";
 import { ensureInstagramSchema } from "./lib/instagram.js";
-import { LAYOUT_PREFIX, pageIdForPath } from "./lib/pagelayout.js";
+import { LAYOUT_PREFIX, PAGE_LAYOUTS, pageIdForPath } from "./lib/pagelayout.js";
+import { escapeHtml } from "./lib/html.js";
+import { formatDay } from "./lib/format.js";
 import type { Env } from "./env.js";
 import { Router, type RequestContext } from "./router.js";
 import { randomToken, redirect, textResponse } from "./lib/http.js";
@@ -35,14 +37,17 @@ import { errorPage, notFoundPage } from "./pages/errors.js";
 import { registerAdminRoutes } from "./admin/routes.js";
 import { getSession } from "./admin/auth.js";
 import { runMaintenance } from "./lib/maintenance.js";
+import { hasShareCookie, loadShare, safeEqual, SHARE_PARAM, shareCookie, type Share } from "./lib/share.js";
 
 /**
  * En dold sida som visas för den som är inloggad: en rad överst säger att besökarna inte ser den,
  * och svaret får inte sparas någonstans (private, no-store) eller indexeras.
  */
-async function hiddenPreview(res: Response, path: string): Promise<Response> {
+async function hiddenPreview(res: Response, path: string, shared?: Share): Promise<Response> {
   const pageId = pageIdForPath(path) ?? "";
-  const note = `<p class="hidden-page-note" role="status"><strong>Sidan är dold.</strong> Bara du som är inloggad ser den. <a href="/admin/texter?sida=${encodeURIComponent(pageId)}">Visa den för alla under Texter och sidor</a></p>`;
+  const note = shared
+    ? `<p class="hidden-page-note" role="status"><strong>Förhandsvisning.</strong> Sidan är inte publicerad än – du ser den via en privat länk som gäller till ${escapeHtml(formatDay(shared.expires.slice(0, 10)))}.</p>`
+    : `<p class="hidden-page-note" role="status"><strong>Sidan är dold.</strong> Bara du som är inloggad ser den. <a href="/admin/texter?sida=${encodeURIComponent(pageId)}">Visa den för alla under Texter och sidor</a></p>`;
   const body = (await res.text()).replace('<main id="innehall" tabindex="-1">', (m) => note + m);
   const headers = new Headers(res.headers);
   headers.set("Cache-Control", "private, no-store");
@@ -238,7 +243,21 @@ export default {
       const [hidden, res] = await Promise.all([isHiddenPage(env, url.pathname), match.handler(c)]);
       if (!hidden) return res;
       // Inloggade i adminpanelen kan se en dold sida (t.ex. tävlingen innan den visas) – med en tydlig markering.
-      if (res.status === 200 && (res.headers.get("Content-Type") ?? "").startsWith("text/html") && (await getSession(c))) return hiddenPreview(res, url.pathname);
+      const isHtml = res.status === 200 && (res.headers.get("Content-Type") ?? "").startsWith("text/html");
+      if (isHtml && (await getSession(c))) return hiddenPreview(res, url.pathname);
+      // Delningslänk (Butik → Dela förhandsvisning): den som har länken ser sidan, men bara den.
+      const pageId = pageIdForPath(url.pathname);
+      const share = pageId ? await loadShare(env.DB, pageId) : null;
+      if (pageId && share) {
+        const base = PAGE_LAYOUTS[pageId]?.paths[0] ?? url.pathname;
+        const given = url.searchParams.get(SHARE_PARAM);
+        if (given && safeEqual(given, share.token)) {
+          const clean = new URL(url);
+          clean.searchParams.delete(SHARE_PARAM);
+          return new Response(null, { status: 303, headers: { Location: clean.pathname + clean.search, "Set-Cookie": shareCookie(pageId, base, share), "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+        }
+        if (isHtml && hasShareCookie(req, pageId, share)) return hiddenPreview(res, url.pathname, share);
+      }
       return await notFoundPage(c);
     } catch (err) {
       // Engångslänkar (lösenord) får aldrig hamna i loggen

@@ -19,6 +19,8 @@ function multiUploadFlash(c: RequestContext, code: string): { kind: "ok" | "erro
 
 const FLASH: Record<string, { kind: "ok" | "error"; text: string }> = {
   sparat: { kind: "ok", text: "Ändringarna är sparade och syns direkt på webbplatsen." },
+  "delning-ny": { kind: "ok", text: "Länken är skapad. Kopiera den och skicka den till den som ska se sidan." },
+  "delning-av": { kind: "ok", text: "Länken är avstängd. Ingen kommer längre åt sidan via den." },
   huvudbild: { kind: "ok", text: "Bilden är nu huvudbild. Den gamla huvudbilden ligger kvar bland de andra bilderna." },
   skapat: { kind: "ok", text: "Klart! Det nya innehållet är skapat." },
   raderat: { kind: "ok", text: "Borttaget." },

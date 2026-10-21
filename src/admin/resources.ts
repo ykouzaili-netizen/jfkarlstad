@@ -24,6 +24,7 @@ import { MEDAL_GROUPS, MEDAL_KINDS, medalImageUrl } from "../lib/medals.js";
 import { competitionDates, currentPhase, dayMonth, dayMonthClock, period, type Phase } from "../lib/competition.js";
 import { loadSettings } from "../lib/settings.js";
 import { LAYOUT_PREFIX } from "../lib/pagelayout.js";
+import { sharePanel } from "./share-pages.js";
 import { copyShopPhotos, deleteShopPhotos, shopPhotosPanel } from "./shop-images.js";
 import { dropDay, dropState, GARMENTS, kr, loadShop, type DropRow, type DropState } from "../lib/shop.js";
 
@@ -373,7 +374,7 @@ async function dropOptions(db: D1Database): Promise<{ value: string; label: stri
 }
 
 /** Rutan överst under Butik: om butiken visas, vilket släpp som pågår och vad som inte är kopplat än. */
-async function shopIntro(c: RequestContext): Promise<SafeHtml> {
+async function shopIntro(c: RequestContext, session: Session): Promise<SafeHtml> {
   const [hidden, data] = await Promise.all([
     c.env.DB.prepare("SELECT value FROM settings WHERE key = ?").bind(LAYOUT_PREFIX.page + "butik").first<{ value: string }>().catch(() => null),
     loadShop(c.env.DB),
@@ -388,6 +389,7 @@ async function shopIntro(c: RequestContext): Promise<SafeHtml> {
     <p><strong>${isHidden ? "Butiken är dold" : "Butiken visas på webbplatsen"}</strong> · ${data.live.length} ${data.live.length === 1 ? "produkt" : "produkter"} går att lägga i korgen. ${drop}</p>
     <p class="muted">Betalningen och beställningarna till leverantören är inte kopplade än – kassan säger det till besökarna. Produkter utan foto visas som en teckning av plagget i dess första färg.</p>
     <p class="comp-status-links"><a href="/admin/texter?sida=butik">${isHidden ? "Visa butiken eller ändra texterna" : "Dölj butiken eller ändra texterna"}</a> · <a href="/butik" target="_blank" rel="noopener">${isHidden ? "Förhandsgranska butiken" : "Öppna butiken"}<span class="sr-only"> (öppnas i ny flik)</span></a></p>
+    ${isHidden ? await sharePanel(c, session, "butik") : ""}
   </div>`;
 }
 

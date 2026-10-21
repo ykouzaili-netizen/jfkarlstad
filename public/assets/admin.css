@@ -1024,3 +1024,11 @@ a.admin-user:hover { background: var(--c-hover); }
   .shop-photo-row { grid-template-columns: 64px minmax(0, 1fr); gap: 12px; }
   .shop-photo-thumb img { width: 64px; height: 64px; }
 }
+
+/* Dela förhandsvisning av en dold sida (src/admin/share-pages.ts) */
+.share-box { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--c-border); display: grid; gap: 12px; }
+.share-title { font-size: 1rem; }
+.share-box p { max-width: 70ch; }
+.share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.share-box .copy-row { display: flex; gap: 8px; }
+.share-box .copy-row input { flex: 1; min-width: 0; font-size: 0.875rem; }

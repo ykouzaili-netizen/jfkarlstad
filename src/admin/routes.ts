@@ -20,6 +20,7 @@ import {
   userRole,
   usersPage,
 } from "./pages.js";
+import { shareSubmit } from "./share-pages.js";
 import { shopPhotosAdd, shopPhotosChange, shopPhotosDone } from "./shop-images.js";
 import { previewHandler, siteMapHandler } from "./preview.js";
 import { jobStatsCsv, jobStatsPage } from "./job-stats.js";
@@ -97,6 +98,7 @@ export function registerAdminRoutes(router: Router): void {
     .get("/admin/galleri-kategorier/:id/omslag", requireUser(galleryCoverPage))
     .post("/admin/galleri-kategorier/:id/omslag", requireUser(galleryCoverSubmit));
   router
+    .post("/admin/dela/:sida", requireUser(shareSubmit))
     .get("/admin/butik/:id/bilder", requireUser(shopPhotosDone))
     .post("/admin/butik/:id/bilder", requireUser(shopPhotosAdd))
     .post("/admin/butik/:id/bilder/andra", requireUser(shopPhotosChange));
