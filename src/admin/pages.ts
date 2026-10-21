@@ -27,6 +27,7 @@ import {
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton } from "./layout.js";
 import { handleUpload, uploadInput } from "./uploads.js";
 import { saveSettings } from "./texts.js";
+import { twoFactorAdminCard, twoFactorCard, twoFactorNudge } from "./two-factor.js";
 import { PREVIEW_PAGES, deviceSwitch, previewPane } from "./preview.js";
 import { handoverProgress } from "./handover.js";
 import { FORM_LABELS as FORM_NAMES } from "../pages/forms.js";
@@ -101,6 +102,7 @@ export async function dashboard(c: RequestContext, session: Session): Promise<Re
     ${adminHead(`Hej ${session.user.name.split(" ")[0]}!`, { lead: "Här är en snabb överblick. Klicka på något på webbplatsen till höger för att ändra det." })}
     <div class="dash-layout">
       <div class="dash-main">
+        ${twoFactorNudge(session)}
         <ul class="quick-grid">
           ${quick.map((q) => html`<li><a class="quick-card" href="${q.href}">${icon(q.icon)}<span>${q.label}</span></a></li>`)}
         </ul>
@@ -537,6 +539,7 @@ const USER_FIELDS: FieldSpec[] = [
 
 export async function usersPage(c: RequestContext, session: Session, opts: { errors?: Errors; values?: Record<string, string>; inviteLink?: { name: string; link: string; emailed: boolean } } = {}, status = 200): Promise<Response> {
   const { results } = await c.env.DB.prepare("SELECT * FROM users ORDER BY active DESC, role, name").all<User>();
+  const required = (await c.env.DB.prepare("SELECT value FROM settings WHERE key = 'require_2fa'").first<{ value: string }>())?.value === "pa";
   const content = html`
     ${adminHead("Användare", { lead: "Alla som kan logga in i adminpanelen. Nya användare får en personlig länk där de väljer sitt eget lösenord." })}
     ${opts.inviteLink
@@ -548,19 +551,21 @@ export async function usersPage(c: RequestContext, session: Session, opts: { err
       : ""}
     <div class="admin-card admin-card-flush">
       <table class="admin-table">
-        <thead><tr><th scope="col">Namn</th><th scope="col">E-post</th><th scope="col">Roll</th><th scope="col">Senast inloggad</th><th scope="col" class="col-actions"><span class="sr-only">Åtgärder</span></th></tr></thead>
+        <thead><tr><th scope="col">Namn</th><th scope="col">E-post</th><th scope="col">Roll</th><th scope="col">Tvåsteg</th><th scope="col">Senast inloggad</th><th scope="col" class="col-actions"><span class="sr-only">Åtgärder</span></th></tr></thead>
         <tbody>
           ${results.map(
             (u) => html`<tr class="${u.active ? "" : "row-muted"}">
               <td data-label="Namn"><strong>${u.name}</strong>${u.id === session.user.id ? html` <span class="pill">Du</span>` : ""}${!u.active ? html` <span class="pill pill-off">Inaktiv</span>` : u.password_hash === "!" ? html` <span class="pill pill-warn">Inbjuden</span>` : ""}</td>
               <td data-label="E-post">${u.email}</td>
               <td data-label="Roll">${ROLE_LABELS[u.role]}</td>
+              <td data-label="Tvåstegsverifiering">${u.password_hash === "!" ? "–" : u.totp_secret ? html`<span class="pill pill-on">På</span>` : html`<span class="pill pill-warn">Av</span>`}</td>
               <td data-label="Senast inloggad">${u.last_login_at ? formatDateTime(u.last_login_at) : "Aldrig"}</td>
               <td class="col-actions">
                 <div class="row-actions">
                   ${u.id !== session.user.id && u.active
                     ? html`${postButton(session, `/admin/anvandare/${u.id}/lank`, "Ny lösenordslänk")}
                         ${postButton(session, `/admin/anvandare/${u.id}/roll`, u.role === "admin" ? "Gör till redaktör" : "Gör till admin")}
+                        ${u.totp_secret ? postButton(session, `/admin/anvandare/${u.id}/tvastegs-av`, "Stäng av tvåsteg", { confirm: `Stäng av tvåstegsverifiering för ${u.name}? Gör bara det om hen har tappat telefonen och reservkoderna – och om du är säker på att det verkligen är hen som frågar.` }) : ""}
                         ${postButton(session, `/admin/anvandare/${u.id}/ta-bort`, "Ta bort", { confirm: `Ta bort ${u.name}? Personen loggas ut direkt och kan inte logga in igen.`, className: "btn btn-danger-ghost btn-sm" })}`
                     : u.id === session.user.id
                       ? html`<a class="btn btn-outline btn-sm" href="/admin/konto">Mitt konto</a>`
@@ -581,7 +586,9 @@ export async function usersPage(c: RequestContext, session: Session, opts: { err
         ${USER_FIELDS.map((f) => renderField(f, opts.values?.[f.name] ?? (f.name === "roll" ? "redaktor" : ""), opts.errors?.[f.name]))}
         <button class="btn btn-primary" type="submit">Skapa och få inbjudningslänk</button>
       </form>
-    </section>`;
+    </section>
+
+    ${twoFactorAdminCard(session, results, required)}`;
   return adminLayout(c, session, { title: "Användare", active: "/admin/anvandare", newCount: await newMessageCount(c.env.DB) }, content, status);
 }
 
@@ -705,7 +712,8 @@ export async function accountPage(c: RequestContext, session: Session, error?: s
         <button class="btn btn-primary" type="submit">Byt lösenord</button>
       </form>
       <p class="field-help">När du byter lösenord loggas du ut på alla andra enheter.</p>
-    </section>`;
+    </section>
+    ${twoFactorCard(session)}`;
   return adminLayout(c, session, { title: "Mitt konto", active: "/admin/konto", newCount: await newMessageCount(c.env.DB), narrow: true }, content, status);
 }
 

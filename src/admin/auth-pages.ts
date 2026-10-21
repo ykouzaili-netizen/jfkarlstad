@@ -1,11 +1,15 @@
 import { html, raw, type SafeHtml } from "../lib/html.js";
 import { redirect } from "../lib/http.js";
-import { rateLimit, safeEqual } from "../lib/security.js";
+import { rateLimit, rateLimitCount, rateLimitKey, safeEqual } from "../lib/security.js";
 import { mailConfigured, sendMail } from "../lib/mail.js";
 import type { RequestContext } from "../router.js";
+import { decryptSecretInfo, encryptSecret, recoveryCount, useRecoveryCode, verifyTotp } from "../lib/totp.js";
 import {
-  LOCK_MINUTES,
   MAX_FAILED,
+  clearChallengeCookie,
+  createChallenge,
+  lockMinutes,
+  readChallenge,
   MIN_PASSWORD,
   audit,
   clearSessionCookie,
@@ -52,6 +56,7 @@ export async function loginPage(c: RequestContext, error?: string, email = "", s
   const body = html`
     ${errorBox(error)}
     ${c.url.searchParams.get("klart") === "utloggad" ? html`<div class="alert alert-ok" role="status">Du är utloggad.</div>` : ""}
+    ${c.url.searchParams.get("klart") === "tvasteg-ut" ? html`<div class="alert alert-warn" role="status">Det tog för lång tid att skriva in koden. Logga in igen.</div>` : ""}
     ${c.url.searchParams.get("klart") === "losenord" ? html`<div class="alert alert-ok" role="status">Ditt lösenord är sparat. Logga in med det nya lösenordet.</div>` : ""}
     ${userCount === 0 ? html`<div class="alert alert-warn" role="status">Det finns inga användare ännu. Använd inbjudningslänken du har fått för att skapa det första kontot.</div>` : ""}
     <form class="admin-form" method="post" action="/admin/logga-in?nasta=${encodeURIComponent(next)}" novalidate>
@@ -87,29 +92,117 @@ export async function loginSubmit(c: RequestContext): Promise<Response> {
   if (!email || !password) return loginPage(c, "Fyll i både e-post och lösenord.", email, 422);
 
   const user = await c.env.DB.prepare("SELECT * FROM users WHERE email = ? AND active = 1").bind(email).first<User>();
-  if (user?.locked_until && user.locked_until > new Date().toISOString().replace("T", " ").slice(0, 19)) {
+  const nowSql = new Date().toISOString().replace("T", " ").slice(0, 19);
+  if (user?.locked_until && user.locked_until > nowSql) {
     await verifyPassword(password, null); // jämn svarstid
-    return loginPage(c, `Kontot är tillfälligt låst efter för många felaktiga försök. Försök igen om ${LOCK_MINUTES} minuter, eller be en administratör om en ny lösenordslänk.`, email, 423);
+    const left = Math.max(1, Math.ceil((Date.parse(user.locked_until.replace(" ", "T") + "Z") - Date.now()) / 60000));
+    const hours = Math.round(left / 60);
+    const wait = left >= 60 ? `${hours} ${hours === 1 ? "timme" : "timmar"}` : `${left} ${left === 1 ? "minut" : "minuter"}`;
+    return loginPage(c, `Kontot är tillfälligt låst efter för många felaktiga försök. Försök igen om ${wait}, eller be en administratör om en ny lösenordslänk.`, email, 423);
   }
+
   const ok = await verifyPassword(password, user?.password_hash);
   if (!user || !ok) {
     if (user) {
+      // Räkningen nollställs först vid en lyckad inloggning, så att varje ny spärr blir längre (lockMinutes).
       const failed = user.failed_logins + 1;
-      await c.env.DB.prepare(
-        `UPDATE users SET failed_logins = ?, locked_until = CASE WHEN ? >= ${MAX_FAILED} THEN datetime('now', '+${LOCK_MINUTES} minutes') ELSE locked_until END WHERE id = ?`,
-      )
-        .bind(failed >= MAX_FAILED ? 0 : failed, failed, user.id)
+      const lock = failed % MAX_FAILED === 0 ? lockMinutes(failed) : 0;
+      await c.env.DB.prepare("UPDATE users SET failed_logins = ?, locked_until = CASE WHEN ? > 0 THEN datetime('now', '+' || ? || ' minutes') ELSE locked_until END WHERE id = ?")
+        .bind(failed, lock, lock, user.id)
         .run();
-      if (failed >= MAX_FAILED) await audit(c.env, null, "låste kontot efter för många misslyckade inloggningar för", "", user.id, user.email);
+      if (lock) {
+        await audit(c.env, null, `spärrade kontot i ${lock} minuter efter ${failed} misslyckade inloggningar för`, "", user.id, user.email);
+        const wait = lock >= 60 ? `${Math.round(lock / 60)} ${Math.round(lock / 60) === 1 ? "timme" : "timmar"}` : `${lock} minuter`;
+        return loginPage(c, `Fel lösenord för många gånger. Kontot är spärrat i ${wait}. Har du glömt lösenordet? Använd ”Glömt lösenordet?” eller be en administratör om en ny lösenordslänk.`, email, 423);
+      }
     }
     return loginPage(c, generic, email, 401);
   }
 
+  const next = safeNext(c.url.searchParams.get("nasta"));
+  // Tvåstegsverifiering: ingen session än – bara rätt att skriva in koden från appen i fem minuter.
+  if (user.totp_secret) {
+    return new Response(null, {
+      status: 303,
+      headers: { Location: `/admin/tvasteg?nasta=${encodeURIComponent(next)}`, "Set-Cookie": await createChallenge(c.env, user), "Cache-Control": "no-store" },
+    });
+  }
+  return completeLogin(c, user, next, "loggade in");
+}
+
+/** Sista steget i inloggningen: nollställ spärren, skapa sessionen och skicka vidare. */
+async function completeLogin(c: RequestContext, user: User, next: string, what: string): Promise<Response> {
   await c.env.DB.prepare("UPDATE users SET failed_logins = 0, locked_until = NULL, last_login_at = datetime('now') WHERE id = ?").bind(user.id).run();
   const cookie = await createSession(c.env, user.id);
-  await audit(c.env, { user, csrf: "", sessionId: "" }, "loggade in", "", user.id);
+  await audit(c.env, { user, csrf: "", sessionId: "" }, what, "", user.id);
+  const headers = new Headers({ Location: next, "Cache-Control": "no-store" });
+  headers.append("Set-Cookie", cookie);
+  headers.append("Set-Cookie", clearChallengeCookie());
+  return new Response(null, { status: 303, headers });
+}
+
+// ───────────────────────── Steg två: koden från appen ─────────────────────────
+
+export async function twoStepPage(c: RequestContext, error?: string, status = 200): Promise<Response> {
+  const user = await readChallenge(c);
+  if (!user) return redirect("/admin/logga-in?klart=tvasteg-ut", 303);
   const next = safeNext(c.url.searchParams.get("nasta"));
-  return new Response(null, { status: 303, headers: { Location: next, "Set-Cookie": cookie } });
+  const body = html`
+    ${errorBox(error)}
+    <form class="admin-form" method="post" action="/admin/tvasteg?nasta=${encodeURIComponent(next)}" novalidate>
+      <div class="field">
+        <label class="field-label" for="falt-kod">Kod från autentiseringsappen</label>
+        <p class="field-help" id="kod-hjalp">Öppna appen (t.ex. Google Authenticator eller Microsoft Authenticator) och skriv in de sex siffrorna för JFK Adminpanel.</p>
+        <input class="code-input" type="text" id="falt-kod" name="kod" inputmode="numeric" autocomplete="one-time-code" maxlength="16" required autofocus aria-describedby="kod-hjalp">
+      </div>
+      <button class="btn btn-primary btn-lg btn-block" type="submit">Logga in</button>
+    </form>
+    <details class="guest-details">
+      <summary>Har du inte telefonen med dig?</summary>
+      <p>Skriv in en av dina reservkoder (t.ex. <span class="mono">k7m2p-x9q4t</span>) i fältet ovan i stället. Varje reservkod fungerar en gång.${recoveryCount(user.recovery_codes) ? "" : " Du har inga reservkoder kvar."} Har du tappat bort både telefonen och reservkoderna kan en administratör stänga av tvåstegsverifieringen för ditt konto under Användare.</p>
+    </details>
+    <p class="guest-links"><a href="/admin/logga-in">Avbryt</a></p>`;
+  return adminLayout(c, null, { title: "Tvåstegsverifiering" }, guestCard("Ett steg till", `Inloggad som ${user.email}. Bekräfta att det är du.`, body), status);
+}
+
+export async function twoStepSubmit(c: RequestContext): Promise<Response> {
+  const user = await readChallenge(c);
+  if (!user) return redirect("/admin/logga-in?klart=tvasteg-ut", 303);
+  const origin = c.req.headers.get("Origin");
+  if (origin && origin !== c.url.origin) return twoStepPage(c, "Ogiltig förfrågan.", 403);
+  // Högst fem felaktiga koder per kvart och konto (och tio försök per IP-adress), så att koden inte kan gissas.
+  const accountKey = `tvasteg-konto|${user.id}`;
+  if (!(await rateLimit(c.env, c.req, "tvasteg", 10, 15 * 60)) || (await rateLimitCount(c.env, accountKey, 15 * 60)) >= 5) {
+    await audit(c.env, null, "för många felaktiga tvåstegskoder för", "", user.id, user.email);
+    return twoStepPage(c, "För många felaktiga koder. Vänta en kvart och logga in igen.", 429);
+  }
+  const form = await c.req.formData();
+  const code = String(form.get("kod") ?? "").trim().slice(0, 32);
+  const next = safeNext(c.url.searchParams.get("nasta"));
+  const info = await decryptSecretInfo(c.env, user.totp_secret);
+  const secret = info?.secret ?? null;
+  if (secret && /^[\d\s]+$/.test(code)) {
+    const step = await verifyTotp(secret, code, user.totp_last_step ?? 0);
+    if (step !== null) {
+      // Bara om steget inte redan har använts – två flikar samtidigt kan inte använda samma kod.
+      const res = await c.env.DB.prepare("UPDATE users SET totp_last_step = ? WHERE id = ? AND totp_last_step < ?").bind(step, user.id, step).run();
+      // Krypterad med en äldre nyckel (TOTP_KEY har lagts till efteråt): skriv om med den nya.
+      if (res.meta.changes && info?.stale) await c.env.DB.prepare("UPDATE users SET totp_secret = ? WHERE id = ?").bind(await encryptSecret(c.env, secret), user.id).run();
+      if (res.meta.changes) return completeLogin(c, user, next, "loggade in med tvåstegsverifiering");
+    }
+  } else if (code) {
+    const remaining = await useRecoveryCode(user.recovery_codes, code);
+    if (remaining !== null) {
+      const res = await c.env.DB.prepare("UPDATE users SET recovery_codes = ? WHERE id = ? AND recovery_codes = ?").bind(remaining, user.id, user.recovery_codes ?? "").run();
+      if (res.meta.changes) {
+        const left = recoveryCount(remaining);
+        const target = left <= 3 ? `/admin/konto/tvastegs?klart=reservkod&kvar=${left}` : next;
+        return completeLogin(c, user, target, `loggade in med en reservkod (${left} kvar)`);
+      }
+    }
+  }
+  await rateLimitKey(c.env, accountKey, 5, 15 * 60);
+  return twoStepPage(c, "Koden stämmer inte. Kontrollera att du tittar på JFK Adminpanel i appen och att telefonens klocka går rätt.", 401);
 }
 
 export async function logoutSubmit(c: RequestContext): Promise<Response> {

@@ -26,6 +26,7 @@ const STEPS: Step[] = [
   { id: "gamla-foton", title: "Ta bort foton på dem som har slutat", text: "Tidigare år visas utan foton, men fotona ligger kvar tills ni tar bort dem. Öppna personen under Styrelsen eller Utskottsmedlemmar och tryck på Ta bort under fotot." },
   { id: "foton", title: "Fråga om samtycke till foton", text: "Ladda bara upp foton på de nya ledamöterna om de har sagt ja till det (GDPR). Utan foto visas initialerna." },
   { id: "konton", title: "Bjud in de nya till adminpanelen", text: "Varje person får ett eget konto – dela aldrig inloggningar.", link: { href: "/admin/anvandare", label: "Användare" } },
+  { id: "tvastegs", title: "Be de nya slå på tvåstegsverifiering", text: "Mitt konto → Slå på tvåstegsverifiering. Tar två minuter med en app i telefonen. När alla har gjort det: välj Kräv för alla under Användare.", link: { href: "/admin/anvandare#tvastegs", label: "Användare" } },
   { id: "gamla-konton", title: "Ta bort konton för dem som slutat", text: "Den som inte sitter kvar i styrelsen ska inte kunna logga in längre." },
   { id: "admins", title: "Se till att minst två är administratörer", text: "Då står ni aldrig utan någon som kan bjuda in nya eller ändra utseendet." },
   { id: "kontakt", title: "Kontrollera kontaktuppgifterna", text: "E-post, telefonnummer, adress och organisationsnummer i sidfoten och på kontaktsidan.", link: { href: "/admin/texter?sida=gemensamt", label: "Gemensamma texter" } },

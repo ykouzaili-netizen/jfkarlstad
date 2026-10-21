@@ -21,6 +21,8 @@ export interface Env {
   TURNSTILE_SECRET_KEY?: string;
   SETUP_TOKEN?: string;
   IP_HASH_SALT?: string;
+  /** Rekommenderas: nyckel för att kryptera tvåstegsverifieringens hemligheter (minst 16 tecken, slumpad). Se src/lib/totp.ts. */
+  TOTP_KEY?: string;
   /** Valfritt: långlivad nyckel till Instagram API – då hämtas de senaste inläggen automatiskt (src/lib/instagram.ts). */
   INSTAGRAM_TOKEN?: string;
   /** Bara för tester: annan adress till Instagram API. */

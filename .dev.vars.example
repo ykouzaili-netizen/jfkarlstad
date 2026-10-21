@@ -17,3 +17,6 @@ SETUP_TOKEN=byt-till-en-lang-slumpad-strang
 
 # Salt för att hasha IP-adresser i rate limiting (aldrig klartext-IP i databasen)
 IP_HASH_SALT=byt-till-en-annan-lang-slumpad-strang
+
+# Krypterar tvåstegsverifieringens hemligheter (minst 16 tecken). Byt den inte när någon har slagit på tvåstegsverifiering.
+TOTP_KEY=byt-till-en-tredje-lang-slumpad-strang

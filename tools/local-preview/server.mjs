@@ -158,7 +158,11 @@ createServer(async (req, res) => {
       const body = chunks.length && !["GET", "HEAD"].includes(req.method) ? Buffer.concat(chunks) : undefined;
       const headers = new Headers();
       for (const [k, v] of Object.entries(req.headers)) if (typeof v === "string") headers.set(k, v);
-      headers.set("cf-connecting-ip", req.socket.remoteAddress ?? "127.0.0.1");
+      // Som Cloudflare: klientens adress sätts av servern. Webbläsartesterna kan låtsas vara olika besökare med
+      // x-e2e-ip (bara här i förhandsvisningen – i produktion sätter Cloudflare cf-connecting-ip och skriver över allt annat).
+      const testIp = req.headers["x-e2e-ip"];
+      headers.delete("x-e2e-ip");
+      headers.set("cf-connecting-ip", typeof testIp === "string" && /^[0-9.]{7,15}$/.test(testIp) ? testIp : (req.socket.remoteAddress ?? "127.0.0.1"));
       const request = new Request(url, { method: req.method, headers, body, redirect: "manual" });
       const waits = [];
       response = await worker.fetch(request, env, { waitUntil: (p) => waits.push(p), passThroughOnException() {} });

@@ -66,6 +66,13 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   `committee_members.marker_x/y` (procent; positionerna skrivs i en `<style nonce>`, site.js `[data-team]`, admin.js
   `[data-marker-editor]`). "Behåll från i år" kopierar valda personer till nästa år. Engagera dig visar "Det här är vi".
   Test: `tools/e2e/test_committees.py`.
+- **Säkerhet i adminpanelen:** tvåstegsverifiering (`src/lib/totp.ts` – RFC 6238; `src/admin/two-factor.ts`; andra steget
+  `/admin/tvasteg` i `auth-pages.ts` med en signerad kaka i fem minuter, ingen session förrän koden stämmer). Hemligheterna
+  krypteras med AES-GCM (nyckel från `TOTP_KEY`, annars appens hemlighet; alla nycklar provas vid läsning), en använd kod
+  spärras (`totp_last_step`), reservkoderna sparas som SHA-256. `require_2fa = "pa"` släpper bara igenom
+  `/admin/konto/tvastegs` tills tvåsteg är på (`requireUser`). Kontospärren växer (`lockMinutes`). QR-koden ritas på servern
+  (`src/lib/qrcode.ts`, vendrad MIT-kod). Test: `tools/e2e/test_security.py` (förhandsvisningen läser `x-e2e-ip` för att
+  simulera olika besökare – bara lokalt).
 - **Schemaläggning:** `news.published_at`, `events.publish_at`, `jobs.publish_at` (UTC). Publika frågor filtrerar via
   `NEWS_LIVE`/`EVENT_LIVE`/`JOB_LIVE` i `content.ts`. Admin-fält med `schedule: true` visas i svensk tid.
 - **Partnerstatistik** (`src/lib/stats.ts`): bara totalsiffror per dag i `stats_daily`, utan IP/kakor. Utlänkar går via

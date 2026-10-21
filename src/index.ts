@@ -6,6 +6,7 @@ import { formatDay } from "./lib/format.js";
 import type { Env } from "./env.js";
 import { Router, type RequestContext } from "./router.js";
 import { randomToken, redirect, textResponse } from "./lib/http.js";
+import { loadSettings } from "./lib/settings.js";
 import { findRedirect, looksLikeOldAddress } from "./lib/legacy.js";
 import { getFile, MEDIA_VARIANT_VERSION } from "./lib/storage.js";
 import { thumbnail } from "./lib/youtube.js";
@@ -116,6 +117,8 @@ const router = new Router()
   .get("/integritetspolicy", privacyPage)
   .get("/cookies", cookiesPage)
   .get("/sitemap.xml", sitemapXml)
+  .get("/.well-known/security.txt", (c) => securityTxt(c))
+  .get("/security.txt", () => redirect("/.well-known/security.txt", 301))
   .get("/robots.txt", (c) =>
     textResponse(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /ut/\nDisallow: /sok?\n\nSitemap: ${c.env.SITE_URL.replace(/\/$/, "")}/sitemap.xml\n`, "text/plain; charset=utf-8"),
   )
@@ -129,6 +132,26 @@ const router = new Router()
   .get("/film/bild/:file", async (c) => (await thumbnail(c.env, (c.params.file ?? "").replace(/\.jpg$/, ""))) ?? notFoundPage(c));
 
 registerAdminRoutes(router);
+
+/**
+ * security.txt (RFC 9116): vart den som hittar ett säkerhetshål på webbplatsen kan vända sig. Adressen är
+ * föreningens kontaktadress (Texter och sidor → Gemensamt). Giltig ett år framåt från idag.
+ */
+async function securityTxt(c: RequestContext): Promise<Response> {
+  const s = await loadSettings(c.env.DB);
+  const site = c.env.SITE_URL.replace(/\/$/, "");
+  const expires = new Date(Date.now() + 365 * 86400_000).toISOString().replace(/\.\d+Z$/, "Z");
+  const email = /^[^\s@<>]+@[^\s@<>]+\.[a-z]{2,}$/i.test(s.contact_email) ? s.contact_email : "";
+  const body = [
+    ...(email ? [`Contact: mailto:${email}`] : []),
+    `Contact: ${site}/kontakt`,
+    `Expires: ${expires}`,
+    "Preferred-Languages: sv, en",
+    `Canonical: ${site}/.well-known/security.txt`,
+    "",
+  ].join("\n");
+  return textResponse(body, "text/plain; charset=utf-8", "public, max-age=86400");
+}
 
 /** Uppladdade bilder. Nyckeln innehåller ett slumpat id, så filerna kan cachas länge. */
 /**
@@ -216,6 +239,11 @@ export default {
     if ((req.method === "GET" || req.method === "HEAD") && looksLikeOldAddress(url.pathname)) {
       const target = await findRedirect(env, url.pathname);
       if (target) return redirect(target, 301);
+    }
+    // Flera snedstreck i början (//exempel.se/…) får aldrig bli en omdirigering till en annan webbplats:
+    // "//exempel.se" i Location tolkas av webbläsaren som en adress på en annan domän. Gör om till ett snedstreck.
+    if (/^\/{2,}/.test(url.pathname)) {
+      return redirect(url.pathname.replace(/^\/+/, "/") + url.search, 301);
     }
     // Ta bort avslutande snedstreck: /kalender/ → /kalender
     if (url.pathname.length > 1 && url.pathname.endsWith("/")) {

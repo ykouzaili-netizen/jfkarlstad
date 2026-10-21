@@ -47,8 +47,21 @@ export function clientIp(req: Request): string {
  * och raden rensas när tidsfönstret gått ut. Returnerar true om anropet är tillåtet.
  */
 export async function rateLimit(env: Env, req: Request, purpose: string, limit: number, windowSeconds: number): Promise<boolean> {
+  return rateLimitKey(env, `${purpose}|${clientIp(req)}`, limit, windowSeconds);
+}
+
+/** Hur många gånger nyckeln har räknats i det pågående tidsfönstret (räknar inte upp). */
+export async function rateLimitCount(env: Env, raw: string, windowSeconds: number): Promise<number> {
   const now = Math.floor(Date.now() / 1000);
-  const key = (await hmac(await appSecret(env), `${purpose}|${clientIp(req)}`)).slice(0, 40);
+  const key = (await hmac(await appSecret(env), raw)).slice(0, 40);
+  const row = await env.DB.prepare("SELECT count FROM rate_limits WHERE key = ? AND window_start > ?").bind(key, now - windowSeconds).first<{ count: number }>();
+  return row?.count ?? 0;
+}
+
+/** Samma som rateLimit men för en egen nyckel (t.ex. ett konto i stället för en IP-adress). */
+export async function rateLimitKey(env: Env, raw: string, limit: number, windowSeconds: number): Promise<boolean> {
+  const now = Math.floor(Date.now() / 1000);
+  const key = (await hmac(await appSecret(env), raw)).slice(0, 40);
   const row = await env.DB.prepare(
     `INSERT INTO rate_limits (key, count, window_start) VALUES (?1, 1, ?2)
      ON CONFLICT(key) DO UPDATE SET

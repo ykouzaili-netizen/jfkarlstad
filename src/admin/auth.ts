@@ -1,13 +1,17 @@
 import type { Env } from "../env.js";
 import type { RequestContext } from "../router.js";
 import { randomToken, redirect } from "../lib/http.js";
-import { safeEqual, sha256 } from "../lib/security.js";
+import { appSecret, hmac, safeEqual, sha256 } from "../lib/security.js";
 
 /**
  * Inloggning för adminpanelen.
  * - Lösenord hashas med PBKDF2-SHA256 (WebCrypto), 100 000 iterationer (maxgränsen i Workers) och unikt salt.
  * - Sessionen ligger i en __Host-kaka: Secure, HttpOnly, SameSite=Strict. I databasen sparas bara SHA-256 av token.
  * - Varje POST kräver CSRF-token kopplad till sessionen och att Origin stämmer.
+ * - Tvåstegsverifiering (src/lib/totp.ts): med den påslagen skapas sessionen först när koden från appen är rätt.
+ *   Mellan stegen finns bara en signerad kaka som gäller i fem minuter (createChallenge). Inställningen
+ *   require_2fa = "pa" tvingar alla som saknar tvåstegsverifiering att slå på den innan de kan göra något annat.
+ * - Upprepade felaktiga lösenord spärrar kontot allt längre: 15 min, 30 min, 1 h … högst ett dygn.
  */
 
 export type Role = "admin" | "redaktor";
@@ -23,12 +27,20 @@ export interface User {
   active: number;
   created_at: string;
   last_login_at: string | null;
+  /** Tvåstegsverifiering (migrering 0027). Krypterad hemlighet, eller null. */
+  totp_secret?: string | null;
+  totp_pending?: string | null;
+  totp_enabled_at?: string | null;
+  totp_last_step?: number;
+  recovery_codes?: string;
 }
 
 export interface Session {
   user: User;
   csrf: string;
   sessionId: string;
+  /** Föreningen kräver tvåstegsverifiering och användaren har inte slagit på den än. */
+  mustSetUpTwoFactor?: boolean;
 }
 
 export const ROLE_LABELS: Record<Role, string> = { admin: "Administratör", redaktor: "Redaktör" };
@@ -38,6 +50,11 @@ const SESSION_HOURS = 12;
 const ITERATIONS = 100_000;
 export const MAX_FAILED = 5;
 export const LOCK_MINUTES = 15;
+/** Spärrtiden efter 5, 10, 15 … felaktiga försök i rad: 15 min, 30 min, 1 h, 2 h … högst ett dygn. */
+export function lockMinutes(failed: number): number {
+  const round = Math.max(1, Math.floor(failed / MAX_FAILED));
+  return Math.min(LOCK_MINUTES * 2 ** (round - 1), 24 * 60);
+}
 export const MIN_PASSWORD = 10;
 
 const enc = new TextEncoder();
@@ -116,14 +133,15 @@ export async function getSession(c: RequestContext): Promise<Session | null> {
   if (!token || token.length < 20) return null;
   const id = await sha256(token);
   const row = await c.env.DB.prepare(
-    `SELECT s.id AS session_id, s.csrf_token, u.* FROM sessions s JOIN users u ON u.id = s.user_id
+    `SELECT s.id AS session_id, s.csrf_token, (SELECT value FROM settings WHERE key = 'require_2fa') AS require_2fa, u.*
+     FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.id = ? AND s.expires_at > datetime('now') AND u.active = 1`,
   )
     .bind(id)
-    .first<User & { session_id: string; csrf_token: string }>();
+    .first<User & { session_id: string; csrf_token: string; require_2fa: string | null }>();
   if (!row) return null;
-  const { session_id, csrf_token, ...user } = row;
-  return { user: user as User, csrf: csrf_token, sessionId: session_id };
+  const { session_id, csrf_token, require_2fa, ...user } = row;
+  return { user: user as User, csrf: csrf_token, sessionId: session_id, mustSetUpTwoFactor: require_2fa === "pa" && !user.totp_secret };
 }
 
 export async function destroySession(env: Env, sessionId: string): Promise<void> {
@@ -165,6 +183,9 @@ export async function lookupResetToken(env: Env, token: string): Promise<(User &
 
 // ───────────────────────── Behörighet ─────────────────────────
 
+/** Sidor som går att nå när tvåstegsverifiering krävs men inte är påslagen. */
+const TWO_FACTOR_SETUP_PATHS = ["/admin/konto/tvastegs"];
+
 export type AdminHandler = (c: RequestContext, session: Session) => Promise<Response> | Response;
 
 /** Kräver inloggning (och ev. roll). Utloggade skickas till inloggningen. */
@@ -174,6 +195,10 @@ export function requireUser(handler: AdminHandler, role?: Role) {
     if (!session) {
       const next = c.req.method === "GET" ? `?nasta=${encodeURIComponent(c.url.pathname + c.url.search)}` : "";
       return redirect(`/admin/logga-in${next}`, 303);
+    }
+    // Kräver föreningen tvåstegsverifiering går det bara att slå på den (eller logga ut) tills den är på.
+    if (session.mustSetUpTwoFactor && !TWO_FACTOR_SETUP_PATHS.some((p) => c.url.pathname === p)) {
+      return redirect("/admin/konto/tvastegs?krav=1", 303);
     }
     if (role === "admin" && session.user.role !== "admin") {
       return redirect("/admin?fel=behorighet", 303);
@@ -190,4 +215,36 @@ export async function audit(env: Env, session: Session | null, action: string, e
   } catch (err) {
     console.error("Kunde inte skriva till ändringsloggen", err);
   }
+}
+
+// ───────────────────────── Steg två vid inloggning ─────────────────────────
+
+const CHALLENGE_COOKIE = "__Host-jfk_tvasteg";
+const CHALLENGE_MINUTES = 5;
+
+/**
+ * Kakan mellan lösenordet och koden från appen: användarens id, giltig till och en HMAC som även binder den till
+ * lösenordshashen (byts lösenordet slutar kakan gälla). Ger ingen åtkomst i sig – bara rätt att skriva in koden.
+ */
+export async function createChallenge(env: Env, user: User): Promise<string> {
+  const exp = Math.floor(Date.now() / 1000) + CHALLENGE_MINUTES * 60;
+  const sig = await hmac(await appSecret(env), `tvasteg|${user.id}|${exp}|${user.password_hash}`);
+  return `${CHALLENGE_COOKIE}=${user.id}.${exp}.${sig}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${CHALLENGE_MINUTES * 60}`;
+}
+
+export function clearChallengeCookie(): string {
+  return `${CHALLENGE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
+}
+
+/** Användaren som har klarat lösenordssteget, om kakan är giltig. */
+export async function readChallenge(c: RequestContext): Promise<User | null> {
+  const value = readCookie(c.req, CHALLENGE_COOKIE);
+  const m = value ? /^(\d{1,9})\.(\d{10})\.([0-9a-f]{64})$/.exec(value) : null;
+  if (!m) return null;
+  const [, id, exp, sig] = m as unknown as [string, string, string, string];
+  if (Number(exp) < Date.now() / 1000) return null;
+  const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ? AND active = 1").bind(Number(id)).first<User>();
+  if (!user || !user.totp_secret) return null;
+  const expected = await hmac(await appSecret(c.env), `tvasteg|${user.id}|${exp}|${user.password_hash}`);
+  return safeEqual(sig, expected) ? user : null;
 }

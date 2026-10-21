@@ -1,7 +1,8 @@
 import type { Router } from "../router.js";
 import { redirect } from "../lib/http.js";
 import { requireUser } from "./auth.js";
-import { forgotPage, forgotSubmit, loginPage, loginSubmit, logoutSubmit, resetPage, resetSubmit, setupPage, setupSubmit } from "./auth-pages.js";
+import { forgotPage, forgotSubmit, loginPage, loginSubmit, logoutSubmit, resetPage, resetSubmit, setupPage, setupSubmit, twoStepPage, twoStepSubmit } from "./auth-pages.js";
+import { twoFactorDisable, twoFactorEnable, twoFactorNewCodes, twoFactorPage, twoFactorRequire, twoFactorResetUser } from "./two-factor.js";
 import {
   accountPage,
   accountSubmit,
@@ -46,7 +47,9 @@ export function registerAdminRoutes(router: Router): void {
     .get("/admin/losenord/:token", (c) => resetPage(c))
     .post("/admin/losenord/:token", resetSubmit)
     .get("/admin/setup", (c) => setupPage(c))
-    .post("/admin/setup", setupSubmit);
+    .post("/admin/setup", setupSubmit)
+    .get("/admin/tvasteg", (c) => twoStepPage(c))
+    .post("/admin/tvasteg", twoStepSubmit);
 
   // Inloggad (alla roller)
   router
@@ -82,7 +85,11 @@ export function registerAdminRoutes(router: Router): void {
     .post("/admin/meddelanden/:id/radera", requireUser(messageDelete))
     .post("/admin/forhandsvisning", requireUser(previewHandler))
     .get("/admin/konto", requireUser((c, s) => accountPage(c, s)))
-    .post("/admin/konto", requireUser(accountSubmit));
+    .post("/admin/konto", requireUser(accountSubmit))
+    .get("/admin/konto/tvastegs", requireUser((c, s) => twoFactorPage(c, s)))
+    .post("/admin/konto/tvastegs", requireUser(twoFactorEnable))
+    .post("/admin/konto/tvastegs/reservkoder", requireUser(twoFactorNewCodes))
+    .post("/admin/konto/tvastegs/av", requireUser(twoFactorDisable));
 
   // Före de generiska adresserna, annars tolkas "hamta" som ett id
   router.post("/admin/instagram/hamta", requireUser(instagramSyncSubmit));
@@ -136,5 +143,7 @@ export function registerAdminRoutes(router: Router): void {
     .get("/admin/logg", requireUser(logPage, "admin"))
     .get("/admin/styrelseskifte", requireUser(handoverPage, "admin"))
     .post("/admin/styrelseskifte", requireUser(handoverSubmit, "admin"))
-    .post("/admin/styrelseskifte/ar", requireUser(serviceYearSubmit, "admin"));
+    .post("/admin/styrelseskifte/ar", requireUser(serviceYearSubmit, "admin"))
+    .post("/admin/anvandare/tvastegs-krav", requireUser(twoFactorRequire, "admin"))
+    .post("/admin/anvandare/:id/tvastegs-av", requireUser(twoFactorResetUser, "admin"));
 }

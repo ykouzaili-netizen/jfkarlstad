@@ -19,7 +19,15 @@ lösenord på minst 10 tecken och logga sedan in. Länken gäller i 72 timmar oc
 **Glömt lösenordet?** Klicka på *Glömt lösenordet?* på inloggningssidan. Om e-post inte är inställt:
 be en administratör gå till **Användare** och klicka **Ny lösenordslänk** bredvid ditt namn.
 
-> Efter 5 felaktiga försök låses kontot i 15 minuter. Du loggas ut automatiskt efter 12 timmar.
+> Efter 5 felaktiga försök spärras kontot i 15 minuter. Fortsätter felen blir spärren längre (30 minuter, 1 timme …
+> högst ett dygn). Du loggas ut automatiskt efter 12 timmar.
+
+**Tvåstegsverifiering (rekommenderas):** *Mitt konto → Slå på tvåstegsverifiering*. Skanna QR-koden med en
+autentiseringsapp (Google Authenticator, Microsoft Authenticator, Lösenord på iPhone, 1Password …) och skriv in koden.
+Därefter behövs både lösenordet och en sexsiffrig kod från appen när du loggar in. Spara de tio **reservkoderna**
+du får – de används om du inte har telefonen med dig (varje kod fungerar en gång). Har du tappat både telefonen
+och reservkoderna kan en administratör klicka **Stäng av tvåsteg** bredvid ditt namn under **Användare**.
+En administratör kan också välja **Kräv för alla** under *Användare → Tvåstegsverifiering*.
 
 ---
 
@@ -230,12 +238,36 @@ Lägg till som typ **Secret**:
 | `SMTP_PASS` | lösenordet till brevlådan hos One.com | E-postnotiser |
 | `MAIL_TO` | adressen som ska få notiserna | E-postnotiser (standard: `SMTP_USER`) |
 | `TURNSTILE_SECRET_KEY` | från Cloudflare Turnstile | Extra robotskydd (valfritt) |
-| `SETUP_TOKEN` | lång slumpad sträng | Skapa första admin om databasen är tom (valfritt) |
+| `SETUP_TOKEN` | lång slumpad sträng | Skapa första admin om databasen är tom (valfritt – kan tas bort när första kontot finns) |
+| `TOTP_KEY` | lång slumpad sträng (minst 32 tecken) | **Rekommenderas.** Krypterar tvåstegsverifieringens nycklar med en nyckel som inte finns i databasen. Kan läggas till i efterhand – byt den inte sedan |
 | `INSTAGRAM_TOKEN` | långlivad nyckel från Meta (se nedan) | Automatisk hämtning av Instagraminlägg (valfritt) |
 
 Utan SMTP fungerar allt ändå – meddelanden sparas i databasen och syns i adminpanelen.
 Med **Turnstile**: skapa en widget i Cloudflare (Turnstile → Add widget, domän `jfkarlstad.se`),
 lägg in *secret key* som secret och byt `TURNSTILE_SITE_KEY` i `wrangler.jsonc` mot *site key*.
+
+### Säkerhet – checklista
+
+Webbplatsen har: strikt Content Security Policy med nonce, HSTS, skydd mot inramning (clickjacking), CSRF-token på
+alla formulär i adminpanelen, sessioner i `__Host-`-kakor (HttpOnly, Secure, SameSite=Strict), PBKDF2-hashade lösenord,
+tvåstegsverifiering (TOTP) med reservkoder, växande kontospärr, rate limiting på inloggning och formulär,
+filtypskontroll på innehållet vid uppladdning (SVG med skript stoppas, filerna serveras i en sandlåda), escaping av all
+text, parametriserad SQL och `/.well-known/security.txt`. Det som måste göras i Cloudflare och på andra konton:
+
+1. **Kräv tvåstegsverifiering för alla** (Användare → Tvåstegsverifiering) när alla i styrelsen har slagit på det.
+2. **Tvåstegsverifiering på kontona runt webbplatsen:** Cloudflare, GitHub (en push till `main` publicerar sajten)
+   och One.com (e-post och domän). Den som tar över någon av dem gör samma sak.
+3. **`TOTP_KEY`** som secret (se tabellen ovan).
+4. **Turnstile** på formulären (se ovan) – stoppar robotar som skickar skräp eller testar lösenord.
+5. **Cloudflare → Security** (om domänen ligger som zon i Cloudflare): *Bot Fight Mode* på, *Security Level* Medium.
+   **SSL/TLS:** *Always Use HTTPS* på, *Minimum TLS Version* 1.2.
+6. **E-post och DNS (domänen ligger hos One.com, oktober 2026):** det saknas en SPF-post och DMARC står på `p=none`, så vem
+   som helst kan skicka mejl som ser ut att komma från @jfkarlstad.se. Lägg till i One.com → DNS-inställningar:
+   - TXT på `jfkarlstad.se`: `v=spf1 include:_custspf.one.com ~all` (lägg till fler `include:` om andra tjänster skickar som domänen).
+   - Slå på **DKIM** hos One.com (kontakta supporten om det inte finns i kontrollpanelen).
+   - När SPF och DKIM har fungerat ett par veckor: ändra DMARC-posten (`_dmarc`) från `p=none` till `p=quarantine`.
+   - Slå på **DNSSEC** hos One.com om det erbjuds.
+7. **GitHub:** skydda grenen `main` (Settings → Branches) så att bara styrelsens tekniskt ansvariga kan pusha.
 
 ### Instagram – automatisk hämtning (valfritt)
 Utan nyckel läggs inläggen in för hand under **Instagram** i adminpanelen. Med nyckel hämtar webbplatsen själv profil

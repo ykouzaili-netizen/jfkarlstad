@@ -59,7 +59,8 @@ export function paragraphs(text: string | null | undefined): SafeHtml {
 export function safeUrl(url: string | null | undefined): string {
   const u = String(url ?? "").trim();
   if (!u) return "#";
-  if (u.startsWith("/") && !u.startsWith("//")) return u;
+  // "//exempel.se" och "/\exempel.se" tolkas av webbläsare som en annan webbplats – bara riktiga interna sökvägar.
+  if (u.startsWith("/") && !u.startsWith("//") && !u.startsWith("/\\")) return u;
   if (/^(https?:|mailto:|tel:)/i.test(u)) return u;
   return "#";
 }

@@ -18,6 +18,8 @@ const EXTRA_DEFAULTS = {
   handover_state: "",
   /** Verksamhetsåret som visas på webbplatsen, t.ex. "2026/27" (src/lib/years.ts). Byts under Styrelseskifte. */
   service_year: "",
+  /** "pa" = alla måste ha tvåstegsverifiering för att använda adminpanelen (Användare → Tvåstegsverifiering). */
+  require_2fa: "av",
   font_heading: "playfair",
   /** Rörelse och animationer: "full" (standard), "lugn" (bara mjuka toningar) eller "av". */
   motion_level: "full",
