@@ -1,5 +1,5 @@
 import { html, paragraphs, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ec, ek, loadSettings, type Settings } from "../lib/settings.js";
+import { ec, ek, loadSettings, sc, type Settings } from "../lib/settings.js";
 import {
   DOCUMENT_BADGE,
   documentLinkKind,
@@ -62,7 +62,7 @@ export async function partnersPage(c: RequestContext): Promise<Response> {
   const others = partners.filter((p) => p.tier !== "huvud");
   const content = html`
     ${pageHeader(s, { kickerKey: "partners_kicker", hero: "partners", titleKey: "partners_title", leadKey: "partners_lead" })}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "partners_list")}">
       <div class="container">
         ${main.length
           ? html`<h2 class="subsection-title first"${ek(s, "partners_main_title")}>${s.partners_main_title}</h2><ul class="partner-main">${main.map((p) => partnerCard(s, p))}</ul>`
@@ -144,7 +144,7 @@ export async function partnerDetailPage(c: RequestContext): Promise<Response> {
       </div>
     </section>
     ${photo === "banner" ? html`<div class="container">${figure("banner", "(min-width: 1280px) 1200px, 100vw", 1600, 686, true)}</div>` : ""}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "partner_page")}">
       <div class="container split split-top">
         <div class="partner-body">
           ${photo === "platta" ? figure("platta", "(min-width: 900px) 640px, 100vw", 1200, 800) : ""}
@@ -154,7 +154,7 @@ export async function partnerDetailPage(c: RequestContext): Promise<Response> {
       </div>
     </section>
     ${events.length
-      ? html`<section class="section${jobs.length ? "" : " section-surface"}" aria-labelledby="partner-evenemang">
+      ? html`<section class="section${jobs.length ? "" : " section-surface"}${sc(s, "partner_more")}" aria-labelledby="partner-evenemang">
           <div class="container">
             <div class="section-head">
               <h2 class="section-title" id="partner-evenemang"${ek(s, "partner_events_title")}>${fill(s.partner_events_title, vars)}</h2>
@@ -165,7 +165,7 @@ export async function partnerDetailPage(c: RequestContext): Promise<Response> {
         </section>`
       : ""}
     ${jobs.length
-      ? html`<section class="section section-surface" aria-labelledby="partner-jobb">
+      ? html`<section class="section section-surface${sc(s, "partner_more")}" aria-labelledby="partner-jobb">
           <div class="container">
             <h2 class="section-title" id="partner-jobb"${ek(s, "partner_jobs_title")}>${fill(s.partner_jobs_title, vars)}</h2>
             <ul class="job-list">${jobs.map((j) => jobCard(s, j, false))}</ul>
@@ -194,7 +194,7 @@ export async function newsListPage(c: RequestContext): Promise<Response> {
 
   const content = html`
     ${pageHeader(s, { kickerKey: "news_kicker", hero: "news", titleKey: "news_title", leadKey: "news_lead" })}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "news_list")}">
       <div class="container">
         ${news.length ? html`<div class="card-grid">${news.map((n) => newsCard(s, n, 2))}</div>` : emptyState(s.news_empty, ek(s, "news_empty"))}
         ${pages > 1
@@ -240,7 +240,7 @@ export async function newsArticlePage(c: RequestContext): Promise<Response> {
       ${n.image_key
         ? html`<div class="container article-image-wrap">${picture(n.image_key, { alt: n.image_alt, className: "article-image", sizes: "(min-width: 1240px) 1160px, 100vw", width: 1200, height: 675, eager: true })}</div>`
         : ""}
-      <div class="section section-tight-top">
+      <div class="section section-tight-top${sc(s, "news_article")}">
         <div class="container narrow">
           <div class="prose prose-lg article-body"${edit}>${renderMarkdown(n.body)}</div>
           <p class="after-list">${arrowLink("/aktuellt", s.news_all, "arrow-link", ek(s, "news_all"))}</p>
@@ -325,7 +325,7 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
           </div>
         </div>
       </header>
-      <section class="section section-tight-top">
+      <section class="section section-tight-top${sc(s, "event_page")}">
         <div class="container split split-top">
           <div${edit}>
             ${e.image_key ? picture(e.image_key, { alt: e.image_alt, className: "article-image", sizes: "(min-width: 920px) 60vw, 100vw", width: 1200, height: 675, eager: true }) : ""}
@@ -446,7 +446,7 @@ export async function documentsPage(c: RequestContext): Promise<Response> {
 
   const content = html`
     ${pageHeader(s, { kickerKey: "docs_kicker", hero: "docs", titleKey: "docs_title", leadKey: "docs_lead" })}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "docs_list")}">
       <div class="container">
         <form class="doc-filter" method="get" action="/dokument" role="search" data-doc-filter>
           <div class="field field-inline">
@@ -534,7 +534,7 @@ export async function documentTextPage(c: RequestContext): Promise<Response> {
           <h1 class="page-title">${d.title}</h1>
         </div>
       </header>
-      <div class="section section-tight-top">
+      <div class="section section-tight-top${sc(s, "doc_page")}">
         <div class="container narrow">
           <div class="prose prose-lg article-body doc-text"${edit}>${renderMarkdown(d.body)}</div>
           <p class="doc-updated muted"${ek(s, "doc_page_updated")}>${fill(s.doc_page_updated, { datum: formatDate(d.updated_at) })}</p>
@@ -627,7 +627,7 @@ export async function faqPage(c: RequestContext): Promise<Response> {
   };
   const content = html`
     ${pageHeader(s, { kickerKey: "faq_kicker", hero: "faq", titleKey: "faq_title", leadKey: "faq_lead" })}
-    <section class="section section-tight-top faq-page faq-page--${style}">
+    <section class="section section-tight-top faq-page faq-page--${style}${sc(s, "faq_list")}">
       <div class="container${style === "register" ? "" : " narrow"}">
         ${groups.size
           ? style === "register"

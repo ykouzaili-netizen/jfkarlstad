@@ -1904,9 +1904,14 @@
   }
   function closeAsk(g) { if (g.ask) { g.ask.remove(); g.ask = null; } }
   function ask(g, changed) {
-    closeAsk(g);
     var list = proposals(g, changed);
+    // Samma förslag är redan öppet (t.ex. när fältet tappar fokus av klicket på ”Ja, anpassa”) – bygg inte om
+    // rutan, då skulle klicket hamna på en knapp som just tagits bort.
+    var key = changed + ":" + JSON.stringify(list);
+    if (g.ask && g.askKey === key && document.contains(g.ask)) return;
+    closeAsk(g);
     if (!list.length) return;
+    g.askKey = key;
     var box = document.createElement("div");
     box.className = "color-ask";
     box.setAttribute("role", "group");

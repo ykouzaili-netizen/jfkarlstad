@@ -2,7 +2,7 @@ import { loadNetworks } from "../lib/networks.js";
 import { loadCommittees } from "../lib/committees.js";
 import { isLinkVisible } from "../lib/pagelayout.js";
 import { escapeHtml, html, raw, type SafeHtml } from "../lib/html.js";
-import { ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
+import { ek, loadSettings, sc, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
 import {
   documentQuery,
   faqQuery,
@@ -170,7 +170,7 @@ export async function searchPage(c: RequestContext): Promise<Response> {
 
   const content = html`
     ${pageHeader(s, { titleKey: "search_title", leadKey: "search_lead" })}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "search_results")}">
       <div class="container"><div class="search-wrap">
         <form class="search-form" method="get" action="/sok" role="search">
           <label class="sr-only" for="sok-falt">${s.search_title}</label>

@@ -1,5 +1,5 @@
 import { html, type SafeHtml } from "../lib/html.js";
-import { ec, ek, loadSettings, siteLayout, type Settings } from "../lib/settings.js";
+import { ec, ek, loadSettings, sc, siteLayout, type Settings } from "../lib/settings.js";
 import {
   chairOf,
   committeeCover,
@@ -225,7 +225,7 @@ export async function committeePage(c: RequestContext): Promise<Response> {
     html`<span class="cm-chip"${ek(s, "committee_year")}>${fill(s.committee_year, { år: year })}</span>`,
   ];
 
-  const hero = html`<section class="cm-hero${cover ? " has-image" : ""}" aria-labelledby="utskott-namn">
+  const hero = html`<section class="cm-hero${cover ? " has-image" : sc(s, "committee_top")}" aria-labelledby="utskott-namn">
     ${cover
       ? html`<div class="cm-hero-media focus-${coverFocus(cm)}"${edit}>${picture(cover.key, { alt: cover.alt, sizes: "100vw", width: 2000, height: 1000, eager: true })}</div>`
       : html`<span class="cm-hero-monogram" aria-hidden="true">${committeeMonogram(cm.name)}</span>`}
@@ -237,7 +237,7 @@ export async function committeePage(c: RequestContext): Promise<Response> {
     </div>
   </section>`;
 
-  const meet = html`<section class="section" aria-labelledby="mot-utskottet">
+  const meet = html`<section class="section${sc(s, "committee_meet")}" aria-labelledby="mot-utskottet">
     <div class="container">
       <h2 class="section-title cm-section-title" id="mot-utskottet"${ek(s, "committee_meet_title")}>${s.committee_meet_title}</h2>
       ${!lead
@@ -264,7 +264,7 @@ export async function committeePage(c: RequestContext): Promise<Response> {
 
   const about =
     cm.body || joinBox
-      ? html`<section class="section section-surface" aria-labelledby="vad-vi-gor">
+      ? html`<section class="section section-surface${sc(s, "committee_about")}" aria-labelledby="vad-vi-gor">
           <div class="container split split-top">
             <div${edit}>
               <h2 class="section-title cm-section-title" id="vad-vi-gor"${ek(s, "committee_about_title")}>${s.committee_about_title}</h2>
@@ -276,7 +276,7 @@ export async function committeePage(c: RequestContext): Promise<Response> {
       : "";
 
   const images = gallery.length
-    ? html`<section class="section" aria-labelledby="utskott-bilder">
+    ? html`<section class="section${sc(s, "committee_photos")}" aria-labelledby="utskott-bilder">
         <div class="container">
           <h2 class="section-title cm-section-title" id="utskott-bilder"${ek(s, "committee_images_title")}>${s.committee_images_title}</h2>
           <ul class="network-gallery network-gallery--${gallery.length}"${edit}>
@@ -287,7 +287,7 @@ export async function committeePage(c: RequestContext): Promise<Response> {
     : "";
 
   const eventsBlock = events.length
-    ? html`<section class="section" aria-labelledby="utskott-evenemang">
+    ? html`<section class="section${sc(s, "committee_events")}" aria-labelledby="utskott-evenemang">
         <div class="container">
           <div class="section-head">
             <h2 class="section-title cm-section-title" id="utskott-evenemang"${ek(s, "committee_events_title")}>${fill(s.committee_events_title, vars)}</h2>
@@ -299,7 +299,7 @@ export async function committeePage(c: RequestContext): Promise<Response> {
     : "";
 
   const archiveBlock = hasArchive(archive, photos, year)
-    ? html`<section class="section section-tight-top" aria-labelledby="tidigare-ar">
+    ? html`<section class="section section-tight-top${sc(s, "committee_archive")}" aria-labelledby="tidigare-ar">
         <div class="container">
           <details class="archive">
             <summary><span class="archive-summary"><span class="archive-title" id="tidigare-ar"${ek(s, "committee_archive_title")}>${s.committee_archive_title}</span><span class="archive-lead"${ek(s, "committee_archive_lead")}>${fill(s.committee_archive_lead, vars)}</span></span>${icon("chevronDown", "icon icon-sm")}</summary>
@@ -310,7 +310,7 @@ export async function committeePage(c: RequestContext): Promise<Response> {
     : "";
 
   const more = others.length
-    ? html`<section class="section section-surface" aria-labelledby="fler-utskott">
+    ? html`<section class="section section-surface${sc(s, "committee_more")}" aria-labelledby="fler-utskott">
         <div class="container">
           <h2 class="section-title cm-section-title" id="fler-utskott"${ek(s, "committee_more_title")}>${s.committee_more_title}</h2>
           <ul class="cm-more">

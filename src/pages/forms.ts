@@ -1,5 +1,5 @@
 import { html, paragraphs, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ec, ek, lines, loadSettings, type SettingKey, type Settings, arrange, siteLayout } from "../lib/settings.js";
+import { ec, ek, lines, loadSettings, sc, type SectionColorSet, type SettingKey, type Settings, arrange, siteLayout } from "../lib/settings.js";
 import { fill } from "../lib/texts.js";
 import { committeeCover, committeeImages, currentMembersBy, loadCommitteeMembers, loadCommittees, type CommitteeMemberRow, type CommitteeRow } from "../lib/committees.js";
 import { shownYear, splitByYear } from "../lib/years.js";
@@ -272,7 +272,7 @@ export async function contactPage(c: RequestContext, values?: Values, errors?: E
   const withMail = board.filter((b) => b.email);
   const content = html`
     ${pageHeader(s, { kickerKey: "contact_kicker", hero: "contact", titleKey: "contact_title", leadKey: "contact_lead" })}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "contact_form")}">
       <div class="container form-layout">
         <div>
           <h2 class="form-title"${ek(s, "contact_form_title")}>${s.contact_form_title}</h2>
@@ -428,7 +428,7 @@ export async function paverkaPage(c: RequestContext, values?: Values, errors?: E
   const s = await loadSettings(c.env.DB, c.preview);
   const content = html`
     ${pageHeader(s, { kickerKey: "paverka_kicker", hero: "paverka", titleKey: "paverka_page_title", leadKey: "paverka_lead" })}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "paverka_form")}">
       <div class="container form-layout">
         <div id="paverka-formular">
           ${await formBlock(c, s, "paverka", fieldsFor("paverka", s), values ?? preselectType(c), errors, topError)}
@@ -674,7 +674,7 @@ export async function nominatePage(c: RequestContext, values?: Values, errors?: 
   const steps = lines(s.nominate_steps);
   const content = html`
     ${pageHeader(s, { kickerKey: "nominate_kicker", hero: "nominate", titleKey: "nominate_title", leadKey: "nominate_lead" })}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "nominate_form")}">
       <div class="container form-layout">
         <div>
           <h2 class="form-title"${ek(s, "nominate_form_title")}>${s.nominate_form_title}</h2>
@@ -820,11 +820,20 @@ const THANKS: Record<FormId, [SettingKey, SettingKey]> = {
   nominering: ["nominate_thanks_title", "nominate_thanks_text"],
 };
 
+/** Bekräftelsernas färger (Texter och sidor → sidan → Bekräftelsen). */
+const THANKS_COLORS: Record<FormId, SectionColorSet> = {
+  kontakt: "contact_thanks",
+  foretag: "companies_thanks",
+  paverka: "paverka_thanks",
+  engagemang: "engage_thanks",
+  nominering: "nominate_thanks",
+};
+
 export function thanksPage(id: FormId) {
   return async (c: RequestContext): Promise<Response> => {
     const s = await loadSettings(c.env.DB, c.preview);
     const [titleKey, textKey] = THANKS[id];
-    const content = html`<section class="section">
+    const content = html`<section class="section${sc(s, THANKS_COLORS[id])}">
       <div class="container narrow thanks">
         <span class="thanks-icon" aria-hidden="true">${icon("check")}</span>
         <h1 class="page-title"${ek(s, titleKey)}>${s[titleKey]}</h1>

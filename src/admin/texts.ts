@@ -348,14 +348,14 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
     }
   }
 
-  const fieldBlock = (f: FieldDef): SafeHtml => {
+  const fieldBlock = (f: FieldDef, short?: string): SafeHtml => {
     const key = f.key as SettingKey;
     const value = override?.[f.key] ?? s[key];
     const versions = versionCounts.get(f.key) ?? 0;
     const isTarget = f.key === target;
     const tools = html`<div class="field-tools">
       ${f.type !== "image" && f.type !== "choice"
-        ? html`<button type="button" class="link-btn" hidden data-reset="${f.key}" data-default="${f.def}">${icon("history", "icon icon-sm")}Återställ originaltexten</button>`
+        ? html`<button type="button" class="link-btn" hidden data-reset="${f.key}" data-default="${f.def}">${icon("history", "icon icon-sm")}${f.type === "color" ? "Tillbaka till standard" : "Återställ originaltexten"}</button>`
         : ""}
       ${versions > 0 ? html`<a class="link-btn" href="/admin/texter/historik?nyckel=${f.key}">${icon("clock", "icon icon-sm")}Tidigare versioner (${versions})</a>` : ""}
     </div>`;
@@ -366,11 +366,45 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
         ${tools}
       </div>`;
     }
+    // I en färggrupp: kort etikett (”Bakgrund”) och ingen egen hjälptext – gruppens rubrik och hjälptext säger resten.
+    const spec = short ? { ...toSpec(f), label: short, help: undefined, labelAttr: html` title="${f.label}"` } : toSpec(f);
     return html`<div class="text-field${isTarget ? " is-target" : ""}${value !== f.def ? " is-changed" : ""}" data-text-field="${f.key}">
-      ${renderField(toSpec(f), value, errors[f.key])}
+      ${renderField(spec, value, errors[f.key])}
       ${tools}
       ${textStyleControls(f, layout.styles.get(f.key))}
     </div>`;
+  };
+
+  /**
+   * Färgfälten för en del av sidan (<prefix>_c_bg, _c_text, _c_accent …) visas som en grupp: tre färger bredvid
+   * varandra under en rubrik (”Toppen – färger”), med bakgrundens hjälptext för hela gruppen.
+   */
+  const colorGroup = (group: FieldDef[]): SafeHtml => {
+    const bg = group[0]!;
+    const prefix = bg.key.slice(0, -"_c_bg".length);
+    const title = /^(.*?)\s+–\s+färg:/i.exec(bg.label)?.[1];
+    const short = (f: FieldDef) => {
+      const t = f.label.replace(/^.*?färg:\s*/i, "").trim();
+      return t.charAt(0).toUpperCase() + t.slice(1);
+    };
+    return html`<fieldset class="color-group" id="farger-${prefix}" data-color-group="${prefix}">
+      <legend class="color-group-title">${icon("palette", "icon icon-sm")}<span>${title ? `${title} – färger` : "Avsnittets färger"}</span></legend>
+      ${bg.help ? html`<p class="field-help color-group-help">${bg.help}</p>` : ""}
+      <div class="color-group-fields">${group.map((f) => fieldBlock(f, short(f)))}</div>
+    </fieldset>`;
+  };
+  const renderFields = (list: readonly FieldDef[]): SafeHtml[] => {
+    const out: SafeHtml[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const f = list[i]!;
+      if (f.type === "color" && f.key.endsWith("_c_bg")) {
+        const prefix = f.key.slice(0, -"bg".length);
+        const group = [f];
+        while (i + 1 < list.length && list[i + 1]!.type === "color" && list[i + 1]!.key.startsWith(prefix)) group.push(list[++i]!);
+        out.push(colorGroup(group));
+      } else out.push(fieldBlock(f));
+    }
+    return out;
   };
 
   const content = html`
@@ -407,12 +441,12 @@ export async function textsPage(c: RequestContext, session: Session, errors: Err
               <div class="text-section-body">
                 ${group.block && first ? blockControls(page.id, group.block, layout) : ""}
                 ${sec.hint ? html`<p class="section-hint">${icon("sparkle", "icon icon-sm")}<span>${sec.hint}</span></p>` : ""}
-                ${main.map(fieldBlock)}
+                ${renderFields(main)}
                 ${more.length
                   ? html`<details class="more-texts"${moreOpen ? html` open` : ""}>
                       <summary><span class="more-closed">Visa fler texter (${more.length})</span><span class="more-open">Dölj extra texter</span></summary>
                       <p class="field-help">Knappar, etiketter och texter som sällan behöver ändras.</p>
-                      ${more.map(fieldBlock)}
+                      ${renderFields(more)}
                     </details>`
                   : ""}
               </div>

@@ -180,7 +180,7 @@ export function previewPane(opts: { formId: string; page: string; pageLabel?: st
       <div class="lp-loading" data-lp-loading>Laddar förhandsvisning …</div>
     </div>
     <p class="lp-note">${opts.editMap
-      ? html`Visar dina ändringar innan de sparas. <strong>Klicka på en text</strong> för att hoppa till fältet.`
+      ? html`Visar dina ändringar innan de sparas. <strong>Klicka på en text</strong> för att hoppa till fältet – eller på en bakgrund för att ändra färgerna.`
       : html`Visar dina ändringar innan de sparas. Inget syns på webbplatsen förrän du klickar <strong>Spara</strong>.`}</p>
   </aside>
   <button type="button" class="btn btn-primary lp-open" data-lp-open aria-controls="forhandsvisning">Visa förhandsvisning</button>`;

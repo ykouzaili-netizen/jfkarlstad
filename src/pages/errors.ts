@@ -1,5 +1,5 @@
 import { html } from "../lib/html.js";
-import { ek, loadSettings } from "../lib/settings.js";
+import { ek, loadSettings, sc } from "../lib/settings.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
 import { layout } from "../views/layout.js";
@@ -13,7 +13,7 @@ export async function notFoundPage(c: RequestContext): Promise<Response> {
     ["/aktuellt", "notfound_link_news"],
     ["/kontakt", "notfound_link_contact"],
   ] as const;
-  const content = html`<section class="section error-page">
+  const content = html`<section class="section error-page${sc(s, "error_page")}">
     <div class="container narrow">
       <p class="error-code" aria-hidden="true">404</p>
       <h1 class="page-title"${ek(s, "notfound_title")}>${s.notfound_title}</h1>

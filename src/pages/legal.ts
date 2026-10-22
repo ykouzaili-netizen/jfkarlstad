@@ -3,7 +3,7 @@ import { loadNetworks } from "../lib/networks.js";
 import { loadCommittees } from "../lib/committees.js";
 import { isLinkVisible } from "../lib/pagelayout.js";
 import { html } from "../lib/html.js";
-import { ek, loadSettings, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
+import { ek, loadSettings, sc, type SettingKey, type Settings, siteLayout } from "../lib/settings.js";
 import { renderInline, renderMarkdown } from "../lib/markdown.js";
 import { fill } from "../lib/texts.js";
 import { htmlResponse, textResponse } from "../lib/http.js";
@@ -44,7 +44,7 @@ export async function privacyPage(c: RequestContext): Promise<Response> {
 
   const content = html`
     ${pageHeader(s, { kickerKey: "privacy_kicker", titleKey: "privacy_title", leadKey: "privacy_lead" })}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "privacy_body")}">
       <div class="container narrow prose prose-lg legal">
         <h2${ek(s, "privacy_controller_title")}>${s.privacy_controller_title}</h2>
         <p${ek(s, "privacy_controller_text")}>${renderInline(fill(s.privacy_controller_text, vars))}</p>
@@ -84,7 +84,7 @@ export async function cookiesPage(c: RequestContext): Promise<Response> {
   const s = await loadSettings(c.env.DB, c.preview);
   const content = html`
     ${pageHeader(s, { kickerKey: "privacy_kicker", titleKey: "cookies_title", leadKey: "cookies_lead" })}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "cookies_body")}">
       <div class="container narrow prose prose-lg legal">
         <h2${ek(s, "cookies_table_title")}>${s.cookies_table_title}</h2>
         <div class="table-wrap">
@@ -101,7 +101,7 @@ export async function cookiesPage(c: RequestContext): Promise<Response> {
         <p class="muted"${ek(s, "privacy_updated")}>${s.privacy_updated_label} ${s.privacy_updated}.</p>
       </div>
     </section>`;
-  return htmlResponse(c, layout(c, s, { title: s.cookies_title, description: s.cookies_lead }, content));
+  return htmlResponse(c, layout(c, s, { title: s.cookies_title, description: s.cookies_lead, pageId: "integritet" }, content));
 }
 
 export async function sitemapXml(c: RequestContext): Promise<Response> {

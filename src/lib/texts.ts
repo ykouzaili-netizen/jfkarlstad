@@ -130,11 +130,31 @@ function heroFields<const P extends string>(p: P) {
  */
 function blockColorFields<const P extends string>(p: P) {
   return [
-    color(`${p}_c_bg` as `${P}_c_bg`, "Färg: bakgrund", "", { help: "Färgfälten är valfria – tomt (”Standard”) = sajtens vanliga färg. Klicka på en av sajtens färger eller välj en egen. När du byter bakgrund frågar panelen om text och detaljer ska anpassas så att de syns. Korten i avsnittet behåller sina vanliga färger." }),
+    color(`${p}_c_bg` as `${P}_c_bg`, "Färg: bakgrund", "", { help: "Tomt (”Standard”) = sajtens vanliga färger. Byter du bakgrund föreslår panelen text och detaljer som syns. Korten i avsnittet behåller sina vanliga färger." }),
     color(`${p}_c_text` as `${P}_c_text`, "Färg: rubrik och text", ""),
     color(`${p}_c_accent` as `${P}_c_accent`, "Färg: detaljer", "", { help: "Understrykningar, ikoner, avsnittsnummer och liknande detaljer." }),
   ] as const;
 }
+
+const COLOR_HELP = "Tomt (”Standard”) = sajtens vanliga färger. Byter du bakgrund föreslår panelen text och detaljer som syns.";
+
+/**
+ * Ett färgset för en del av en sida: bakgrund, rubrik och text samt detaljer. `title` blir rubriken på
+ * färggruppen i redigeraren (”Toppen – färger”). Läses med pickColors()/sc() i settings.ts.
+ */
+function colorSet<const P extends string>(p: P, title: string, help: string = COLOR_HELP) {
+  return [
+    color(`${p}_c_bg` as `${P}_c_bg`, `${title} – färg: bakgrund`, "", { help }),
+    color(`${p}_c_text` as `${P}_c_text`, `${title} – färg: rubrik och text`, ""),
+    color(`${p}_c_accent` as `${P}_c_accent`, `${title} – färg: detaljer`, "", { help: "Understrykningar, ikoner, små etiketter och liknande detaljer." }),
+  ] as const;
+}
+
+/** Färgerna för en undersidas topp (pageExtraColorCss i settings.ts). Tomt = Gemensamt → Sidornas topp. */
+function topColors<const I extends string>(id: I) {
+  return colorSet(`top_${id.replace(/-/g, "_")}` as `top_${Underscored<I>}`, "Toppen", "Tomt (”Standard”) = färgerna under Gemensamt → Sidornas topp. Väljer du något här gäller bara den här sidans egna färger för toppen.");
+}
+type Underscored<S extends string> = S extends `${infer A}-${infer B}` ? `${A}_${Underscored<B>}` : S;
 
 /**
  * Färgerna för en hel sida (sist under varje sida i Texter och sidor). Gäller sidans innehåll mellan
@@ -195,6 +215,7 @@ export const PAGES = [
       ], { required: true }),
       text("hero_next_label", "Etikett på rutan med nästa evenemang", "Nästa evenemang", small),
       text("hero_scroll", "Text vid pilen längst ned", "Scrolla vidare", small),
+      ...colorSet("home_hero", "Toppen", "Bakgrunden och textfärgen gäller när ingen bild är vald – med en bild ligger texten alltid vit på en mörk ton, så att den syns. Detaljerna (t.ex. linjen vid etiketten) gäller alltid."),
     ]),
     sec("partners", "Samarbetspartners", [
       text("home_partners_title", "Rubrik", "Våra samarbetspartners", { required: true }),
@@ -339,6 +360,7 @@ export const PAGES = [
       text("insta_empty", "Text när inga inlägg finns", "Inläggen visas här snart.", { more: true }),
       text("insta_pause", "Knapp: pausa", "Pausa", small),
       text("insta_play", "Knapp: spela", "Spela", small),
+      ...blockColorFields("home_insta"),
     ], "Inläggen lägger du till under Instagram i menyn till vänster. Länken och kontonamnet ändrar du under Gemensamt → Kontaktuppgifter och länkar."),
     pageColors("startsida"),
   ]),
@@ -362,6 +384,7 @@ export const PAGES = [
       text("about_image_2_alt", "Bild 2 – bildbeskrivning", "", { more: true, help: ALT_HELP }),
       image("about_image_3", "Bild 3", ""),
       text("about_image_3_alt", "Bild 3 – bildbeskrivning", "", { more: true, help: ALT_HELP }),
+      ...topColors("om-oss"),
     ]),
     sec("om", "Om JFK", [
       area("about_text", "Text", "Juridiska Föreningen i Karlstad (JFK) är en partipolitiskt och religiöst obunden ideell studentförening som grundades 2011. Med omkring 400 medlemmar är vi föreningen för alla som läser juristprogrammet eller masterprogrammet i skatterätt vid Karlstads universitet.\n\nVi har tre huvuduppgifter: att bevaka och utveckla utbildningens kvalitet, att skapa kontakter mellan studenter och framtida arbetsgivare och att erbjuda ett rikt studentliv – med allt från idrott och föreläsningar till sittningar och banketter."),
@@ -407,6 +430,7 @@ export const PAGES = [
       area("committees_cta_text", "Sista rutan – text", "Alla ordinarie medlemmar kan väljas in i ett utskott. Anmäl ditt intresse så hör vi av oss."),
       text("committees_cta_button", "Sista rutan – knapp", "Engagera dig", small),
       text("committees_read_more", "Länk på varje utskott", "Läs mer", small),
+      ...blockColorFields("om_oss_utskott"),
     ], "Utskotten själva – namn, beskrivning, anslagsbild och medlemmar – ändrar du under Styrelse och uppdrag → Utskott i menyn."),
     sec("utskottssidor", "Utskottens egna sidor", [
       text("committee_breadcrumb", "Brödsmulan mellan Om oss och namnet", "Utskotten", small),
@@ -427,6 +451,13 @@ export const PAGES = [
       text("committee_archive_lead", "Text för tidigare år", "De som har varit med i {namn} tidigare verksamhetsår.", small),
       text("committee_more_title", "Rubrik för övriga utskott längst ned", "Fler utskott", small),
       text("committee_back", "Länk tillbaka", "Tillbaka till utskotten", small),
+      ...colorSet("committee_top", "Toppen utan anslagsbild"),
+      ...colorSet("committee_meet", "Möt utskottet"),
+      ...colorSet("committee_about", "Vad vi gör"),
+      ...colorSet("committee_photos", "Bilder"),
+      ...colorSet("committee_events", "Evenemang"),
+      ...colorSet("committee_archive", "Tidigare år"),
+      ...colorSet("committee_more", "Fler utskott"),
     ], "Varje utskott har en egen sida som man kommer till från korten under Utskotten. Innehållet – anslagsbild, medlemmar, text och bilder – ändrar du under Styrelse och uppdrag → Utskott."),
     sec("utmarkelser", "Hedersmedlemmar och utmärkelser", [
       text("honors_title", "Rubrik", "Hedersmedlemmar och utmärkelser", { required: true }),
@@ -474,6 +505,7 @@ export const PAGES = [
       text("honors_diploma_kicker", "Diplomet: raden ovanför namnet ({år} byts mot året)", "Hedersmedlem {år}", small),
       text("honors_diploma_sign", "Diplomet: underskrift", "Styrelsen, Juridiska Föreningen i Karlstad", small),
       text("honors_diploma_rule", "Diplomet: stadgerummet ({år} byts mot året)", "Utsedd {år} enligt 2 kap. 4 § stadgarna", small),
+      ...colorSet("om_oss_utmarkelser", "Alla utseenden"),
     ], "Hedersmedlemmar och mottagare lägger du in under Styrelse och uppdrag → Utmärkelser, och belöningssystemets ordnar och medaljer under fliken Ordnar och medaljer. Avsnittet har egna utseenden; Ordensbandet och Porträttgalleriet har egna färgfält."),
     sec("pedagog", "Årets pedagog", [
       text("pedagog_title", "Rubrik", "Årets pedagog", { required: true }),
@@ -513,6 +545,10 @@ export const PAGES = [
       text("network_email", "Etikett för e-post", "E-post", small),
       text("network_more_title", "Rubrik för övriga nätverk längst ned", "Fler samarbeten", small),
       text("network_back", "Länk tillbaka", "Tillbaka till Om oss", small),
+      ...colorSet("network_top", "Toppen"),
+      ...colorSet("network_info", "Beskrivningen"),
+      ...colorSet("network_photos", "Bilder"),
+      ...colorSet("network_more", "Fler samarbeten"),
     ], "Innehållet på sidorna – texter, logotyp, bilder och länkar – ändrar du under Partners → Studentnätverk."),
     pageColors("om-oss"),
   ]),
@@ -523,6 +559,7 @@ export const PAGES = [
       text("nominate_title", "Rubrik", "Nominera någon till hedersmedlemskap", { required: true }),
       area("nominate_lead", "Ingress", "Känner du någon som genom sitt engagemang har gjort en särskilt stor insats för JFK? Berätta för oss – styrelsen går igenom alla nomineringar inför varje utdelning."),
       ...heroFields("nominate"),
+      ...topColors("nominera"),
     ]),
     sec("formular", "Formuläret", [
       choice("nominate_open", "Tar ni emot nomineringar?", "oppen", [
@@ -543,10 +580,12 @@ export const PAGES = [
       text("nominate_steps_title", "Rutan bredvid – rubrik", "Så går det till"),
       list("nominate_steps", "Rutan bredvid – steg", "Du skickar in din nominering – det tar ett par minuter\nStyrelsen går igenom alla nomineringar inför utdelningen\nHedersmedlemskapen delas ut, ofta på en sittning eller bankett", { help: "Ett steg per rad." }),
       text("nominate_awards_link", "Länk till Om oss", "Läs mer om hedersmedlemmarna", small),
+      ...colorSet("nominate_form", "Formuläret"),
     ]),
     sec("tack", "Bekräftelsen", [
       text("nominate_thanks_title", "Rubrik", "Tack för din nominering!", { required: true }),
       area("nominate_thanks_text", "Text", "Styrelsen går igenom alla nomineringar inför nästa utdelning. Den du nominerade får inte veta vem som skickade in."),
+      ...colorSet("nominate_thanks", "Bekräftelsen"),
     ], "Visas när någon har skickat formuläret."),
     pageColors("nominera"),
   ]),
@@ -558,6 +597,7 @@ export const PAGES = [
       area("member_lead", "Ingress", "Som medlem får du en stark social och professionell gemenskap under hela studietiden."),
       text("member_price", "Pris", "", { help: "T.ex. ”250 kr för hela utbildningen”. Lämna tomt för att inte visa något pris." }),
       ...heroFields("member"),
+      ...topColors("bli-medlem"),
     ]),
     sec("formaner", "Förmåner", [
       text("member_benefits_title", "Rubrik", "Det här får du som medlem", { required: true }),
@@ -590,6 +630,7 @@ export const PAGES = [
       text("students_title", "Rubrik", "Studier och studentliv", { required: true }),
       area("students_lead", "Ingress", "Allt du behöver veta om studierna, kursombuden, idrotten och livet runt omkring."),
       ...heroFields("students"),
+      ...topColors("for-studenter"),
     ]),
     sec("studera", "Studera på KAU", [
       text("study_title", "Rubrik", "Studera på KAU", { required: true }),
@@ -652,6 +693,7 @@ export const PAGES = [
       text("sport_image_8_alt", "Bild 8 – bildbeskrivning", "", { more: true, help: ALT_HELP }),
       text("sport_pause", "Knapp: pausa", "Pausa", small),
       text("sport_play", "Knapp: spela", "Spela", small),
+      ...blockColorFields("for_studenter_idrott"),
     ]),
     sec("filmer", "Biografen (filmer)", [
       text("films_title", "Rubrik", "Biografen", { required: true }),
@@ -703,6 +745,7 @@ export const PAGES = [
       text("jobs_title", "Rubrik", "Jobb och praktik", { required: true }),
       area("jobs_lead", "Ingress", "Lediga praktikplatser, sommarnotarietjänster, traineeprogram och jobb – främst hos våra samarbetspartners."),
       ...heroFields("jobs"),
+      ...topColors("karriar"),
     ]),
     sec("lista", "Listan med tjänster", [
       text("jobs_filter_all", "Filter: alla", "Alla", small),
@@ -719,6 +762,7 @@ export const PAGES = [
       text("jobs_cta_title", "Rutan för arbetsgivare – rubrik", "Vill ni annonsera hos oss?"),
       area("jobs_cta_text", "Rutan för arbetsgivare – text", "Som samarbetspartner kan ni nå juriststudenter vid Karlstads universitet med era praktikplatser och jobb."),
       text("jobs_cta_button", "Rutan för arbetsgivare – knapp", "Kontakta oss", small),
+      ...colorSet("jobs_list", "Listan"),
     ], "Tjänsterna lägger du in under Jobb och praktik i menyn."),
     sec("annons", "Sidan för en enskild tjänst", [
       text("job_back", "Länk tillbaka", "Jobb och praktik", small),
@@ -726,6 +770,7 @@ export const PAGES = [
       text("job_partner_link", "Länk till partnern", "Mer om {arbetsgivare}", { ...small, help: "{arbetsgivare} byts ut mot arbetsgivarens namn." }),
       text("job_expired", "Text när ansökningstiden gått ut", "Ansökningstiden har gått ut.", small),
       text("job_all", "Länk till alla tjänster", "Alla lediga tjänster", small),
+      ...colorSet("job_page", "Annonsen"),
     ]),
     pageColors("karriar"),
   ]),
@@ -736,6 +781,7 @@ export const PAGES = [
       text("engage_title", "Rubrik", "Engagera dig i JFK", { required: true }),
       area("engage_lead", "Ingress", "Föreningen drivs av studenter – och det finns alltid plats för fler. Ett uppdrag i JFK ger nya vänner, värdefull erfarenhet och något extra att skriva i cv:t."),
       ...heroFields("engage"),
+      ...topColors("engagera-dig"),
     ]),
     sec("uppdrag", "Lediga uppdrag", [
       text("engage_positions_title", "Rubrik", "Lediga uppdrag", { required: true }),
@@ -827,6 +873,7 @@ export const PAGES = [
     sec("tack", "Bekräftelsen", [
       text("engage_thanks_title", "Rubrik", "Tack för ditt intresse!", { required: true }),
       area("engage_thanks_text", "Text", "Någon i styrelsen hör av sig till dig så snart vi kan, oftast inom en vecka."),
+      ...colorSet("engage_thanks", "Bekräftelsen"),
     ], "Visas när någon har skickat formuläret."),
     sec("fler", "Fler sätt att påverka", [
       text("engage_more_title", "Rubrik", "Fler sätt att påverka", { required: true }),
@@ -855,6 +902,7 @@ export const PAGES = [
       text("companies_cta", "Knapp", "Kontakta oss", small),
       text("companies_partners_link", "Länk till partners", "Våra nuvarande partners", small),
       ...heroFields("companies"),
+      ...topColors("for-foretag"),
     ]),
     sec("varfor", "Varför JFK?", [
       text("companies_why_title", "Rubrik", "Varför JFK?", { required: true }),
@@ -931,6 +979,7 @@ export const PAGES = [
     sec("tack", "Bekräftelsen", [
       text("companies_thanks_title", "Rubrik", "Tack för ert intresse!", { required: true }),
       area("companies_thanks_text", "Text", "Vår arbetsmarknadsansvariga hör av sig inom några dagar för att prata vidare om ett samarbete."),
+      ...colorSet("companies_thanks", "Bekräftelsen"),
     ], "Visas när någon har skickat formuläret."),
     pageColors("for-foretag"),
   ]),
@@ -948,6 +997,8 @@ export const PAGES = [
       text("partners_cta_title", "Rutan längst ned – rubrik", "Vill ni också samarbeta med JFK?"),
       area("partners_cta_text", "Rutan längst ned – text", "Vi berättar gärna mer om hur ett samarbete kan se ut."),
       text("partners_cta_button", "Knapp ”Bli samarbetspartner”", "Bli samarbetspartner", small),
+      ...topColors("partners"),
+      ...colorSet("partners_list", "Listan"),
     ], "Ingressen är samma som på startsidan. Partnerna själva ändrar du under Partners i menyn."),
     sec("partnersida", "Partnerns egen sida", [
       text("partner_aside_title", "Rutan – rubrik", "Läs mer om {namn}", { ...small, help: "{namn} byts ut mot partnerns namn." }),
@@ -959,6 +1010,8 @@ export const PAGES = [
       text("event_with", "Eventets sida: tillsammans med", "Tillsammans med {namn}", { ...small, help: "Visas på eventets sida när eventet är kopplat till en samarbetspartner. {namn} byts ut mot partnerns namn." }),
       text("event_by", "Eventets sida: arrangeras av", "Arrangeras av {namn}", { ...small, help: "Visas på eventets sida när ett utskott arrangerar eventet. {namn} byts ut mot utskottets namn." }),
       text("partner_all", "Länk till alla partners", "Alla samarbetspartners", small),
+      ...colorSet("partner_page", "Beskrivningen"),
+      ...colorSet("partner_more", "Evenemang och jobb"),
     ]),
     pageColors("partners"),
   ]),
@@ -973,9 +1026,12 @@ export const PAGES = [
       text("news_newer", "Knapp: nyare", "Nyare", small),
       text("news_older", "Knapp: äldre", "Äldre", small),
       text("news_page", "Sidnummer", "Sida {sida} av {antal}", { ...small, help: "{sida} och {antal} byts ut automatiskt." }),
+      ...topColors("aktuellt"),
+      ...colorSet("news_list", "Listan"),
     ], "Nyheterna skriver du under Nyheter i menyn."),
     sec("artikel", "Sidan för en nyhet", [
       text("news_all", "Länk till alla nyheter", "Alla nyheter", small),
+      ...colorSet("news_article", "Nyheten"),
     ]),
     pageColors("aktuellt"),
   ]),
@@ -988,6 +1044,7 @@ export const PAGES = [
       ...heroFields("cal"),
       rich("cal_empty", "Text när inga evenemang finns", "Inga kommande evenemang är inlagda just nu. Följ [@jfkarlstad](https://www.instagram.com/jfkarlstad/) så missar du inget.", { more: true, help: RICH_HELP }),
       text("cal_past_title", "Rubrik för tidigare evenemang", "Tidigare evenemang", small),
+      ...topColors("kalender"),
     ], "Evenemangen lägger du in under Event i menyn."),
     sec("manad", "Månadsvyn", [
       text("cal_view_month", "Knapp: månad", "Månad", small),
@@ -1003,6 +1060,8 @@ export const PAGES = [
       text("cal_legend_open", "Förklaring: öppna evenemang", "Öppet för alla", small),
       text("cal_pop_more", "Rutan vid evenemang: länk till sidan", "Läs mer", small),
       text("cal_agenda_title", "Rubrik för listan under kalendern (mobil)", "Händelser i {månad}", { ...small, help: "{månad} byts ut mot månaden." }),
+      ...colorSet("calendar_month", "Månadsvyn och listan"),
+      ...colorSet("calendar_past", "Tidigare evenemang", "Tomt (”Standard”) = sajtens vanliga färger. Avsnittet visas under listan (Lista i stället för Månad)."),
     ], "Kalendern visar en månad i taget. Besökare bläddrar med pilarna."),
     sec("prenumerera", "Prenumerera på kalendern", [
       text("cal_sub_button", "Knapp", "Prenumerera på kalendern", small),
@@ -1020,6 +1079,7 @@ export const PAGES = [
       text("event_join", "Knapp för medlemsevenemang", "Bli medlem för att delta", small),
       text("event_add", "Knapp: lägg till i kalendern", "Lägg till i kalendern", small),
       text("event_all", "Länk till alla evenemang", "Alla evenemang", small),
+      ...colorSet("event_page", "Evenemangets sida"),
     ]),
     pageColors("kalender"),
   ]),
@@ -1031,6 +1091,7 @@ export const PAGES = [
       area("docs_lead", "Ingress", "Stadgar, styrdokument och protokoll. Som medlem förbinder du dig att följa stadgarna och gällande styrdokument."),
       ...heroFields("docs"),
       rich("docs_missing", "Text längst ned", "Saknar du ett protokoll? Mejla [sekreterare@jfkarlstad.se](mailto:sekreterare@jfkarlstad.se).", { help: RICH_HELP }),
+      ...topColors("dokument"),
     ], "Dokumenten lägger du in under Dokument i menyn – som länk till Google Dokument eller som PDF."),
     sec("sok", "Sökrutan och listan", [
       text("docs_search_label", "Sökfältets rubrik", "Sök bland dokumenten", small),
@@ -1056,6 +1117,8 @@ export const PAGES = [
       text("doc_cat_styrdokument", "Kategori: styrdokument", "Styrdokument", small),
       text("doc_cat_protokoll", "Kategori: protokoll", "Protokoll", small),
       text("doc_cat_ovrigt", "Kategori: övrigt", "Övrigt", small),
+      ...colorSet("docs_list", "Listan"),
+      ...colorSet("doc_page", "Ett dokuments egen sida"),
     ]),
     pageColors("dokument"),
   ]),
@@ -1076,6 +1139,8 @@ export const PAGES = [
       text("faq_cta_title", "Rutan längst ned – rubrik", "Hittade du inte svaret?"),
       area("faq_cta_text", "Rutan längst ned – text", "Skicka din fråga så svarar vi så snart vi kan."),
       text("faq_cta_button", "Rutan längst ned – knapp", "Kontakta oss", small),
+      ...topColors("faq"),
+      ...colorSet("faq_list", "Frågorna"),
     ], "Frågorna och svaren ändrar du under Vanliga frågor i menyn."),
     pageColors("faq"),
   ]),
@@ -1086,6 +1151,7 @@ export const PAGES = [
       text("paverka_page_title", "Rubrik", "Gör din röst hörd", { required: true }),
       area("paverka_lead", "Ingress", "Gör din röst hörd i JFK. Lämna synpunkter, rapportera problem eller föreslå ett eget initiativ."),
       ...heroFields("paverka"),
+      ...topColors("jf-paverka"),
     ]),
     sec("info", "Rutorna bredvid formuläret", [
       text("paverka_how_title", "Första rutan – rubrik", "Så fungerar det"),
@@ -1112,10 +1178,12 @@ export const PAGES = [
       text("pf_name", "Fält: namn", "Namn", small),
       text("pf_email", "Fält: e-post", "E-post", small),
       text("pf_email_help", "Hjälptext för e-post", "Fyll i om du vill att vi återkopplar till dig.", { more: true }),
+      ...colorSet("paverka_form", "Formuläret och rutorna"),
     ]),
     sec("tack", "Bekräftelsen", [
       text("paverka_thanks_title", "Rubrik", "Tack för att du gör din röst hörd!", { required: true }),
       area("paverka_thanks_text", "Text", "Ditt inskick tas upp på nästa styrelsemöte. Om du lämnade kontaktuppgifter kan vi återkoppla till dig."),
+      ...colorSet("paverka_thanks", "Bekräftelsen"),
     ], "Visas när någon har skickat formuläret."),
     pageColors("jf-paverka"),
   ]),
@@ -1145,6 +1213,7 @@ export const PAGES = [
       text("comp_unit_seconds", "Nedräkningen: sekunder (ental|flertal)", "sekund|sekunder", small),
       text("comp_calendar", "Länk: lägg till i kalendern", "Lägg till datumen i kalendern", small),
       text("comp_next", "Länken längst ned i en flik", "Nästa: {flik}", { ...small, help: "{flik} byts mot namnet på nästa flik." }),
+      ...colorSet("tavling_top", "Toppen"),
     ]),
     sec("datum", "Datum och tider", [
       datetime("comp_open_at", "Tävlingen öppnar", "2026-11-01T00:00", { required: true }),
@@ -1336,6 +1405,9 @@ export const PAGES = [
       image("comp_winner_2", "Vinnande merch – bild", ""),
       text("comp_winner_2_caption", "Vinnande merch – bildtext", "", { help: "T.ex. ”Merch: Design F av Erik Ek”." }),
     ], "Fyll i när röstningen är klar."),
+    sec("sidans-farger", "Sidans färger", [
+      ...colorSet("tavling_page", "Hela sidan", "Valfritt – tomt (”Standard”) = sajtens färger under Utseende. Bakgrunden, korten, linjerna och de gula detaljerna på tävlingssidan blandas fram ur de här färgerna. Byter du bakgrund frågar panelen om text och detaljer ska anpassas så att de syns."),
+    ], "Färgerna gäller bara tävlingssidan – sidhuvudet och sidfoten behåller sajtens färger. Toppens färger väljer du under Sidans topp."),
   ]),
 
   // JFK Butik (/butik). Produkterna och släppen ändras under Innehåll → Butik – här finns bara sidans texter.
@@ -1348,6 +1420,7 @@ export const PAGES = [
       text("shop_nav_archive", "Genväg: tidigare släpp", "Tidigare släpp", small),
       text("shop_cart", "Länken till varukorgen", "Korg", small),
       text("shop_empty", "När butiken är tom", "Butiken fylls på snart. Titta in igen!", small),
+      ...colorSet("shop_bar", "Fältet överst"),
     ]),
     sec("produkter", "Produkterna", [
       text("shop_label_drop", "Etikett: produkt i ett släpp", "Nº {nr} · {slapp}", { ...small, help: "{nr} byts mot produktens nummer, {slapp} mot släppets namn, t.ex. ”Släpp 01”." }),
@@ -1408,6 +1481,11 @@ export const PAGES = [
       email("shop_email", "E-post för frågor om butiken", "", { help: "Valfritt. Visas som ”Frågor om butiken” längst ned. Tomt = kontaktsidan." }),
       text("shop_questions", "Länk: frågor", "Frågor om butiken", small),
     ]),
+    sec("sidans-farger", "Butikens färger", [
+      ...colorSet("shop_dark", "Mörka avsnitt", "Valfritt – tomt (”Standard”) = sajtens primärfärg. Butikens avsnitt växlar mellan tre toner: mörk, gul och ljus. Här väljer du hur varje ton ser ut. Väljer du bara en bakgrund blir texten automatiskt svart eller vit."),
+      ...colorSet("shop_accent", "Gula avsnitt", "Valfritt – tomt (”Standard”) = sajtens accentfärg. Detaljerna är knappen ”Lägg i varukorgen” och de valda storlekarna."),
+      ...colorSet("shop_light", "Ljusa avsnitt", "Valfritt – tomt (”Standard”) = sajtens bakgrund. Gäller också listan med övriga produkter, arkivet, produktens beskrivning och varukorgen."),
+    ], "Färgerna gäller bara butiken – sidhuvudet och sidfoten behåller sajtens färger. Fältet överst med butikens namn och varukorgen väljer du under Sidans namn och ingress."),
   ]),
 
   page("kontakt", "Kontakt", "/kontakt", [
@@ -1416,6 +1494,7 @@ export const PAGES = [
       text("contact_title", "Rubrik", "Hör av dig till oss", { required: true }),
       area("contact_lead", "Ingress", "Har du en fråga om medlemskap, evenemang eller samarbeten? Fyll i formuläret så återkommer vi så snart vi kan."),
       ...heroFields("contact"),
+      ...topColors("kontakt"),
     ]),
     sec("formular", "Formuläret", [
       text("contact_form_title", "Rubrik", "Skicka ett meddelande", { required: true }),
@@ -1425,6 +1504,7 @@ export const PAGES = [
       text("kf_subject", "Fält: ämne", "Vad gäller det?", small),
       list("kf_subject_options", "Val för ämne", "Medlemskap\nEvenemang\nSamarbete\nAnnat", { more: true, help: "Ett val per rad." }),
       text("kf_message", "Fält: meddelande", "Meddelande", small),
+      ...colorSet("contact_form", "Formuläret och kontaktuppgifterna"),
     ]),
     sec("uppgifter", "Kontaktuppgifterna bredvid", [
       text("contact_details_title", "Rubrik", "Kontaktuppgifter"),
@@ -1436,6 +1516,7 @@ export const PAGES = [
     sec("tack", "Bekräftelsen", [
       text("contact_thanks_title", "Rubrik", "Tack för ditt meddelande!", { required: true }),
       area("contact_thanks_text", "Text", "Vi har tagit emot det och återkommer så snart vi kan, oftast inom några dagar."),
+      ...colorSet("contact_thanks", "Bekräftelsen"),
     ], "Visas när någon har skickat formuläret."),
     pageColors("kontakt"),
   ]),
@@ -1456,6 +1537,8 @@ export const PAGES = [
       text("search_group_docs", "Grupp: dokument", "Dokument", small),
       text("search_group_faq", "Grupp: frågor", "Vanliga frågor", small),
       text("search_group_partners", "Grupp: partners", "Partners", small),
+      ...topColors("sok"),
+      ...colorSet("search_results", "Sökträffarna"),
     ]),
     pageColors("sok"),
   ]),
@@ -1474,6 +1557,7 @@ export const PAGES = [
         required: true,
         help: "Gäller alla sidor där Utseende är ”Som de andra sidorna”. En sida utan egna bilder visar bara texten. Om oss och startsidan har egna val.",
       }),
+      ...colorSet("tops", "Alla sidors topp", "Tomt (”Standard”) = sajtens vanliga färger. Gäller toppen på alla undersidor som inte har egna färger för toppen – de väljer du under Sidans topp på varje sida."),
     ]),
     sec("kontakt", "Kontaktuppgifter och länkar", [
       url("hitract_url", "Länk till Hitract (Bli medlem)", "https://open.hitract.se/HitClub/645", { required: true, help: "Alla ”Bli medlem”-knappar går hit och öppnas i en ny flik." }),
@@ -1490,6 +1574,7 @@ export const PAGES = [
       text("menu_label", "Menyknappen i mobilen", "Meny", small),
       text("menu_close", "Menyknappen när menyn är öppen", "Stäng", small),
       text("search_label", "Sökknappen", "Sök", small),
+      ...colorSet("header", "Sidhuvudet", "Tomt (”Standard”) = sajtens bakgrund och text. Gäller sidhuvudet och menyerna på alla sidor (på startsidan ligger det genomskinligt över bilden tills man scrollar). Detaljerna är också knappen Bli medlem."),
     ], "Menyns namn och ordning ändrar du under Menyn."),
     sec("sidfot", "Sidfoten", [
       area("footer_text", "Text", "Studentföreningen för juriststudenter och masterstudenter i skatterätt vid Karlstads universitet."),
@@ -1499,6 +1584,7 @@ export const PAGES = [
       text("footer_cookies", "Länk till kakor", "Cookie-inställningar", small),
       text("footer_login", "Länk till inloggningen", "Logga in för styrelsen", small),
       text("footer_orgnr", "Förkortning för organisationsnummer", "Org.nr", small),
+      ...colorSet("footer", "Sidfoten", "Tomt (”Standard”) = sajtens primärfärg. Väljer du bara en bakgrund blir texten automatiskt svart eller vit. Detaljerna är också knappen Bli medlem."),
     ]),
     sec("knappar", "Knappar och etiketter som finns på flera sidor", [
       text("read_more", "Läs mer", "Läs mer", small),
@@ -1518,6 +1604,8 @@ export const PAGES = [
       text("privacy_title", "Rubrik", "Integritetspolicy", { required: true }),
       area("privacy_lead", "Ingress", "Så behandlar vi personuppgifter. Kort sagt: vi samlar bara in det vi behöver, vi använder inga spårningskakor eller analysverktyg, och vi säljer eller delar aldrig dina uppgifter för reklam."),
       text("privacy_updated", "Senast uppdaterad", "17 oktober 2026", { required: true, help: "Ändra datumet när innehållet i policyn ändras i sak." }),
+      ...topColors("integritet"),
+      ...colorSet("privacy_body", "Policyn"),
     ], "Ändra bara policyn om föreningens hantering av personuppgifter faktiskt har ändrats. Fråga gärna någon som kan GDPR."),
     sec("ansvarig", "Personuppgiftsansvarig", [
       text("privacy_controller_title", "Rubrik", "Personuppgiftsansvarig", { more: true, required: true }),
@@ -1633,6 +1721,7 @@ export const PAGES = [
       md("cookies_necessary_text", "Text under tabellen", "Kakan är strikt nödvändig för att inloggningen ska fungera och kräver därför inget samtycke enligt lagen (2022:482) om elektronisk kommunikation. Vanliga besökare får inga kakor alls, och webbplatsen sparar inte heller något annat i din webbläsare (som local storage).", { more: true, help: MD_HELP }),
       text("cookies_external_title", "Externa tjänster – rubrik", "Externa tjänster", { more: true }),
       md("cookies_external_text", "Externa tjänster – text", "Vi bäddar inte in Instagram, kartor eller liknande, eftersom sådana tjänster ofta sätter egna kakor. I stället länkar vi ut till dem – det är först när du klickar som du lämnar vår webbplats.\n\nFilmerna i bildgalleriet ligger på YouTube. Innan du startar en film hämtas ingenting från YouTube – stillbilden visas från vår egen webbplats. Först när du trycker på play laddas filmen från youtube-nocookie.com, och då kan YouTube (Google) ta emot din IP-adress och spara kakor eller liknande i din webbläsare enligt [Googles integritetspolicy](https://policies.google.com/privacy). Vill du inte det kan du låta bli att starta filmerna.\n\nInläggen från vårt eget Instagramkonto på startsidan visas från vår egen webbplats: bilderna hämtas och lagras här, så din webbläsare kontaktar inte Instagram förrän du klickar på ett inlägg.\n\nLäs mer om hur vi behandlar personuppgifter i vår [integritetspolicy](/integritetspolicy).", { more: true, help: MD_HELP }),
+      ...colorSet("cookies_body", "Sidan om kakor"),
     ]),
     pageColors("integritet"),
   ]),
@@ -1645,6 +1734,7 @@ export const PAGES = [
       text("notfound_link_calendar", "Länk 2", "Kalendern", small),
       text("notfound_link_news", "Länk 3", "Nyheter", small),
       text("notfound_link_contact", "Länk 4", "Kontakta oss", small),
+      ...colorSet("error_page", "Sidan"),
     ], "Visas när någon går till en adress som inte finns."),
     sec("omdirigeringar", "Gamla adresser", [
       list("redirects", "Gamla adresser som skickas vidare", "", {

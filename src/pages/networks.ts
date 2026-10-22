@@ -1,5 +1,5 @@
 import { html, type SafeHtml } from "../lib/html.js";
-import { ec, ek, loadSettings, type Settings } from "../lib/settings.js";
+import { ec, ek, loadSettings, sc, type Settings } from "../lib/settings.js";
 import { networkGallery, networkQuery, loadNetworks, type NetworkRow } from "../lib/networks.js";
 import { linkIcon, parsePartnerLinks } from "../lib/partner-links.js";
 import { renderMarkdown, plainText } from "../lib/markdown.js";
@@ -84,7 +84,7 @@ export async function networkPage(c: RequestContext): Promise<Response> {
     : "";
 
   const content = html`
-    <section class="page-hero network-top">
+    <section class="page-hero network-top${sc(s, "network_top")}">
       <div class="container">
         ${breadcrumb([{ href: "/om-oss", label: s.about_kicker }, { href: "/om-oss#samarbeten", label: s.network_breadcrumb }, { label: n.name }])}
         <div class="network-hero"${edit}>
@@ -101,7 +101,7 @@ export async function networkPage(c: RequestContext): Promise<Response> {
       ? html`<div class="container"><figure class="partner-photo partner-photo--banner">${picture(n.image_key, { alt: n.image_alt, sizes: "(min-width: 1280px) 1200px, 100vw", width: 1600, height: 686, eager: true })}</figure></div>`
       : ""}
     ${n.description || hasAside
-      ? html`<section class="section section-tight-top">
+      ? html`<section class="section section-tight-top${sc(s, "network_info")}">
           <div class="container split split-top">
             <div class="partner-body"${edit}>
               ${n.description
@@ -114,7 +114,7 @@ export async function networkPage(c: RequestContext): Promise<Response> {
         </section>`
       : ""}
     ${gallery.length
-      ? html`<section class="section section-tight-top" aria-labelledby="bilder">
+      ? html`<section class="section section-tight-top${sc(s, "network_photos")}" aria-labelledby="bilder">
           <div class="container">
             <h2 class="section-title network-section-title" id="bilder"${ek(s, "network_gallery_title")}>${s.network_gallery_title}</h2>
             <ul class="network-gallery network-gallery--${gallery.length}"${edit}>
@@ -129,7 +129,7 @@ export async function networkPage(c: RequestContext): Promise<Response> {
         </section>`
       : ""}
     ${others.length
-      ? html`<section class="section section-surface" aria-labelledby="fler-samarbeten">
+      ? html`<section class="section section-surface${sc(s, "network_more")}" aria-labelledby="fler-samarbeten">
           <div class="container">
             <h2 class="section-title network-section-title" id="fler-samarbeten"${ek(s, "network_more_title")}>${s.network_more_title}</h2>
             <div class="two-col collab-grid">${others.map((o) => networkCard(s, o))}</div>

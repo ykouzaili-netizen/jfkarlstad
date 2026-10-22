@@ -119,6 +119,11 @@ tools/local-preview Reservlösning för förhandsvisning utan wrangler (node:sql
 - **Inställningar:** texterna kommer från registret i `src/lib/texts.ts`, övrigt (färger, logotyp, meny) från
   `EXTRA_DEFAULTS` i `src/lib/settings.ts`. Databasen skriver över; ett värde som är samma som standardtexten tas bort.
   Hårdkoda aldrig synlig text i mallarna – undantag: felmeddelanden i validering, adminpanelen, skärmläsartexter och 500-sidan.
+- **Färger per del av sidan:** varje avsnitt, topp, sidhuvudet och sidfoten har ett färgset i textregistret
+  (`colorSet()`/`blockColorFields()`/`topColors()` i `texts.ts` → fälten `<prefix>_c_bg|_c_text|_c_accent`, visas som en
+  färggrupp i editorn). Flyttbara avsnitt får färgen via `BLOCK_COLORS` + `arrange()`, övriga med `sc(s, "prefix")` i mallen
+  (prefixet i `SECTION_COLOR_SETS`); toppar, startsidans topp, tävlingen och butikens toner i `pageExtraColorCss()`.
+  I förhandsvisningen leder ett klick på en bakgrund till färgerna (`markColorAreas`). Nytt avsnitt = nytt färgset + test i `tools/e2e/test_colors.py`.
 - **Färger/tema:** CSS-variabler `--c-bg, --c-surface, --c-text, --c-primary, --c-accent, --c-button` kommer från
   databasen och skrivs i en `<style nonce>` i `<head>`. Textfärg *på* färgade ytor (`--c-on-*`) räknas ut automatiskt
   (svart eller vit, bäst kontrast). Använd alltid variablerna i CSS – aldrig hårdkodade färger.

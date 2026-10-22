@@ -1,5 +1,5 @@
 import { html, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ec, ek, loadSettings, type Settings } from "../lib/settings.js";
+import { ec, ek, loadSettings, sc, type Settings } from "../lib/settings.js";
 import { JOB_KINDS, jobQuery, rows, type JobKind, type JobRow, type PartnerRow } from "../lib/content.js";
 import { formatDay, isoDate, stockholmToday, truncate } from "../lib/format.js";
 import { plainText, renderInline, renderMarkdown } from "../lib/markdown.js";
@@ -57,7 +57,7 @@ export async function jobsPage(c: RequestContext): Promise<Response> {
 
   const content = html`
     ${pageHeader(s, { kickerKey: "jobs_kicker", hero: "jobs", titleKey: "jobs_title", leadKey: "jobs_lead" })}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "jobs_list")}">
       <div class="container">
         ${kindsInUse.length > 1
           ? html`<nav class="chip-nav chip-nav-filter" aria-label="Filtrera på typ">
@@ -124,7 +124,7 @@ export async function jobDetailPage(c: RequestContext): Promise<Response> {
           </div>
         </div>
       </header>
-      <section class="section section-tight-top">
+      <section class="section section-tight-top${sc(s, "job_page")}">
         <div class="container split split-top">
           <div class="prose prose-lg"${edit}>${renderMarkdown(j.body)}</div>
           <aside class="aside-card">

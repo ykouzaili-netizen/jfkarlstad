@@ -210,41 +210,88 @@ export function arrange(s: Settings, pageId: string, render: Record<string, Bloc
 // ───────────────────── Egna färger per avsnitt ─────────────────────
 
 /**
- * Avsnitt med egna färgfält: sida → avsnitt → prefix i textregistret (fälten heter <prefix>_c_bg, _c_text, _c_accent
- * och läggs till med blockColorFields() i texts.ts). Avsnitt med egna utseenden i färg (Instagram, Utskotten på
- * Om oss, JFK Idrott och anmälan på Engagera dig) har medvetet inga – där styr utseendevalet bakgrunden.
+ * Ett färgset i textregistret: tre valfria fält <prefix>_c_bg, <prefix>_c_text och <prefix>_c_accent
+ * (colorSet() i texts.ts). Typen är prefixen som finns i registret, så ett felstavat prefix ger typfel.
  */
-export const BLOCK_COLORS: Record<string, Record<string, string>> = {
-  startsida: { partners: "home_partners", varden: "home_values", ordband: "wordband", intro: "home_intro", evenemang: "home_events", nyheter: "home_news", paverka: "home_paverka" },
-  "om-oss": { om: "om_oss_om", styrning: "om_oss_styrning", styrelsen: "om_oss_styrelsen", pedagog: "om_oss_pedagog", samarbeten: "om_oss_samarbeten" },
+export type ColorPrefix = { [K in TextKey]: K extends `${infer P}_c_bg` ? P : never }[TextKey];
+
+export interface PickedColors {
+  bg: string;
+  text: string;
+  accent: string;
+}
+
+/** De valda färgerna i ett set (tomt = sajtens vanliga). Bara giltiga hexkoder släpps igenom. */
+export function pickColors(s: Settings, prefix: string): PickedColors {
+  const get = (k: string) => {
+    const v = (s as Record<string, string>)[`${prefix}_c_${k}`];
+    return isHex(v) ? v.toLowerCase() : "";
+  };
+  return { bg: get("bg"), text: get("text"), accent: get("accent") };
+}
+
+const anyColor = (c: PickedColors) => !!(c.bg || c.text || c.accent);
+
+/**
+ * Färgvariablerna för ett avsnitt. Bakgrunden blir även ytan (så att avsnittets egen yta följer med), texten
+ * styr även de tonade varianterna (muted, linjer, hover). Korten i avsnittet återställs i site.css (.has-colors).
+ */
+export function colorVars(c: PickedColors): string {
+  let vars = "";
+  if (c.bg) vars += `--c-bg:${c.bg};--c-surface:${c.bg};background:${c.bg};`;
+  if (c.text) vars += `--c-text:${c.text};--c-muted:color-mix(in srgb,${c.text} 74%,transparent);--c-border:color-mix(in srgb,${c.text} 14%,transparent);--c-hover:color-mix(in srgb,${c.text} 8%,transparent);color:${c.text};`;
+  if (c.accent) vars += `--c-accent:${c.accent};--c-on-accent:${readableOn(c.accent)};`;
+  return vars;
+}
+
+/**
+ * Avsnitt med egna färgfält: sida → avsnitt → prefix i textregistret. Klasserna läggs på varje <section> i
+ * avsnittet av arrange()/withBlockColors(). Avsnitt som inte kan flyttas får klassen direkt i mallen med sc().
+ */
+export const BLOCK_COLORS: Record<string, Record<string, ColorPrefix>> = {
+  startsida: { partners: "home_partners", varden: "home_values", ordband: "wordband", intro: "home_intro", evenemang: "home_events", nyheter: "home_news", paverka: "home_paverka", instagram: "home_insta" },
+  "om-oss": { om: "om_oss_om", styrning: "om_oss_styrning", styrelsen: "om_oss_styrelsen", utskott: "om_oss_utskott", utmarkelser: "om_oss_utmarkelser", pedagog: "om_oss_pedagog", samarbeten: "om_oss_samarbeten" },
   "bli-medlem": { formaner: "bli_medlem_formaner", faq: "bli_medlem_faq" },
-  "for-studenter": { studera: "for_studenter_studera", jobb: "for_studenter_jobb", kursombud: "for_studenter_kursombud", galleri: "for_studenter_galleri" },
+  "for-studenter": { studera: "for_studenter_studera", jobb: "for_studenter_jobb", kursombud: "for_studenter_kursombud", idrott: "for_studenter_idrott", galleri: "for_studenter_galleri" },
   "engagera-dig": { uppdrag: "engagera_dig_uppdrag", utskott: "engagera_dig_utskott", fler: "engagera_dig_fler" },
   "for-foretag": { varfor: "for_foretag_varfor", aret: "for_foretag_aret", paket: "for_foretag_paket", formular: "for_foretag_formular" },
 };
 
 /**
- * Färgerna för ett avsnitt, eller null om inga är valda. Ingenting räknas om automatiskt: det som styrelsen
- * har valt används. Vill man anpassa text och detaljer efter en ny bakgrund föreslår adminpanelen det
- * (admin.js) och frågar först.
+ * Avsnitt som får sina färger med sc() direkt i mallen (sidor utan flyttbara avsnitt, undersidor och bekräftelser).
+ * CSS:en för dem skrivs alltid (den är liten och bara för valda färger).
+ */
+export const SECTION_COLOR_SETS = [
+  // Om oss: utskottens och nätverkens egna sidor
+  "committee_top", "committee_meet", "committee_about", "committee_photos", "committee_events", "committee_archive", "committee_more",
+  "network_top", "network_info", "network_photos", "network_more",
+  // Formulärsidorna och bekräftelserna
+  "nominate_form", "nominate_thanks", "engage_thanks", "companies_thanks", "paverka_form", "paverka_thanks", "contact_form", "contact_thanks",
+  // Listor och undersidor
+  "jobs_list", "job_page", "partners_list", "partner_page", "partner_more", "news_list", "news_article", "calendar_month", "calendar_past", "event_page",
+  "docs_list", "doc_page", "faq_list", "search_results", "privacy_body", "cookies_body", "error_page",
+] as const satisfies readonly ColorPrefix[];
+export type SectionColorSet = (typeof SECTION_COLOR_SETS)[number];
+
+/** Klasserna för ett avsnitt med egna färger, att lägga i class="…" i mallen. Tom sträng utan valda färger. */
+export function sc(s: Settings, prefix: SectionColorSet): string {
+  const mark = MARKED.has(s) ? ` em-sec--${prefix}` : "";
+  return (anyColor(pickColors(s, prefix)) ? ` sc-${prefix} has-colors` : "") + mark;
+}
+
+/**
+ * Färgerna för ett flyttbart avsnitt, eller null om inga är valda. Ingenting räknas om automatiskt: det som
+ * styrelsen har valt används. Vill man anpassa text och detaljer efter en ny bakgrund föreslår adminpanelen det
+ * (admin.js) och frågar först. Dubbla klassen i CSS:en väger tyngre än avsnittens egna utseenden (t.ex.
+ * JFK Idrott och Instagram), som annars bestämmer bakgrunden själva.
  */
 export function blockColors(s: Settings, pageId: string, blockId: string): { cls: string; css: string } | null {
   const prefix = BLOCK_COLORS[pageId]?.[blockId];
   if (!prefix) return null;
-  const get = (k: string) => {
-    const v = (s as Record<string, string>)[`${prefix}_c_${k}`];
-    return isHex(v) ? v.toLowerCase() : "";
-  };
-  const bg = get("bg");
-  const text = get("text");
-  const accent = get("accent");
-  if (!bg && !text && !accent) return null;
+  const c = pickColors(s, prefix);
+  if (!anyColor(c)) return null;
   const name = `hb-${pageId}-${blockId}`;
-  let vars = "";
-  if (bg) vars += `--c-bg:${bg};--c-surface:${bg};`;
-  if (text) vars += `--c-text:${text};--c-muted:color-mix(in srgb,${text} 74%,transparent);--c-border:color-mix(in srgb,${text} 14%,transparent);--c-hover:color-mix(in srgb,${text} 8%,transparent);`;
-  if (accent) vars += `--c-accent:${accent};--c-on-accent:${readableOn(accent)};`;
-  return { cls: ` ${name} has-colors`, css: `.${name}{${vars}}` };
+  return { cls: ` ${name} has-colors`, css: `.${name}.has-colors{${colorVars(c)}}` };
 }
 
 /**
@@ -344,6 +391,111 @@ export function pageColorCss(s: Settings, pageId: string | null): string {
   return `#innehall{${vars}}`;
 }
 
+/** Prefixet för en sidas egen topp i textregistret, t.ex. om-oss → top_om_oss. */
+export const topPrefix = (pageId: string) => `top_${pageId.replace(/-/g, "_")}`;
+
+/** Sidor vars topp är sidans vanliga topp (pageHeader) och därför har ett eget färgset för toppen. */
+export const PAGES_WITH_TOP = [
+  "om-oss", "nominera", "bli-medlem", "for-studenter", "karriar", "engagera-dig", "for-foretag", "partners", "aktuellt",
+  "kalender", "dokument", "faq", "jf-paverka", "kontakt", "sok", "integritet",
+] as const;
+
+/**
+ * Sidhuvudet och sidfoten (Texter och sidor → Gemensamt). Sidhuvudet byter färgvariablerna, så att menyerna
+ * och mobilmenyn följer med; över startsidans bild är det fortfarande genomskinligt. Sidfoten är byggd på
+ * primärfärgen – utan vald textfärg räknas en läsbar ut (svart eller vit), eftersom en ny bakgrund annars
+ * kan göra all text i sidfoten oläslig.
+ */
+/** I sidhuvudet och sidfoten är detaljerna även knapparna (”Bli medlem”), så att de alltid syns mot bakgrunden. */
+const chromeAccent = (a: string) => `--c-accent:${a};--c-on-accent:${readableOn(a)};--c-button:${a};--c-on-button:${readableOn(a)};`;
+
+export function chromeColorCss(s: Settings): string {
+  let css = "";
+  const h = pickColors(s, "header");
+  if (anyColor(h)) {
+    let vars = "";
+    if (h.bg) vars += `--c-bg:${h.bg};--c-surface:${h.bg};`;
+    if (h.text) vars += `--c-text:${h.text};--c-muted:color-mix(in srgb,${h.text} 70%,transparent);--c-border:color-mix(in srgb,${h.text} 16%,transparent);--c-hover:color-mix(in srgb,${h.text} 8%,transparent);color:${h.text};`;
+    if (h.accent) vars += chromeAccent(h.accent);
+    css += `.site-header{${vars}}`;
+  }
+  const f = pickColors(s, "footer");
+  if (anyColor(f)) {
+    let vars = "";
+    if (f.bg) vars += `--c-primary:${f.bg};`;
+    if (f.text || f.bg) vars += `--c-on-primary:${f.text || readableOn(f.bg)};`;
+    if (f.accent) vars += chromeAccent(f.accent);
+    css += `.site-footer{${vars}}`;
+  }
+  return css;
+}
+
+/**
+ * Färger för sidans topp och sidans egna, särskilda delar – bara på den sidan som visas.
+ * - Undersidornas topp: sidans eget set (top_<sida>) om något är valt, annars Gemensamt → Sidornas topp (tops).
+ *   Ett eget set ersätter standarden helt, så att färger från två ställen aldrig blandas till något oläsligt.
+ *   :where() gör regeln svag: toppar med bild (Helbild, partnerns bakgrundsbild) behåller sin vita text.
+ * - Startsidans topp: bakgrunden syns när ingen bild är vald; med bild ligger texten alltid vit på en mörk ton.
+ * - Tävlingen och butiken har egna utseenden byggda på sajtens färger – där byts de variablerna.
+ */
+export function pageExtraColorCss(s: Settings, pageId: string | null): string {
+  if (!pageId) return "";
+  let css = "";
+  if ((PAGES_WITH_TOP as readonly string[]).includes(pageId)) {
+    const own = pickColors(s, topPrefix(pageId));
+    const c = anyColor(own) ? own : pickColors(s, "tops");
+    if (anyColor(c)) css += `:where(#innehall) :is(.page-hero,.page-top){${colorVars(c)}}`;
+  }
+  if (pageId === "startsida") {
+    const c = pickColors(s, "home_hero");
+    if (c.bg) css += `.hero:not(.has-image){background:${c.bg};color:${c.text || readableOn(c.bg)}}`;
+    else if (c.text) css += `.hero:not(.has-image){color:${c.text}}`;
+    if (c.accent) css += `.hero{--c-accent:${c.accent};--c-on-accent:${readableOn(c.accent)}}`;
+  }
+  if (pageId === "tavling") {
+    const page = pickColors(s, "tavling_page");
+    if (anyColor(page)) {
+      let vars = "";
+      if (page.bg) vars += `--c-bg:${page.bg};`;
+      if (page.text) vars += `--c-text:${page.text};`;
+      if (page.accent) vars += `--c-accent:${page.accent};--c-on-accent:${readableOn(page.accent)};`;
+      css += `.jfk-tavling.jfk-tavling{${vars}}`;
+    }
+    const top = pickColors(s, "tavling_top");
+    if (anyColor(top)) {
+      let vars = "";
+      if (top.bg) vars += `--t-hero-bg:${top.bg};--t-navy-3:${top.bg};`;
+      const text = top.text || (top.bg ? readableOn(top.bg) : "");
+      if (text) vars += `--t-hero-text:${text};--t-hero-muted:color-mix(in srgb,${text} 76%,transparent);--t-hero-line:color-mix(in srgb,${text} 14%,transparent);`;
+      if (top.accent) vars += `--t-gold:${top.accent};--t-on-gold:${readableOn(top.accent)};`;
+      css += `.jfk-tavling .t-hero{${vars}}`;
+    }
+  }
+  if (pageId === "butik") css += shopColorCss(s);
+  return css;
+}
+
+/**
+ * Butikens färger: fältet överst och de tre tonerna som avsnitten växlar mellan (mörk = primärfärgen, gul =
+ * accentfärgen, ljus = bakgrunden). Varje ton har bakgrund, text och detaljer; utan vald text räknas en läsbar ut.
+ */
+function shopColorCss(s: Settings): string {
+  let css = "";
+  const tone = (prefix: string, sel: string, map: (c: PickedColors, text: string) => string) => {
+    const c = pickColors(s, prefix);
+    if (!anyColor(c)) return;
+    css += `${sel}{${map(c, c.text || (c.bg ? readableOn(c.bg) : ""))}}`;
+  };
+  const accent = (a: string) => (a ? `--c-accent:${a};--c-on-accent:${readableOn(a)};` : "");
+  tone("shop_bar", ".jfk-butik .shop-bar", (c, t) => `${c.bg ? `--c-primary:${c.bg};` : ""}${t ? `--c-on-primary:${t};` : ""}${accent(c.accent)}`);
+  tone("shop_dark", ".jfk-butik :is(.shop-tone-dark,.shop-why)", (c, t) => `${c.bg ? `--c-primary:${c.bg};` : ""}${t ? `--c-on-primary:${t};` : ""}${accent(c.accent)}`);
+  tone("shop_accent", ".jfk-butik :is(.shop-tone-accent,.shop-next-band)", (c, t) =>
+    `${c.bg ? `--c-accent:${c.bg};` : ""}${t ? `--c-on-accent:${t};` : ""}${c.accent ? `--c-primary:${c.accent};--c-on-primary:${readableOn(c.accent)};` : ""}`);
+  tone("shop_light", ".jfk-butik :is(.shop-tone-light,.shop-tone-surface,.shop-rest,.shop-archive,.shop-info,.shop-cart-page)", (c) =>
+    `${c.bg ? `--c-bg:${c.bg};background:${c.bg};` : ""}${c.text ? `--c-text:${c.text};color:${c.text};` : ""}${accent(c.accent)}`);
+  return css;
+}
+
 /** Egna färger för Biografen (filmerna). Standard i site.css: primär färg som bakgrund, accentfärgen på detaljerna. */
 export function filmsCss(s: Settings): string {
   const pick = (v: string) => (isHex(v) ? v.toLowerCase() : "");
@@ -364,14 +516,51 @@ export function blockColorCss(s: Settings): string {
   for (const [pageId, blocks] of Object.entries(BLOCK_COLORS)) {
     for (const blockId of Object.keys(blocks)) css += blockColors(s, pageId, blockId)?.css ?? "";
   }
-  return css;
+  for (const prefix of SECTION_COLOR_SETS) {
+    const c = pickColors(s, prefix);
+    if (anyColor(c)) css += `.sc-${prefix}.has-colors{${colorVars(c)}}`;
+  }
+  return css + chromeColorCss(s);
 }
 
 /** Lägger avsnittets färgklasser på varje <section> som avsnittet består av (ett avsnitt kan vara flera). */
 export function withBlockColors(s: Settings, pageId: string, blockId: string, out: SafeHtml | string): SafeHtml | string {
   const colors = blockColors(s, pageId, blockId);
-  if (!colors) return out;
-  return raw(String(out).replace(/<section class="([^"]*)"/g, (_m, c: string) => `<section class="${c}${colors.cls}"`));
+  // I förhandsvisningen märks avsnittet, så att ett klick på bakgrunden leder till avsnittets färger.
+  const prefix = BLOCK_COLORS[pageId]?.[blockId];
+  const cls = (colors?.cls ?? "") + (MARKED.has(s) && prefix ? ` em-sec--${prefix}` : "");
+  if (!cls) return out;
+  return raw(String(out).replace(/<section class="([^"]*)"/g, (_m, c: string) => `<section class="${c}${cls}"`));
+}
+
+/**
+ * Bara i adminpanelens förhandsvisning: gör varje del av sidan klickbar så att ett klick på dess bakgrund leder
+ * till dess färger (data-ek på färgfältet för bakgrunden). Texter och kort inuti har egna märken och vinner.
+ * Avsnitten märks med klassen em-sec--<prefix> (sc()/withBlockColors()); toppar och sidans egna delar känns
+ * igen på sina klasser.
+ */
+export function markColorAreas(s: Settings, body: string, pageId: string | null): string {
+  if (!MARKED.has(s)) return body;
+  const attrs = (prefix: string) => String(ek(s, `${prefix}_c_bg` as SettingKey));
+  const known = new Set<string>(ALL_FIELDS.map((f) => f.key));
+  const addTo = (tag: string, prefix: string) => (known.has(`${prefix}_c_bg`) && !/\sdata-ek=/.test(tag) ? tag.replace(/>$/, `${attrs(prefix)}>`) : tag);
+  let out = body.replace(/<[a-z]+\b[^>]*\bclass="[^"]*\bem-sec--([a-z0-9_]+)[^"]*"[^>]*>/g, (tag, prefix: string) => addTo(tag, prefix));
+  const first = (re: RegExp, prefix: string) => {
+    out = out.replace(re, (tag) => addTo(tag, prefix));
+  };
+  if (pageId && (PAGES_WITH_TOP as readonly string[]).includes(pageId)) first(/<(?:section|header) class="page-(?:hero|top)\b[^>]*>/, topPrefix(pageId));
+  if (pageId === "startsida") first(/<section class="hero\b[^>]*>/, "home_hero");
+  if (pageId === "tavling") {
+    first(/<section class="t-hero\b[^>]*>/, "tavling_top");
+    first(/<div class="jfk-tavling\b[^>]*>/, "tavling_page");
+  }
+  if (pageId === "butik") {
+    out = out.replace(/<div class="shop-bar\b[^>]*>/g, (t) => addTo(t, "shop_bar"));
+    out = out.replace(/<section class="[^"]*\b(shop-tone-dark|shop-why)\b[^>]*>/g, (t) => addTo(t, "shop_dark"));
+    out = out.replace(/<(?:section|div) class="[^"]*\b(shop-tone-accent|shop-next-band)\b[^>]*>/g, (t) => addTo(t, "shop_accent"));
+    out = out.replace(/<section class="[^"]*\b(shop-tone-light|shop-tone-surface|shop-rest|shop-archive|shop-info|shop-cart-page)\b[^>]*>/g, (t) => addTo(t, "shop_light"));
+  }
+  return out;
 }
 
 /** Justerade bilder (filnyckel → passform), inlästa av loadSettings(). */

@@ -1,5 +1,5 @@
 import { html, raw, safeUrl, type SafeHtml } from "../lib/html.js";
-import { blockColorCss, ek, pageColorCss, pageIdForPath, HEADING_FONTS, headingFont, imageFits, introStyle, isMarked, motionLevel, siteLayout, themeCss, type Settings } from "../lib/settings.js";
+import { blockColorCss, ek, markColorAreas, pageColorCss, pageExtraColorCss, pageIdForPath, HEADING_FONTS, headingFont, imageFits, introStyle, isMarked, motionLevel, siteLayout, themeCss, type Settings } from "../lib/settings.js";
 import { textStyleCss } from "../lib/pagelayout.js";
 import { imageFitCss } from "../lib/imagefit.js";
 import { telHref } from "../lib/format.js";
@@ -9,7 +9,7 @@ import { icon } from "./icons.js";
 import { isActive, visibleMenu } from "./nav.js";
 
 /** Höj när CSS/JS ändras, så att webbläsare hämtar nya filer (de cachas ett år). */
-export const ASSET_VERSION = "105";
+export const ASSET_VERSION = "107";
 
 export interface PageMeta {
   title: string;
@@ -142,7 +142,7 @@ function header(c: RequestContext, s: Settings): SafeHtml {
     </li>`;
   });
 
-  return html`<header class="site-header" data-header>
+  return html`<header class="site-header" data-header${ek(s, "header_c_bg")}>
     <div class="container header-inner">
       ${logo(s)}
       <nav class="main-nav" id="huvudmeny" aria-label="Huvudmeny" data-nav>
@@ -176,7 +176,7 @@ function footer(s: Settings): SafeHtml {
     </div>`,
   );
   const leaves = menu.filter((n) => !n.children);
-  return html`<footer class="site-footer">
+  return html`<footer class="site-footer"${ek(s, "footer_c_bg")}>
     <div class="container">
       <div class="footer-top">
         <div class="footer-brand">
@@ -262,7 +262,7 @@ ${favicon(s)}
 ${(meta.assets?.fonts ?? []).map((f) => html`<link rel="preload" href="/assets/${f}" as="font" type="font/woff2" crossorigin>`)}
 <link rel="stylesheet" href="/assets/site.css?v=${ASSET_VERSION}">
 ${(meta.assets?.css ?? []).map((f) => html`<link rel="stylesheet" href="/assets/${f}?v=${ASSET_VERSION}">`)}
-<style nonce="${c.nonce}">${raw(themeCss(s) + pageColorCss(s, meta.pageId ?? pageIdForPath(path)) + blockColorCss(s) + imageFitCss(imageFits(s)) + textStyleCss(siteLayout(s).styles) + transitions)}</style>
+<style nonce="${c.nonce}">${raw(themeCss(s) + pageColorCss(s, meta.pageId ?? pageIdForPath(path)) + blockColorCss(s) + pageExtraColorCss(s, meta.pageId ?? pageIdForPath(path)) + imageFitCss(imageFits(s)) + textStyleCss(siteLayout(s).styles) + transitions)}</style>
 ${intro ? html`<script src="/assets/intro-check.js?v=${ASSET_VERSION}"></script><script src="/assets/intro.js?v=${ASSET_VERSION}" defer></script>` : ""}
 <script src="/assets/site.js?v=${ASSET_VERSION}" defer></script>
 ${(meta.assets?.js ?? []).map((f) => html`<script src="/assets/${f}?v=${ASSET_VERSION}" defer></script>`)}
@@ -274,7 +274,7 @@ ${intro ? html`<div class="intro" data-intro="/assets/intro-logo.svg?v=${ASSET_V
 <a class="skip-link" href="#innehall">Hoppa till innehållet</a>
 ${header(c, s)}
 <main id="innehall" tabindex="-1">
-${content}
+${isMarked(s) ? raw(markColorAreas(s, String(content), meta.pageId ?? pageIdForPath(path))) : content}
 </main>
 ${footer(s)}
 </body>

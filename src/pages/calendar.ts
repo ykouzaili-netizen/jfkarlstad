@@ -1,5 +1,5 @@
 import { html, safeUrl, type SafeHtml } from "../lib/html.js";
-import { ec, ek, lines, loadSettings, type Settings } from "../lib/settings.js";
+import { ec, ek, lines, loadSettings, sc, type Settings } from "../lib/settings.js";
 import { eventQuery, rows, type EventRow } from "../lib/content.js";
 import { eventDate, isoWeek, monthName, stockholmNow, stockholmToday, truncate } from "../lib/format.js";
 import { renderInline } from "../lib/markdown.js";
@@ -149,7 +149,7 @@ async function monthView(c: RequestContext): Promise<Response> {
 
   const content = html`
     ${pageHeader(s, { kickerKey: "cal_kicker", hero: "cal", titleKey: "cal_title", leadKey: "cal_lead", actions: subscribePanel(c, s) })}
-    <section class="section section-tight-top" aria-labelledby="kalender-manad">
+    <section class="section section-tight-top${sc(s, "calendar_month")}" aria-labelledby="kalender-manad">
       <div class="container">
         ${monthNav}
         <div class="cal-wrap">
@@ -261,7 +261,7 @@ async function listView(c: RequestContext): Promise<Response> {
 
   const content = html`
     ${pageHeader(s, { kickerKey: "cal_kicker", hero: "cal", titleKey: "cal_title", leadKey: "cal_lead", actions: subscribePanel(c, s) })}
-    <section class="section section-tight-top">
+    <section class="section section-tight-top${sc(s, "calendar_month")}">
       <div class="container">
         <div class="cal-toolbar cal-toolbar-list">${viewSwitch(s, "lista")}</div>
         ${upcoming.length
@@ -272,7 +272,7 @@ async function listView(c: RequestContext): Promise<Response> {
       </div>
     </section>
     ${past.length
-      ? html`<section class="section section-surface" aria-labelledby="tidigare">
+      ? html`<section class="section section-surface${sc(s, "calendar_past")}" aria-labelledby="tidigare">
           <div class="container">
             <h2 class="section-title" id="tidigare"${ek(s, "cal_past_title")}>${s.cal_past_title}</h2>
             <ul class="past-list">
