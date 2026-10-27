@@ -170,11 +170,15 @@
       if (location.hash !== hash) history.replaceState(null, "", index === 0 ? location.pathname + location.search : hash);
     }
     if (opts.scroll) {
-      // Rulla så att flikraden hamnar under sidhuvudet (bara om den är utanför bilden).
-      var top = bar.getBoundingClientRect().top;
-      var header = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--header-h")) || 72;
-      if (top < header - 1 || top > window.innerHeight * 0.6) {
-        window.scrollTo({ top: window.scrollY + top - header, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      // Rulla upp till början av fliken, precis under sidhuvudet och flikraden. Flikraden är klistrad, så
+      // panelens egen position används (flikradens position säger inget när den sitter fast längst upp).
+      // offsetTop i stället för getBoundingClientRect: en panel som tonar in (transform) ska inte flytta målet.
+      var offset = (parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight + 20; // 20 px luft under flikraden
+      var y = 0;
+      for (var el = panels[index]; el; el = el.offsetParent) y += el.offsetTop;
+      var target = Math.max(0, y - offset);
+      if (Math.abs(window.scrollY - target) > 2) {
+        window.scrollTo({ top: target, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
       }
       panels[index].focus({ preventScroll: true });
     }
