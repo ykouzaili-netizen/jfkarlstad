@@ -106,6 +106,15 @@ export function dayMonth(local: string): string {
   return p ? `${p.day} ${MONTHS[p.month - 1]}` : local;
 }
 
+/** Sista tid för att komplettera ett bidrag: minuten innan röstningen öppnar (svensk lokal tid, "YYYY-MM-DDTHH:MM"). */
+export function followupDeadline(d: CompetitionDates): string {
+  const p = parseLocal(d.voteStart);
+  if (!p) return d.voteStart;
+  const t = new Date(Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - 60_000);
+  const n = (v: number) => String(v).padStart(2, "0");
+  return `${t.getUTCFullYear()}-${n(t.getUTCMonth() + 1)}-${n(t.getUTCDate())}T${n(t.getUTCHours())}:${n(t.getUTCMinutes())}`;
+}
+
 /** "1 nov" */
 export function dayMonthShort(local: string): string {
   const p = parseLocal(local);

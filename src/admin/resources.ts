@@ -21,7 +21,7 @@ import { handleUpload, imageUploadField } from "./uploads.js";
 import { jobTotals } from "./job-stats.js";
 import { CUSTOM_DESIGN, DESIGN_OPTIONS, medalFormPreview, medalOptions } from "./medals.js";
 import { MEDAL_GROUPS, MEDAL_KINDS, medalImageUrl } from "../lib/medals.js";
-import { competitionDates, currentPhase, dayMonth, dayMonthClock, period, type Phase } from "../lib/competition.js";
+import { competitionDates, currentPhase, dayMonth, dayMonthClock, followupDeadline, period, type Phase } from "../lib/competition.js";
 import { loadSettings } from "../lib/settings.js";
 import { LAYOUT_PREFIX } from "../lib/pagelayout.js";
 import { sharePanel } from "./share-pages.js";
@@ -424,7 +424,46 @@ async function competitionIntro(c: RequestContext): Promise<SafeHtml> {
     <p><strong>${isHidden ? "Tävlingssidan är dold" : "Tävlingssidan visas på webbplatsen"}</strong> · ${PHASE_LABELS[phase]}</p>
     <p class="muted">Inlämning ${period(d.open, d.deadline)} (senast ${dayMonthClock(d.deadline)}) · röstning ${period(d.voteStart, d.voteEnd)}. ${entries}</p>
     <p class="comp-status-links"><a href="/admin/texter?sida=tavling">${isHidden ? "Visa sidan eller ändra datumen" : "Dölj sidan eller ändra datumen"}</a> · <a href="/tavling" target="_blank" rel="noopener">${isHidden ? "Förhandsgranska sidan" : "Öppna sidan"}<span class="sr-only"> (öppnas i ny flik)</span></a></p>
+    ${followupHelp(s.comp_email, dayMonthClock(followupDeadline(d)), dayMonthClock(d.deadline))}
   </div>`;
+}
+
+/**
+ * "Be en deltagare komplettera": hur man gör och ett färdigt mejl att kopiera. Svaret skickas från brevlådan som tog
+ * emot bidraget (E-post för bidrag), i samma tråd – då ligger bidraget och kompletteringen ihop. Datumet är samma som i
+ * rutan "Saknas något?" under regel 2 på tävlingssidan.
+ */
+function followupHelp(email: string, until: string, deadline: string): SafeHtml {
+  const mail = `Ämne: Ditt bidrag till JFK:s merch- och märkestävling – en sak saknas
+
+Hej [förnamn]!
+
+Tack för ditt bidrag till tävlingen – kul att du är med! Innan vi kan ta med det i röstningen behöver vi en sak till:
+
+[Skriv vad som saknas, t.ex. ”designen som PNG eller PDF i högre upplösning, minst 2000 pixlar på bredden” eller ”en bekräftelse på att designen är ditt eget arbete”.]
+
+Svara på det här mejlet senast ${until}. Du kompletterar bara det som saknas – själva designen kan inte ändras efter ${deadline}.
+
+Hör av dig om du har frågor!
+
+Hälsningar
+[ditt namn]
+Juridiska Föreningen i Karlstad`;
+  return html`<details class="comp-followup">
+    <summary>Behöver en deltagare komplettera sitt bidrag?</summary>
+    <ol class="comp-followup-steps">
+      <li>Svara på deltagarens mejl från <strong>${email}</strong>, i samma tråd som bidraget.</li>
+      <li>Skriv exakt vad som saknas. Det formella går att komplettera (fil, format, upplösning, intyget) – inte själva designen.</li>
+      <li>Ge samma sista datum som på tävlingssidan: <strong>${until}</strong> (dagen innan röstningen öppnar).</li>
+      <li>Kvittera när kompletteringen har kommit: ”Tack, nu är ditt bidrag komplett!” Lägg sedan in bidraget här under Bidrag.</li>
+      <li>Håll deltagarens namn för er själva – resten av styrelsen behöver bara koden (Design A, B …) tills röstningen är klar.</li>
+    </ol>
+    <p class="comp-followup-label">Mejl att utgå från – kopiera och fyll i det som står inom hakparentes:</p>
+    <div class="copy-row comp-followup-copy">
+      <textarea readonly rows="19" aria-label="Mejl till en deltagare som behöver komplettera" data-copy-source>${mail}</textarea>
+      <button class="btn btn-outline btn-sm" type="button" data-copy>Kopiera mejlet</button>
+    </div>
+  </details>`;
 }
 
 // ───────────── Butiken (Innehåll → Butik) ─────────────

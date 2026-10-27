@@ -11,6 +11,7 @@ import {
   countdownTarget,
   dayMonth,
   dayMonthClock,
+  followupDeadline,
   dayMonthShort,
   instants,
   longDateClock,
@@ -98,6 +99,7 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
     deadline: dayMonthClock(d.deadline),
     period: period(d.voteStart, d.voteEnd),
     tid: clock(d.deadline),
+    komplettering: dayMonthClock(followupDeadline(d)),
   };
   const iso = (ms: number) => new Date(ms).toISOString();
 
@@ -327,7 +329,17 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
     </aside>
     <div class="t-rules">
       ${rule(1, "users", "comp_rule_1_title", md("comp_rule_1"))}
-      ${rule(2, "fileUp", "comp_rule_2_title", md("comp_rule_2"))}
+      ${rule(
+        2,
+        "fileUp",
+        "comp_rule_2_title",
+        html`${md("comp_rule_2")}${s.comp_rule_2_followup.trim()
+          ? html`<div class="t-followup">
+              <h4 class="t-h5"${ek(s, "comp_rule_2_followup_title")}>${icon("mail", "icon icon-sm")}${s.comp_rule_2_followup_title}</h4>
+              <div class="t-prose"${ek(s, "comp_rule_2_followup")}>${renderMarkdown(fill(s.comp_rule_2_followup, vars))}</div>
+            </div>`
+          : ""}`,
+      )}
       ${rule(3, "palette", "comp_rule_3_title", html`${md("comp_rule_3")}${doDont}`, true)}
       ${rule(4, "eyeOff", "comp_rule_4_title", md("comp_rule_4"))}
       ${rule(5, "ballot", "comp_rule_5_title", md("comp_rule_5"))}

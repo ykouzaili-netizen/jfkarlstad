@@ -1191,3 +1191,11 @@ a.admin-user:hover { background: var(--c-hover); }
 }
 .tfa-codes .copy-row { display: flex; gap: 8px; }
 .tfa-codes .copy-row input { flex: 1; min-width: 0; font-size: 0.875rem; }
+
+/* Tävlingen: "Behöver en deltagare komplettera sitt bidrag?" */
+.comp-followup { margin-top: 14px; border-top: 1px solid var(--c-border); padding-top: 12px; }
+.comp-followup > summary { cursor: pointer; font-weight: 600; }
+.comp-followup-steps { margin: 12px 0 14px; padding-left: 20px; display: grid; gap: 6px; max-width: 75ch; }
+.comp-followup-label { margin: 0 0 8px; color: var(--c-muted); font-size: 0.875rem; }
+.comp-followup-copy { display: grid; gap: 8px; justify-items: start; }
+.comp-followup-copy textarea { width: 100%; max-width: 70ch; font: inherit; font-size: 0.875rem; line-height: 1.5; padding: 12px 14px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-bg); resize: vertical; }

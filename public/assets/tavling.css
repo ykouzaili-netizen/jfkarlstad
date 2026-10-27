@@ -686,6 +686,10 @@
 .jfk-tavling .t-do, .jfk-tavling .t-dont { padding: 18px 20px; border-radius: 14px; }
 .jfk-tavling .t-do { background: var(--t-green-bg); }
 .jfk-tavling .t-dont { background: var(--t-red-bg); }
+/* Regel 2: rutan "Saknas något?" om komplettering */
+.jfk-tavling .t-followup { margin-top: 18px; padding: 16px 18px; border-radius: 14px; background: var(--t-blue-bg); }
+.jfk-tavling .t-followup .t-h5 { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.jfk-tavling .t-followup .t-prose p { font-size: 0.9375rem; }
 .jfk-tavling .t-do .t-h5 { color: var(--t-green); }
 .jfk-tavling .t-dont .t-h5 { color: var(--t-red); }
 .jfk-tavling .t-do ul, .jfk-tavling .t-dont ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }

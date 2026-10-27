@@ -319,6 +319,18 @@ with sync_playwright() as p:
     check(pub.locator("a[href='/tavling']").count() >= 1, "sökningen hittar tävlingen")
     check(pub.request.get(f"{BASE}/tavlingen", max_redirects=0).status == 301, "/tavlingen skickar vidare till /tavling")
 
+    # Komplettering: rutan under regel 2 och mallen i adminpanelen (standarddatumen: röstningen öppnar 3 dec)
+    fresh(pub, "#regler")
+    fu = pub.locator("#regel-2 .t-followup")
+    check(fu.count() == 1 and "2 december kl. 23:59" in fu.inner_text() and "30 november kl. 23:59" in fu.inner_text(), "regel 2: Saknas något? med sista dag för komplettering")
+    fu.scroll_into_view_if_needed()
+    pub.locator("#regel-2").screenshot(path=str(OUT / "tavling-komplettering.png"))
+    adm.goto(f"{BASE}/admin/tavling")
+    adm.locator(".comp-followup > summary").click()
+    mall = adm.locator(".comp-followup textarea").input_value()
+    check("senast 2 december kl. 23:59" in mall and "Ämne:" in mall, "adminpanelen har ett färdigt mejl med samma datum")
+    adm.locator(".comp-followup").screenshot(path=str(OUT / "tavling-komplettering-admin.png"))
+
     set_visible(adm, False)
     check(anon.request.get(f"{BASE}/tavling").status == 404, "sidan kan döljas igen")
     check(not errors, "inga JavaScript-fel" + (f": {errors}" if errors else ""))
