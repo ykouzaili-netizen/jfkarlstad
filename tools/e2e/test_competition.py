@@ -249,6 +249,10 @@ with sync_playwright() as p:
     # Intyget: mejlknappen fungerar först när rutan är ikryssad, och intyget står i mejlet
     check(link.get_attribute("aria-disabled") == "true", "mejlknappen är spärrad tills intyget är ikryssat")
     link.click(force=True)  # aria-disabled: Playwright väntar annars på att knappen blir aktiv
+    for _ in range(20):  # meddelandet skrivs i klickhändelsen – vänta in det i stället för att läsa direkt
+        if pub.locator("[data-affirm-note]").inner_text().strip():
+            break
+        pub.wait_for_timeout(100)
     check("kryssa" in pub.locator("[data-affirm-note]").inner_text().lower() or pub.locator("[data-affirm-note]").inner_text().strip() != "", "klick utan intyg ger ett förklarande meddelande")
     check(pub.url.startswith(BASE), "klick utan intyg öppnar inget mejl")
     pub.locator("label.t-affirm").click()
