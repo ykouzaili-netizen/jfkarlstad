@@ -272,6 +272,9 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
       <div>
         <h2 class="t-h2"${ek(s, "comp_about_title")}>${s.comp_about_title}</h2>
         <p class="t-text-lg"${ek(s, "comp_about_text")}>${s.comp_about_text}</p>
+        ${s.comp_about_image
+          ? html`<figure class="t-intro-photo"${ek(s, "comp_about_image")}>${picture(s.comp_about_image, { alt: s.comp_about_image_alt, sizes: "(min-width: 900px) 40vw, 100vw", width: 1200, height: 900 })}</figure>`
+          : ""}
       </div>
       <ul class="t-why">
         ${why.map(

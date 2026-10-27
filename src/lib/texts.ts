@@ -1225,6 +1225,8 @@ export const PAGES = [
       text("comp_tab_about", "Flikens namn", "Om tävlingen", small),
       text("comp_about_title", "Rubrik", "Varför en tävling?", { required: true }),
       area("comp_about_text", "Text", "Merchen och märkena är en stor del av JFK – de syns på sittningar, på overallerna och i föreläsningssalen. Därför vill vi att det är ni medlemmar som formar dem."),
+      image("comp_about_image", "Bild under texten", "", { help: "Valfri. Visas under rubriken och texten, bredvid skälen på datorn och före dem i mobilen – t.ex. medlemmar i overall eller JFK:s märken." }),
+      text("comp_about_image_alt", "Bild under texten – bildbeskrivning", "", { more: true, help: ALT_HELP }),
       text("comp_why_1_title", "Skäl 1 – rubrik", "Ni bestämmer"),
       text("comp_why_1_text", "Skäl 1 – text", "Medlemmarna röstar fram vad JFK tar fram och säljer – inte styrelsen."),
       text("comp_why_2_title", "Skäl 2 – rubrik", "Kreativitet i föreningen"),

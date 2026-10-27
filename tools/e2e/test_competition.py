@@ -194,6 +194,25 @@ with sync_playwright() as p:
     check((pub.locator("[data-share]").get_attribute("data-bg") or "").startswith("/media/"), "Instagram-bilden får styrelsens bakgrund")
     pub.screenshot(path=str(OUT / "tavling-bilder.png"), full_page=True)
 
+    # Bild under "Varför en tävling?"
+    fresh(pub)
+    check(pub.locator(".t-intro-photo").count() == 0, "utan vald bild visas ingen tom bildyta under Varför en tävling?")
+    adm.goto(f"{BASE}/admin/texter?sida=tavling&falt=comp_about_image")
+    adm.locator("input[type=file][name=comp_about_image]").set_input_files(str(test_image(OUT / "tavling-varfor.jpg", (1600, 1100), (60, 110, 150))))
+    adm.wait_for_timeout(1500)
+    if adm.locator("#falt-comp_about_image_alt").is_visible():
+        adm.fill("#falt-comp_about_image_alt", "Medlemmar i overall med JFK:s märken")
+    adm.click("#texter-form .sticky-actions button[type=submit]")
+    adm.wait_for_url(re.compile(r"klart="))
+    fresh(pub)
+    photo = pub.locator(".t-intro-photo img")
+    check(photo.count() == 1, "bilden visas under Varför en tävling?")
+    for vp, name in [({"width": 1280, "height": 1000}, "dator"), ({"width": 390, "height": 844}, "mobil")]:
+        pub.set_viewport_size(vp)
+        pub.wait_for_timeout(400)
+        pub.locator(".t-intro").screenshot(path=str(OUT / f"tavling-varfor-{name}.png"))
+    pub.set_viewport_size({"width": 1280, "height": 1000})
+
     # Bannern på startsidan
     pub.goto(f"{BASE}/")
     check(pub.locator(".comp-banner a[href='/tavling']").count() == 1 and "öppnar 1 november" in pub.locator(".comp-banner").inner_text(), "bannern på startsidan när sidan visas")
