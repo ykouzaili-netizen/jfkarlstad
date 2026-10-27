@@ -497,7 +497,7 @@ function photosSection(s: Settings): SafeHtml | string {
     <ul class="t-photos t-photos--${photos.length}">
       ${photos.map(
         ([k, cap], i) => html`<li><figure${ek(s, k)}>
-          ${picture(s[k], { alt: s[cap], sizes: i === 0 && photos.length > 2 ? "(min-width: 900px) 55vw, 100vw" : "(min-width: 900px) 40vw, 100vw", width: 1200, height: 900 })}
+          <div class="t-photo-frame">${picture(s[k], { alt: s[cap], sizes: i === 0 && photos.length > 2 ? "(min-width: 900px) 55vw, 100vw" : "(min-width: 900px) 40vw, 100vw", width: 1200, height: 900 })}</div>
           ${s[cap] ? html`<figcaption${ek(s, cap)}>${s[cap]}</figcaption>` : ""}
         </figure></li>`,
       )}
