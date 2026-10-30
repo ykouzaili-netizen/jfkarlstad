@@ -403,12 +403,11 @@ export async function competitionPage(c: RequestContext): Promise<Response> {
         </div>
         <p class="t-hint"${ek(s, "comp_subject_hint")}>${icon("lock", "icon icon-sm")}<span>${s.comp_subject_hint}</span></p>
       </div>
-      <label class="t-affirm"><input type="checkbox" data-affirm><span${ek(s, "comp_affirm")}>${s.comp_affirm}</span></label>
+      <p class="t-consent"${ek(s, "comp_consent")}>${icon("check", "icon icon-sm")}<span>${s.comp_consent}</span></p>
     </div>
 
     <div class="t-card-foot">
-      <a class="t-btn t-btn-navy t-btn-block" href="${mailto(fallbackSubject)}" data-subject-link data-body="${s.comp_affirm}" data-affirm-needed="${s.comp_affirm_needed}"${when("open", submitState)}${ek(s, "comp_submit_button")}>${icon("mail", "icon icon-sm")}${s.comp_submit_button}</a>
-      <p class="t-affirm-note" data-affirm-note role="status"></p>
+      <a class="t-btn t-btn-navy t-btn-block" href="${mailto(fallbackSubject)}" data-subject-link data-body="${s.comp_affirm}"${when("open", submitState)}${ek(s, "comp_submit_button")}>${icon("mail", "icon icon-sm")}${s.comp_submit_button}</a>
       <p class="t-note"${when("soon", submitState)}${ek(s, "comp_submit_before_text")}>${fill(s.comp_submit_before_text, { datum: dayMonth(d.open) })}</p>
       <p class="t-note"${when("closed", submitState)}${ek(s, "comp_submit_closed_text")}>${fill(s.comp_submit_closed_text, { datum: dayMonthClock(d.deadline) })}</p>
     </div>

@@ -440,7 +440,7 @@ Hej [förnamn]!
 
 Tack för ditt bidrag till tävlingen – kul att du är med! Innan vi kan ta med det i röstningen behöver vi en sak till:
 
-[Skriv vad som saknas, t.ex. ”designen som PNG eller PDF i högre upplösning, minst 2000 pixlar på bredden” eller ”en bekräftelse på att designen är ditt eget arbete”.]
+[Skriv vad som saknas, t.ex. ”designen som PNG eller PDF i högre upplösning, minst 2000 pixlar på bredden” eller ”kategorin i ämnesraden, så att vi vet om bidraget gäller märke eller merch”.]
 
 Svara på det här mejlet senast ${until}. Du kompletterar bara det som saknas – själva designen kan inte ändras efter ${deadline}.
 
@@ -453,7 +453,7 @@ Juridiska Föreningen i Karlstad`;
     <summary>Behöver en deltagare komplettera sitt bidrag?</summary>
     <ol class="comp-followup-steps">
       <li>Svara på deltagarens mejl från <strong>${email}</strong>, i samma tråd som bidraget.</li>
-      <li>Skriv exakt vad som saknas. Det formella går att komplettera (fil, format, upplösning, intyget) – inte själva designen.</li>
+      <li>Skriv exakt vad som saknas. Det formella går att komplettera (fil, format, upplösning, ämnesrad) – inte själva designen.</li>
       <li>Ge samma sista datum som på tävlingssidan: <strong>${until}</strong> (dagen innan röstningen öppnar).</li>
       <li>Kvittera när kompletteringen har kommit: ”Tack, nu är ditt bidrag komplett!” Lägg sedan in bidraget här under Bidrag.</li>
       <li>Håll deltagarens namn för er själva – resten av styrelsen behöver bara koden (Design A, B …) tills röstningen är klar.</li>

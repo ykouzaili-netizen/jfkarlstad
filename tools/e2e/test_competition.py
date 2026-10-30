@@ -246,18 +246,15 @@ with sync_playwright() as p:
     link = pub.locator("[data-subject-link]")
     check(link.is_visible() and link.get_attribute("href").startswith("mailto:informationsansvarig@jfkarlstad.se?subject=JFK%20T%C3%A4vling"), "mejlknappen öppnar ett mejl med ämnesraden")
     check(pub.locator(".t-step--1").get_attribute("data-state") == "now", "tidslinjen: steg 1 pågår")
-    # Intyget: mejlknappen fungerar först när rutan är ikryssad, och intyget står i mejlet
-    check(link.get_attribute("aria-disabled") == "true", "mejlknappen är spärrad tills intyget är ikryssat")
-    link.click(force=True)  # aria-disabled: Playwright väntar annars på att knappen blir aktiv
-    for _ in range(20):  # meddelandet skrivs i klickhändelsen – vänta in det i stället för att läsa direkt
-        if pub.locator("[data-affirm-note]").inner_text().strip():
-            break
-        pub.wait_for_timeout(100)
-    check("kryssa" in pub.locator("[data-affirm-note]").inner_text().lower() or pub.locator("[data-affirm-note]").inner_text().strip() != "", "klick utan intyg ger ett förklarande meddelande")
-    check(pub.url.startswith(BASE), "klick utan intyg öppnar inget mejl")
-    pub.locator("label.t-affirm").click()
-    check(link.get_attribute("aria-disabled") != "true" and "&body=" in (link.get_attribute("href") or ""), "med intyget ikryssat fungerar knappen och intyget följer med i mejlet")
-    pub.locator("label.t-affirm").screenshot(path=str(OUT / "tavling-intyg.png"))
+    # Intyget: att skicka in = att intyga eget arbete. Ingen kryssruta spärrar knappen; meningen följer med i mejlet.
+    consent = pub.locator(".t-card--submit .t-consent")
+    check(consent.is_visible() and "Genom att skicka in ditt bidrag intygar du" in consent.inner_text(), "ovanför knappen står att man intygar eget arbete genom att skicka in")
+    check(pub.locator(".t-card--submit input[type=checkbox]").count() == 0, "ingen kryssruta att klicka i")
+    from urllib.parse import unquote
+    href = unquote(link.get_attribute("href") or "")
+    check(link.get_attribute("aria-disabled") != "true" and "&body=Jag intygar att designen är mitt eget arbete" in href, "knappen fungerar direkt och intyget skrivs in i mejlet")
+    check("Eget arbete" in pub.content(), "regel 2 säger att man intygar eget arbete genom att skicka in")
+    consent.screenshot(path=str(OUT / "tavling-intyg.png"))
     pub.screenshot(path=str(OUT / "tavling-oppen.png"), full_page=True)
 
     # Röstning pågår, utan länk

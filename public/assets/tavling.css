@@ -821,14 +821,9 @@
 .jfk-tavling .t-hint .icon { margin-top: 2px; color: var(--t-gold-text); }
 
 .jfk-tavling .t-card-foot { display: grid; gap: 10px; margin-top: auto; }
-.jfk-tavling .t-affirm { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: var(--t-card); border: 1.5px solid var(--t-line-strong); font-size: 0.9375rem; font-weight: 600; line-height: 1.45; cursor: pointer; }
-.jfk-tavling .t-affirm input { flex: none; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--t-strong-bg); cursor: pointer; }
-.jfk-tavling .t-affirm:has(input:checked) { border-color: var(--t-green); background: var(--t-green-bg); }
-.jfk-tavling .t-affirm:has(input:focus-visible) { outline: 3px solid var(--t-gold); outline-offset: 2px; }
-.jfk-tavling .t-btn.is-disabled { opacity: 0.45; cursor: not-allowed; }
-.jfk-tavling .t-btn.is-disabled:hover { transform: none; }
-.jfk-tavling .t-affirm-note { font-size: 0.875rem; font-weight: 600; color: var(--t-red); min-height: 0; }
-.jfk-tavling .t-affirm-note:empty { display: none; }
+/* "Genom att skicka in ditt bidrag intygar du …" ovanför knappen Skriv mejlet */
+.jfk-tavling .t-consent { display: flex; gap: 10px; align-items: flex-start; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--t-card-2); font-size: 0.875rem; line-height: 1.5; color: var(--t-muted); }
+.jfk-tavling .t-consent .icon { flex: none; margin-top: 2px; color: var(--t-green); stroke-width: 2.4; }
 .jfk-tavling .t-note { padding: 14px 16px; border-radius: 14px; background: var(--t-blue-bg); color: var(--t-text); font-size: 0.9375rem; font-weight: 500; }
 .jfk-tavling .t-card[data-state="closed"] .t-note { background: var(--t-card-2); color: var(--t-muted); border: 1px solid var(--t-line); }
 
