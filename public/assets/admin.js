@@ -470,6 +470,8 @@
   function setDims(name, w, h) {
     var input = companion(name, "data-dims-for");
     if (input) input.value = w && h ? w + "x" + h : "";
+    // Guiden "Så visas bilden" (eget block längre ned) får måtten även när förhandsbilden inte kan visas (t.ex. HEIC).
+    document.dispatchEvent(new CustomEvent("jfk:dims", { detail: { name: name, w: w || 0, h: h || 0 } }));
   }
 
   function replaceFile(input, blob, originalName) {
@@ -2670,4 +2672,59 @@
   };
   open();
   window.addEventListener("hashchange", open);
+})();
+
+
+/* ---------- Bildfält: guiden "Så visas bilden på webbplatsen" (src/admin/uploads.ts frameGuide) ----------
+   Jämför den valda bildens form med rutorna. Samma gräns som på webbplatsen (fit-image.ts): skiljer formen 25 % eller
+   mer visas bilden hel på en suddig bakgrund – det är inget fel, bara bra att veta. Exakta mått (och varning för små
+   bilder) bara för en nyvald fil; den nuvarande bilden visas i förhandsrutan som den mindre versionen, så där räknas
+   bara formen. */
+(function () {
+  "use strict";
+  var TOL = 1.25;
+  function shape(r) { return r > 1.15 ? "liggande" : r < 0.87 ? "stående" : Math.abs(r - 1) < 0.03 ? "kvadratisk" : "nästan kvadratisk"; }
+  function update(guide, w, h, exact) {
+    if (!w || !h) return;
+    var r = w / h;
+    guide.querySelectorAll("[data-frame-ratio]").forEach(function (li) {
+      var out = li.querySelector("[data-frame-verdict]");
+      var want = li.getAttribute("data-frame-ratio");
+      var min = parseInt(li.getAttribute("data-frame-min") || "0", 10);
+      var text = "", cls = "";
+      if (want === "any") { text = "Bilden visas hel i sin egen form."; cls = "is-perfect"; }
+      else {
+        var t = parseFloat(want), diff = r > t ? r / t : t / r;
+        if (diff < 1.03) { text = "Bilden passar perfekt."; cls = "is-perfect"; }
+        else if (diff < TOL) { text = "Bilden fyller rutan – lite av kanterna beskärs."; cls = "is-perfect"; }
+        else { text = "Bilden har en annan form – den visas hel på en suddig bakgrund."; cls = "is-whole"; }
+      }
+      if (exact && min && w < min) { text += " Den är bara " + w + " px bred och kan se suddig ut."; cls = "is-small"; }
+      out.textContent = text;
+      out.className = "frame-verdict " + cls;
+    });
+    var yours = guide.querySelector("[data-frame-yours]");
+    if (yours) {
+      yours.textContent = exact ? "Vald bild: " + w + " × " + h + " px (" + shape(r) + ")." : "Nuvarande bild: " + shape(r) + ".";
+      yours.hidden = false;
+    }
+  }
+  document.querySelectorAll("[data-frames-for]").forEach(function (guide) {
+    var name = guide.getAttribute("data-frames-for");
+    var img = document.querySelector('[data-preview="' + name + '"]');
+    var exactSeen = false;
+    function fromImg() {
+      // En nyvald fil får exakta mått via jfk:dims – förhandsbilden räknar bara formen tills dess.
+      if (!img || img.hidden || !img.naturalWidth || exactSeen) return;
+      update(guide, img.naturalWidth, img.naturalHeight, false);
+    }
+    if (img) { img.addEventListener("load", fromImg); if (img.complete) fromImg(); }
+    document.addEventListener("jfk:dims", function (e) {
+      if (!e.detail || e.detail.name !== name) return;
+      // Nollställt (ny fil på väg, eller en bild ur bildbanken): förhandsbilden får räkna formen igen.
+      if (!e.detail.w) { exactSeen = false; return; }
+      exactSeen = true;
+      update(guide, e.detail.w, e.detail.h, true);
+    });
+  });
 })();

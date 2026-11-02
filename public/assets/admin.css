@@ -148,12 +148,34 @@
 .sticky-actions { position: sticky; bottom: 0; z-index: 5; padding: 16px 0; background: linear-gradient(to top, var(--c-bg) 70%, transparent); }
 .readonly-value { padding: 12px 14px; border-radius: 12px; background: var(--c-bg); }
 
-.field-upload { margin-bottom: 22px; }
+.field-upload { margin-bottom: 22px; grid-template-columns: minmax(0, 1fr); }
+.field-upload > * { min-width: 0; }
 .upload-box { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 16px; border: 1.5px dashed color-mix(in srgb, var(--c-text) 25%, transparent); border-radius: 14px; background: #fcfbf8; }
 .upload-preview { width: 120px; height: 90px; object-fit: cover; border-radius: 10px; background: #fff; border: 1px solid var(--c-border); }
 .upload-preview[hidden] { display: none; }
+.upload-preview-whole { object-fit: contain; background: #f1efe8; }
+
+/* Guiden under bildfältet för nyheter och evenemang: rutorna där bilden visas och måtten som passar perfekt (uploads.ts frameGuide). */
+.frame-guide { margin-top: 10px; padding: 14px 16px; border-radius: 12px; background: var(--c-surface); border: 1px solid var(--c-border); }
+.frame-guide-title { margin: 0 0 10px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
+.frame-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.frame-item { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: center; }
+.frame-shape { justify-self: center; display: block; border: 2px solid var(--c-text); border-radius: 4px; background: color-mix(in srgb, var(--c-accent) 35%, transparent); }
+.frame-shape-16-10 { width: 40px; height: 25px; }
+.frame-shape-16-9 { width: 40px; height: 22.5px; }
+.frame-shape-1-1 { width: 28px; height: 28px; }
+.frame-shape-any { width: 36px; height: 28px; border-style: dashed; background: none; }
+.frame-text { display: flex; flex-direction: column; gap: 1px; font-size: 0.875rem; line-height: 1.35; }
+.frame-size { color: var(--c-muted); }
+.frame-verdict { font-weight: 600; }
+.frame-verdict:empty { display: none; }
+.frame-verdict.is-perfect { color: #05603a; }
+.frame-verdict.is-whole { color: #7a5a00; }
+.frame-verdict.is-small { color: #b42318; }
+.frame-yours { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--c-border); font-size: 0.875rem; }
+.frame-yours[hidden] { display: none; }
 .upload-preview-logo { width: 96px; height: 96px; object-fit: contain; padding: 8px; }
-.upload-controls { display: grid; gap: 8px; flex: 1 1 240px; }
+.upload-controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; flex: 1 1 240px; min-width: 0; }
 .upload-input { font: inherit; font-size: 0.875rem; max-width: 100%; }
 .upload-status { font-size: 0.875rem; font-weight: 500; }
 .upload-status:empty { display: none; }

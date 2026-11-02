@@ -177,6 +177,41 @@ export function uploadHint(kind: "image" | "pdf"): string {
     : `PDF, max ${MAX_PDF_BYTES / 1024 / 1024} MB.`;
 }
 
+/**
+ * En ruta där bilden visas på webbplatsen, för guiden under bildfältet ("Så visas bilden"). ratio = bredd/höjd, null =
+ * alla format (bilden visas i sin egen form). size = måtten som passar perfekt. admin.js jämför med den valda bilden.
+ */
+export interface FrameGuide {
+  label: string;
+  ratio: number | null;
+  /** Visas efter etiketten, t.ex. "16:10 · passar perfekt: 1600 × 1000 px". */
+  size: string;
+  /** Under så här många pixlar i bredd varnar guiden för att bilden kan bli suddig. */
+  minWidth?: number;
+}
+
+/** Formen som en liten ritad ruta (CSS-klass – inga style-attribut, se CSP). */
+function frameShape(ratio: number | null): string {
+  if (ratio === null) return "any";
+  if (Math.abs(ratio - 1) < 0.01) return "1-1";
+  if (Math.abs(ratio - 1.6) < 0.01) return "16-10";
+  if (Math.abs(ratio - 16 / 9) < 0.01) return "16-9";
+  return "any";
+}
+
+function frameGuide(name: string, frames: FrameGuide[]): SafeHtml {
+  return html`<div class="frame-guide" data-frames-for="${name}">
+    <p class="frame-guide-title">Så visas bilden på webbplatsen</p>
+    <ul class="frame-list">
+      ${frames.map((f) => html`<li class="frame-item"${f.ratio ? html` data-frame-ratio="${String(f.ratio)}"` : html` data-frame-ratio="any"`}${f.minWidth ? html` data-frame-min="${String(f.minWidth)}"` : ""}>
+        <span class="frame-shape frame-shape-${frameShape(f.ratio)}" aria-hidden="true"></span>
+        <span class="frame-text"><strong>${f.label}</strong><span class="frame-size">${f.size}</span><span class="frame-verdict" data-frame-verdict></span></span>
+      </li>`)}
+    </ul>
+    <p class="frame-yours" data-frame-yours hidden></p>
+  </div>`;
+}
+
 /** Komplett bildfält: nuvarande bild, välj ny fil eller från bildbanken, och ta bort. */
 export function imageUploadField(opts: {
   name: string;
@@ -193,6 +228,8 @@ export function imageUploadField(opts: {
   crop?: number;
   grayIf?: string;
   dupCheck?: string;
+  /** Guide under fältet: vilka rutor bilden visas i och vilka mått som passar perfekt. */
+  frames?: FrameGuide[];
 }): SafeHtml {
   const kind = opts.kind ?? "image";
   const id = `falt-${opts.name}`;
@@ -203,10 +240,10 @@ export function imageUploadField(opts: {
     ${opts.help ? html`<p class="field-help" id="${opts.name}-hjalp">${opts.help}</p>` : ""}
     <div class="upload-box">
       ${src
-        ? html`<img class="upload-preview" src="${src}" alt="Nuvarande bild" data-preview="${opts.name}">`
+        ? html`<img class="upload-preview${opts.frames ? " upload-preview-whole" : ""}" src="${src}" alt="Nuvarande bild" data-preview="${opts.name}">`
         : kind === "pdf" && opts.current
           ? html`<p class="upload-current">${icon("lock", "icon icon-sm")} En PDF är uppladdad.</p>`
-          : html`<img class="upload-preview" alt="" data-preview="${opts.name}" hidden>`}
+          : html`<img class="upload-preview${opts.frames ? " upload-preview-whole" : ""}" alt="" data-preview="${opts.name}" hidden>`}
       <div class="upload-controls">
         ${uploadInput({ id, name: opts.name, kind, labelledBy: `${id}-etikett`, describedBy, setting: opts.setting, multiple: opts.multiple, crop: opts.crop, grayIf: opts.grayIf, dupCheck: opts.dupCheck })}
         <p class="field-help">${opts.multiple ? html`<strong>Du kan välja flera bilder på en gång</strong> – de laddas upp en i taget med samma val nedan. ` : ""}${opts.current ? "Välj en ny fil för att ersätta den nuvarande. " : ""}${kind === "image" ? uploadHint("image") : uploadHint("pdf")}</p>
@@ -218,6 +255,7 @@ export function imageUploadField(opts: {
           : ""}
       </div>
     </div>
+    ${kind === "image" && opts.frames?.length ? frameGuide(opts.name, opts.frames) : ""}
     ${opts.error ? html`<p class="field-error" id="${opts.name}-fel">${opts.error}</p>` : ""}
   </div>`;
 }

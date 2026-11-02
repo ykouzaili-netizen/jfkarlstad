@@ -17,7 +17,7 @@ import { mediaUrl } from "../views/layout.js";
 import { icon } from "../views/icons.js";
 import { audit, checkCsrf, type Session } from "./auth.js";
 import { adminHead, adminLayout, csrfField, newMessageCount, postButton, statusPill } from "./layout.js";
-import { handleUpload, imageUploadField } from "./uploads.js";
+import { handleUpload, imageUploadField, type FrameGuide } from "./uploads.js";
 import { jobTotals } from "./job-stats.js";
 import { CUSTOM_DESIGN, DESIGN_OPTIONS, medalFormPreview, medalOptions } from "./medals.js";
 import { MEDAL_GROUPS, MEDAL_KINDS, medalImageUrl } from "../lib/medals.js";
@@ -86,6 +86,8 @@ export interface AdminField extends FieldSpec {
    * originalfilens SHA-256 i `${namn}__hash`, som sparas i kolumnen file_hash när en ny bild laddas upp.
    */
   dupCheck?: string;
+  /** Bildfält: guide under fältet med rutorna där bilden visas och måtten som passar perfekt (uploads.ts). */
+  frames?: FrameGuide[];
 }
 
 /** Fotodatum ur bildens uppgifter, som admin.js skickar det. */
@@ -252,7 +254,16 @@ const galleryTitle = (r: Record<string, unknown>) => String(r.alt || r.caption |
 
 /** Nyheter och evenemang: bilder kapas inte längre (src/views/fit-image.ts). */
 const IMAGE_FIT_HELP =
-  "Valfri. Alla format fungerar, även en stående affisch: har bilden en annan form än rutan visas den hel på en suddig bakgrund, och på sidan visas den alltid hel. Vill du bestämma själv: Justera utsnitt och storlek.";
+  "Valfri. Alla format fungerar, även en stående affisch – bilden kapas aldrig. Har den en annan form än rutan visas den hel på en suddig bakgrund. Under fältet ser du vilka mått som passar perfekt.";
+/** Guiden under bildfältet. Formerna och gränsen (25 %) är desamma som i src/views/fit-image.ts. */
+const NEWS_FRAMES: FrameGuide[] = [
+  { label: "Nyhetskortet", ratio: 16 / 10, size: "Liggande 16:10 · passar perfekt: 1600 × 1000 px", minWidth: 700 },
+  { label: "Nyhetens egen sida", ratio: null, size: "Alla format · visas alltid hel i sin egen form", minWidth: 800 },
+];
+const EVENT_FRAMES: FrameGuide[] = [
+  { label: "Evenemangets egen sida", ratio: null, size: "Alla format · visas alltid hel i sin egen form", minWidth: 800 },
+  { label: "Kalendern", ratio: 1, size: "Kvadrat 1:1 · passar perfekt: 1080 × 1080 px (liten bild)", minWidth: 300 },
+];
 const MARKDOWN_HELP =
   "Tom rad = nytt stycke. **fet text**, *kursiv*, [länktext](https://adress.se), rader som börjar med ”- ” blir en punktlista och ”## ” blir en underrubrik.";
 
@@ -643,7 +654,7 @@ export const RESOURCES: Resource[] = [
       { name: "title", label: "Rubrik", type: "text", required: true, max: 150 },
       { name: "excerpt", label: "Ingress", type: "textarea", rows: 3, max: 300, help: "En eller två meningar som sammanfattar nyheten. Visas på startsidan och i listan." },
       { name: "body", label: "Text", type: "textarea", rows: 14, max: 20000, help: MARKDOWN_HELP },
-      { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true, help: IMAGE_FIT_HELP },
+      { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true, help: IMAGE_FIT_HELP, frames: NEWS_FRAMES },
       { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200, help: "Beskriv vad bilden visar för den som inte kan se den." },
       { name: "published_at", label: "Publiceringstid", type: "datetime-local", schedule: true, nullable: true, help: SCHEDULE_HELP + " Tiden visas också som nyhetens datum." },
     ],
@@ -699,7 +710,7 @@ export const RESOURCES: Resource[] = [
         optionsFrom: committeeOptions,
         help: "Valfritt. Då visas eventet under ”På gång” på utskottets egen sida, och eventet får en länk till utskottet.",
       },
-      { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true, help: IMAGE_FIT_HELP + " Bilden visas också i kalendern." },
+      { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true, help: IMAGE_FIT_HELP, frames: EVENT_FRAMES },
       { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200, help: "Beskriv vad bilden visar för den som inte kan se den. En affisch: skriv det viktigaste som står på den." },
       { name: "publish_at", label: "Publicera på webbplatsen", type: "datetime-local", schedule: true, nullable: true, help: SCHEDULE_HELP },
     ],
@@ -1736,7 +1747,7 @@ function editForm(r: Resource, fields: AdminField[], session: Session, action: s
           const field = f.custom
             ? f.custom.render(values[f.name] ?? "", errors[f.name])
             : f.upload
-            ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload, multiple: isNew && f.multiple, crop: f.crop, grayIf: f.grayIf, dupCheck: f.dupCheck })
+            ? imageUploadField({ name: f.name, label: f.label, current: values[f.name] ?? "", help: f.help, error: errors[f.name], required: f.requiredOnCreate, removable: !f.requiredOnCreate, kind: f.upload, multiple: isNew && f.multiple, crop: f.crop, grayIf: f.grayIf, dupCheck: f.dupCheck, frames: f.frames })
             : renderField(f, values[f.name] ?? "", errors[f.name]);
           return f.showIf
             ? html`<div class="show-if" data-show-if="${f.showIf.field}" data-show-value="${([] as string[]).concat(f.showIf.value).join("|")}"${shown(f, values) ? "" : html` hidden`}>${field}</div>`

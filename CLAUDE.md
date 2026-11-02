@@ -49,7 +49,9 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   nyhetens/evenemangets sida: bilden i egen form, stående (< 1,1) som ark (`.article-figure.is-sheet`). Måtten kommer ur
   `media.width/height` via `withDims()` i `content.ts`; saknas de avgör site.js efter laddning (`data-fit-auto`/`data-fit-natural`).
   Bildbank → Justera (`bild:<nyckel>`, imagefit.ts) går före: "fyll" behåller den beskurna 16:9-rutan på sidan. Ingen förstoring
-  av nyhetsbilden vid hovring. Test: `tools/e2e/test_fit_images.py`.
+  av nyhetsbilden vid hovring. Under bildfältet i adminpanelen visar guiden "Så visas bilden" rutorna och måtten som passar
+  perfekt (`frames` på fältet i `resources.ts` → `frameGuide()` i `uploads.ts`, admin.js jämför med den valda bilden).
+  Test: `tools/e2e/test_fit_images.py`.
 - **Butiken** (`/butik`, `src/pages/shop.ts`, `src/lib/shop.ts`, `public/assets/butik.css|js`, migrering 0024): dold från
   början (`sida:butik`). Produkter (`shop_products`, "alltid" eller "slapp") och släpp (`shop_drops`, svensk lokal tid,
   slutminuten räknas med) under Innehåll → Butik; texterna `shop_*` under Texter och sidor → Butik. Utseendet "Ett plagg
