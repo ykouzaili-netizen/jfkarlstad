@@ -250,6 +250,9 @@ const thumb = (key: unknown, alt = "") => {
 /** Namnet på en galleribild i listan: beskrivningen, annars bildtexten, annars albumet. */
 const galleryTitle = (r: Record<string, unknown>) => String(r.alt || r.caption || `Bild utan beskrivning (${String(r.album ?? "")})`);
 
+/** Nyheter och evenemang: bilder kapas inte längre (src/views/fit-image.ts). */
+const IMAGE_FIT_HELP =
+  "Valfri. Alla format fungerar, även en stående affisch: har bilden en annan form än rutan visas den hel på en suddig bakgrund, och på sidan visas den alltid hel. Vill du bestämma själv: Justera utsnitt och storlek.";
 const MARKDOWN_HELP =
   "Tom rad = nytt stycke. **fet text**, *kursiv*, [länktext](https://adress.se), rader som börjar med ”- ” blir en punktlista och ”## ” blir en underrubrik.";
 
@@ -640,7 +643,7 @@ export const RESOURCES: Resource[] = [
       { name: "title", label: "Rubrik", type: "text", required: true, max: 150 },
       { name: "excerpt", label: "Ingress", type: "textarea", rows: 3, max: 300, help: "En eller två meningar som sammanfattar nyheten. Visas på startsidan och i listan." },
       { name: "body", label: "Text", type: "textarea", rows: 14, max: 20000, help: MARKDOWN_HELP },
-      { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true, help: "Valfri. Liggande bild fungerar bäst (t.ex. 1600 × 1000 px). Stora foton komprimeras automatiskt." },
+      { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true, help: IMAGE_FIT_HELP },
       { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200, help: "Beskriv vad bilden visar för den som inte kan se den." },
       { name: "published_at", label: "Publiceringstid", type: "datetime-local", schedule: true, nullable: true, help: SCHEDULE_HELP + " Tiden visas också som nyhetens datum." },
     ],
@@ -696,8 +699,8 @@ export const RESOURCES: Resource[] = [
         optionsFrom: committeeOptions,
         help: "Valfritt. Då visas eventet under ”På gång” på utskottets egen sida, och eventet får en länk till utskottet.",
       },
-      { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true },
-      { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200 },
+      { name: "image_key", label: "Bild", type: "text", upload: "image", nullable: true, help: IMAGE_FIT_HELP + " Bilden visas också i kalendern." },
+      { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200, help: "Beskriv vad bilden visar för den som inte kan se den. En affisch: skriv det viktigaste som står på den." },
       { name: "publish_at", label: "Publicera på webbplatsen", type: "datetime-local", schedule: true, nullable: true, help: SCHEDULE_HELP },
     ],
     check: (v): Errors => (v.ends_at && v.starts_at && v.ends_at < v.starts_at ? { ends_at: "Sluttiden kan inte vara före starttiden." } : {}),

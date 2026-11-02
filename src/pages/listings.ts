@@ -21,6 +21,7 @@ import { plainText, renderInline, renderMarkdown } from "../lib/markdown.js";
 import { eventDate, formatDate, isoDate, localToIso, stockholmNow, stockholmToday, truncate } from "../lib/format.js";
 import { fill } from "../lib/texts.js";
 import { icsResponse, icsText, icsTime, nowStamp, VTIMEZONE } from "../lib/ics.js";
+import { articleImage } from "../views/fit-image.js";
 import { partnerImageStyle, type PartnerImageStyle } from "../lib/partner-image.js";
 import { linkIcon, parsePartnerLinks } from "../lib/partner-links.js";
 
@@ -238,7 +239,7 @@ export async function newsArticlePage(c: RequestContext): Promise<Response> {
         </div>
       </header>
       ${n.image_key
-        ? html`<div class="container article-image-wrap">${picture(n.image_key, { alt: n.image_alt, className: "article-image", sizes: "(min-width: 1240px) 1160px, 100vw", width: 1200, height: 675, eager: true })}</div>`
+        ? html`<div class="container article-image-wrap">${articleImage(s, n.image_key, { alt: n.image_alt, sizes: "(min-width: 1240px) 1160px, 100vw", dims: { w: n.image_w, h: n.image_h } })}</div>`
         : ""}
       <div class="section section-tight-top${sc(s, "news_article")}">
         <div class="container narrow">
@@ -328,7 +329,7 @@ export async function eventDetailPage(c: RequestContext): Promise<Response> {
       <section class="section section-tight-top${sc(s, "event_page")}">
         <div class="container split split-top">
           <div${edit}>
-            ${e.image_key ? picture(e.image_key, { alt: e.image_alt, className: "article-image", sizes: "(min-width: 920px) 60vw, 100vw", width: 1200, height: 675, eager: true }) : ""}
+            ${e.image_key ? articleImage(s, e.image_key, { alt: e.image_alt, sizes: "(min-width: 920px) 60vw, 100vw", dims: { w: e.image_w, h: e.image_h } }) : ""}
             <div class="prose prose-lg">${renderMarkdown(e.body)}</div>
           </div>
           <aside class="aside-card">

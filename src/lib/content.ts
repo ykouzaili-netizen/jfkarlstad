@@ -11,6 +11,9 @@ export interface NewsRow {
   published: number;
   published_at: string | null;
   updated_at: string;
+  /** Bildens mått ur bildbanken (media.width/height), null om de inte är kända. */
+  image_w?: number | null;
+  image_h?: number | null;
 }
 
 export interface EventRow {
@@ -32,6 +35,9 @@ export interface EventRow {
   partner_id?: number | null;
   /** Utskottet som arrangerar eventet (migrering 0026), annars null. */
   committee_id?: number | null;
+  /** Bildens mått ur bildbanken (media.width/height), null om de inte är kända. */
+  image_w?: number | null;
+  image_h?: number | null;
 }
 
 export interface PartnerRow {
@@ -235,33 +241,38 @@ const EVENT_END = "COALESCE(ends_at, substr(starts_at, 1, 10) || 'T23:59')";
 /** Schemalagd publicering: syns först när publiceringstiden (UTC) har passerat. */
 const NEWS_LIVE = "published = 1 AND (published_at IS NULL OR published_at <= datetime('now'))";
 const EVENT_LIVE = "published = 1 AND (publish_at IS NULL OR publish_at <= datetime('now'))";
+/** Raden plus bildens mått ur bildbanken – sajten väljer då själv om bilden ska fylla sin ruta eller visas hel (fit-image.ts). */
+const withDims = (table: "news" | "events") =>
+  `${table}.*, (SELECT m.width FROM media m WHERE m.key = ${table}.image_key) AS image_w, (SELECT m.height FROM media m WHERE m.key = ${table}.image_key) AS image_h`;
+const NEWS_COLS = withDims("news");
+const EVENT_COLS = withDims("events");
 const JOB_LIVE = "j.published = 1 AND (j.publish_at IS NULL OR j.publish_at <= datetime('now'))";
 
 export const newsQuery = {
   latest: (db: D1Database, limit: number, offset = 0) =>
-    db.prepare(`SELECT * FROM news WHERE ${NEWS_LIVE} ORDER BY published_at DESC, id DESC LIMIT ? OFFSET ?`).bind(limit, offset),
+    db.prepare(`SELECT ${NEWS_COLS} FROM news WHERE ${NEWS_LIVE} ORDER BY published_at DESC, id DESC LIMIT ? OFFSET ?`).bind(limit, offset),
   count: (db: D1Database) => db.prepare(`SELECT COUNT(*) AS n FROM news WHERE ${NEWS_LIVE}`),
-  bySlug: (db: D1Database, slug: string) => db.prepare(`SELECT * FROM news WHERE ${NEWS_LIVE} AND slug = ?`).bind(slug),
+  bySlug: (db: D1Database, slug: string) => db.prepare(`SELECT ${NEWS_COLS} FROM news WHERE ${NEWS_LIVE} AND slug = ?`).bind(slug),
 };
 
 export const eventQuery = {
   upcoming: (db: D1Database, nowLocal: string, limit: number) =>
-    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(nowLocal, limit),
+    db.prepare(`SELECT ${EVENT_COLS} FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(nowLocal, limit),
   past: (db: D1Database, nowLocal: string, limit: number) =>
-    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} < ? ORDER BY starts_at DESC LIMIT ?`).bind(nowLocal, limit),
+    db.prepare(`SELECT ${EVENT_COLS} FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} < ? ORDER BY starts_at DESC LIMIT ?`).bind(nowLocal, limit),
   /** Evenemang som pågår någon gång mellan två tidpunkter (månadsvyn). `toLocal` är exklusiv. */
   between: (db: D1Database, fromLocal: string, toLocal: string) =>
-    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND starts_at < ? AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT 300`).bind(toLocal, fromLocal),
+    db.prepare(`SELECT ${EVENT_COLS} FROM events WHERE ${EVENT_LIVE} AND starts_at < ? AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT 300`).bind(toLocal, fromLocal),
   /** För kalenderprenumerationen: från ett datum och framåt. */
   since: (db: D1Database, fromLocal: string) =>
-    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT 300`).bind(fromLocal),
-  bySlug: (db: D1Database, slug: string) => db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND slug = ?`).bind(slug),
+    db.prepare(`SELECT ${EVENT_COLS} FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT 300`).bind(fromLocal),
+  bySlug: (db: D1Database, slug: string) => db.prepare(`SELECT ${EVENT_COLS} FROM events WHERE ${EVENT_LIVE} AND slug = ?`).bind(slug),
   /** Kommande evenemang tillsammans med ett studentnätverk (nätverkets egen sida). */
   upcomingForPartner: (db: D1Database, partnerId: number, nowLocal: string, limit: number) =>
-    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND partner_id = ? AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(partnerId, nowLocal, limit),
+    db.prepare(`SELECT ${EVENT_COLS} FROM events WHERE ${EVENT_LIVE} AND partner_id = ? AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(partnerId, nowLocal, limit),
   /** Kommande evenemang som ett utskott arrangerar (utskottets egen sida). */
   upcomingForCommittee: (db: D1Database, committeeId: number, nowLocal: string, limit: number) =>
-    db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND committee_id = ? AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(committeeId, nowLocal, limit),
+    db.prepare(`SELECT ${EVENT_COLS} FROM events WHERE ${EVENT_LIVE} AND committee_id = ? AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT ?`).bind(committeeId, nowLocal, limit),
 };
 
 /** Logotypen kommer från partnern (om den är publicerad) eller från arbetsgivarregistret (companies). */

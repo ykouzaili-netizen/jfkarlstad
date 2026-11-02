@@ -3,6 +3,7 @@ import { eventDate, formatDate, isoDate, truncate } from "../lib/format.js";
 import type { EventRow, NewsRow, PartnerRow } from "../lib/content.js";
 import { ec, ek, type SettingKey, type Settings } from "../lib/settings.js";
 import { icon } from "./icons.js";
+import { boxImage } from "./fit-image.js";
 import { mediaUrl, picture } from "./layout.js";
 
 export function arrowLink(href: string, label: string, className = "arrow-link", attrs?: SafeHtml): SafeHtml {
@@ -25,7 +26,8 @@ export function sectionHead(
   </div>`;
 }
 
-export function eventCard(s: Settings, e: EventRow, headingLevel: 2 | 3 = 3): SafeHtml {
+/** Evenemangskort. `withImage` = eventets bild som en liten kvadrat till höger (kalendern). */
+export function eventCard(s: Settings, e: EventRow, headingLevel: 2 | 3 = 3, withImage = false): SafeHtml {
   const d = eventDate(e.starts_at, e.ends_at);
   const heading = html`<a class="card-link" href="/kalender/${e.slug}">${e.title}</a>`;
   return html`<article class="card event-card"${ec(s, `/admin/event/${e.id}`, `Event › ${e.title}`)}>
@@ -42,7 +44,13 @@ export function eventCard(s: Settings, e: EventRow, headingLevel: 2 | 3 = 3): Sa
       </ul>
       ${e.members_only ? html`<span class="tag">${s.members_tag}</span>` : ""}
     </div>
+    ${withImage && e.image_key ? html`<span class="event-thumb">${eventThumb(s, e)}</span>` : ""}
   </article>`;
+}
+
+/** Eventets bild i en kvadrat (kalenderns lista och rutan som öppnas i månadsvyn). Bara dekoration – titeln står bredvid. */
+export function eventThumb(s: Settings, e: EventRow): SafeHtml {
+  return e.image_key ? boxImage(s, e.image_key, { alt: "", sizes: "96px", box: 1, dims: { w: e.image_w, h: e.image_h }, width: 96, height: 96 }) : html``;
 }
 
 export function newsCard(s: Settings, n: NewsRow, headingLevel: 2 | 3 = 3): SafeHtml {
@@ -50,7 +58,7 @@ export function newsCard(s: Settings, n: NewsRow, headingLevel: 2 | 3 = 3): Safe
   return html`<article class="card news-card"${ec(s, `/admin/nyheter/${n.id}`, `Nyhet › ${n.title}`)}>
     <div class="news-media${n.image_key ? "" : " news-media-empty"}">
       ${n.image_key
-        ? picture(n.image_key, { alt: n.image_alt, sizes: "(min-width: 1020px) 380px, (min-width: 700px) 50vw, 100vw", width: 640, height: 400 })
+        ? boxImage(s, n.image_key, { alt: n.image_alt, sizes: "(min-width: 1020px) 380px, (min-width: 700px) 50vw, 100vw", box: 16 / 10, dims: { w: n.image_w, h: n.image_h }, width: 640, height: 400 })
         : html`<span class="news-media-mark" aria-hidden="true">§</span>`}
     </div>
     <div class="news-body">

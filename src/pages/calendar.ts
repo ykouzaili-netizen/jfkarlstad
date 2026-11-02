@@ -7,7 +7,7 @@ import { fill } from "../lib/texts.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
 import { joinButton, layout } from "../views/layout.js";
-import { emptyState, eventCard } from "../views/components.js";
+import { emptyState, eventCard, eventThumb } from "../views/components.js";
 import { icon } from "../views/icons.js";
 import { pageHeader } from "../views/page.js";
 import { eventJsonLd, subscribePanel } from "./listings.js";
@@ -181,7 +181,7 @@ async function monthView(c: RequestContext): Promise<Response> {
           <h2 class="subsection-title"${ek(s, "cal_agenda_title")}>${fill(s.cal_agenda_title, { månad: monthName(month).toLowerCase() })}</h2>
           ${extraAnchors.map((k) => html`<span id="dag-${k}" class="cal-anchor"></span>`)}
           ${agenda.length
-            ? html`<div class="card-grid">${agenda.map(({ e, anchor }) => html`<div class="cal-agenda-item"${anchor ? html` id="dag-${anchor}"` : ""}>${eventCard(s, e, 3)}</div>`)}</div>`
+            ? html`<div class="card-grid">${agenda.map(({ e, anchor }) => html`<div class="cal-agenda-item"${anchor ? html` id="dag-${anchor}"` : ""}>${eventCard(s, e, 3, true)}</div>`)}</div>`
             : html`<div class="empty-state">
                 <p${ek(s, "cal_month_empty")}>${s.cal_month_empty}</p>
                 ${nextAfter
@@ -213,7 +213,7 @@ function popoverSources(s: Settings, events: EventRow[], today: string): SafeHtm
       const [, end] = eventDays(e);
       const past = end < today;
       return html`<div id="cal-pop-${e.id}">
-        <p class="cal-pop-title">${e.title}</p>
+        ${e.image_key ? html`<div class="cal-pop-head"><span class="cal-pop-thumb">${eventThumb(s, e)}</span><p class="cal-pop-title">${e.title}</p></div>` : html`<p class="cal-pop-title">${e.title}</p>`}
         <p class="cal-pop-meta" id="cal-desc-${e.id}">
           ${d ? html`<span class="cal-pop-row">${icon("calendar", "icon icon-sm")}<span class="capitalize-first">${d.dateLong}</span></span><span class="cal-pop-row">${icon("clock", "icon icon-sm")}<span>${d.time}</span></span>` : ""}
           ${e.location ? html`<span class="cal-pop-row">${icon("pin", "icon icon-sm")}<span>${e.location}</span></span>` : ""}
@@ -266,7 +266,7 @@ async function listView(c: RequestContext): Promise<Response> {
         <div class="cal-toolbar cal-toolbar-list">${viewSwitch(s, "lista")}</div>
         ${upcoming.length
           ? [...months.entries()].map(
-              ([m, evs], i) => html`<h2 class="subsection-title${i === 0 ? " first" : ""}">${m}</h2><div class="card-grid">${evs.map((e) => eventCard(s, e, 3))}</div>`,
+              ([m, evs], i) => html`<h2 class="subsection-title${i === 0 ? " first" : ""}">${m}</h2><div class="card-grid">${evs.map((e) => eventCard(s, e, 3, true))}</div>`,
             )
           : emptyState(renderInline(s.cal_empty), ek(s, "cal_empty"))}
       </div>

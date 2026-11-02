@@ -1144,3 +1144,29 @@ document.addEventListener("click", function (e) {
     if (first) select(first.getAttribute("data-team-person"), false);
   });
 })();
+
+/* ---------- Bilder som får plats: äldre bilder utan kända mått (src/views/fit-image.ts) ----------
+   Servern vet oftast bildens form (bildbanken sparar måtten). För äldre bilder avgörs den här när bilden har laddats:
+   i en ruta (data-fit-auto = rutans bredd/höjd) visas bilden hel om formen skiljer mer än en fjärdedel, och på
+   nyhetens/evenemangets sida (data-fit-natural) blir en stående bild ett ark. Lyssnar på hela dokumentet, så att
+   även bilder som kommer in senare (kalenderns ruta) räknas. */
+(function () {
+  "use strict";
+  var TOL = 1.25;
+  function check(img) {
+    if (!img || !img.naturalWidth || !img.classList) return;
+    var r = img.naturalWidth / img.naturalHeight;
+    if (img.classList.contains("fit-img")) {
+      var box = img.closest("[data-fit-auto]");
+      if (!box) return;
+      var want = parseFloat(box.getAttribute("data-fit-auto")) || 1;
+      var diff = r > want ? r / want : want / r;
+      box.classList.toggle("is-whole", diff >= TOL);
+    } else if (img.classList.contains("article-figure-img")) {
+      var fig = img.closest("[data-fit-natural]");
+      if (fig) fig.classList.toggle("is-sheet", r < 1.1);
+    }
+  }
+  document.addEventListener("load", function (e) { if (e.target && e.target.tagName === "IMG") check(e.target); }, true);
+  Array.prototype.forEach.call(document.querySelectorAll("[data-fit-auto] .fit-img, [data-fit-natural] .article-figure-img"), function (img) { if (img.complete) check(img); });
+})();
