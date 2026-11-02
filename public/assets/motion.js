@@ -29,9 +29,10 @@
     ".cta-panel", ".partner-footer", ".empty-state", ".insta-profile", ".insta-actions", ".insta-feed",
     ".insta-empty", ".about-intro-grid > *", ".content-photo", ".aside-card", ".form-card",
   ].map(function (s) { return "main " + s; }).join(",");
-  // Listor och rutnät: barnen kommer fram ett efter ett.
+  // Listor och rutnät: barnen kommer fram ett efter ett. Statistikrutorna (.stat-grid) är medvetet inte med –
+  // de ska stå på plats med rätt siffror direkt när sidan laddas.
   var GROUPS = [
-    ".card-grid", ".value-grid", ".partner-main", ".stat-grid", ".honor-grid", ".rep-grid", ".position-grid",
+    ".card-grid", ".value-grid", ".partner-main", ".honor-grid", ".rep-grid", ".position-grid",
     ".person-grid", ".package-grid", ".gallery-grid", ".committee-grid", ".cm-grid", ".step-list",
     ".hk-vitrine", ".hd-coins",
     ".purpose-list", ".job-list", ".doc-list", ".faq-list", ".contact-list", ".check-list",
@@ -117,7 +118,6 @@
 
   function reveal(el) {
     el.classList.add("is-in");
-    if (el.querySelector(".stat-value") || el.classList.contains("stat")) countUp(el.querySelector(".stat-value"));
     // När animationen är klar tas klasserna bort, så att kortens egna hover-effekter gäller igen.
     var wait = (parseFloat(el.style.getPropertyValue("--rv-delay")) || 0) * 1000 + (el.classList.contains("rv-words") ? 2200 : 1900);
     window.setTimeout(function () { done(el); }, wait);
@@ -156,42 +156,7 @@
   window.addEventListener("hashchange", function () { marked.forEach(function (el) { el.classList.add("is-in"); }); });
   window.addEventListener("beforeprint", function () { marked.forEach(done); });
 
-  /* ---------- 2. Siffror som räknas upp ---------- */
-
-  function countUp(el) {
-    if (!el || el.getAttribute("data-counted")) return;
-    el.setAttribute("data-counted", "1");
-    var original = el.textContent;
-    var m = original.match(/^(\D*?)(\d[\d\s ]*)(.*)$/);
-    if (!m) return;
-    var target = parseInt(m[2].replace(/\D/g, ""), 10);
-    if (!isFinite(target) || target < 2) return;
-    var grouped = /[\s ]/.test(m[2].trim());
-    // Årtal (t.ex. "2011") räknas från några år tidigare i stället för från noll.
-    var isYear = !grouped && target >= 1800 && target <= 2100;
-    var from = isYear ? target - 15 : 0;
-    var fmt = grouped && window.Intl ? new Intl.NumberFormat("sv-SE") : null;
-    var start = null, last = "";
-    var dur = isYear ? 1200 : 1600;
-    // En enda textnod som skrivs om (i stället för att byta ut innehållet varje bildruta) – billigare för webbläsaren.
-    el.textContent = original;
-    var node = el.firstChild;
-    function frame(t) {
-      if (start === null) start = t;
-      var p = clamp((t - start) / dur, 0, 1);
-      var eased = 1 - Math.pow(1 - p, 4);
-      var v = Math.round(from + (target - from) * eased);
-      var text = p < 1 ? m[1] + (fmt ? fmt.format(v) : String(v)) + m[3] : original;
-      if (text !== last) { node.nodeValue = text; last = text; }
-      if (p < 1) window.requestAnimationFrame(frame);
-    }
-    window.requestAnimationFrame(frame);
-  }
-  // Statistikrutor som redan syns när sidan öppnas räknas när de kommer in i bild.
-  var statIo = new IntersectionObserver(function (entries) {
-    entries.forEach(function (e) { if (e.isIntersecting) { statIo.unobserve(e.target); countUp(e.target); } });
-  }, { threshold: 0.6 });
-  $$("main .stat-value").forEach(function (el) { if (!marked.has(el.closest(".stat"))) statIo.observe(el); });
+  /* ---------- 2. (Siffror räknas inte upp – statistikrutorna står still från början.) ---------- */
 
   /* ---------- 3. Knappar: texten rullar vid hovring ---------- */
 
