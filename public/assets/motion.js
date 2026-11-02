@@ -115,19 +115,42 @@
     el.style.removeProperty("--rv-delay");
   }
 
+  function reveal(el) {
+    el.classList.add("is-in");
+    if (el.querySelector(".stat-value") || el.classList.contains("stat")) countUp(el.querySelector(".stat-value"));
+    // När animationen är klar tas klasserna bort, så att kortens egna hover-effekter gäller igen.
+    var wait = (parseFloat(el.style.getPropertyValue("--rv-delay")) || 0) * 1000 + (el.classList.contains("rv-words") ? 2200 : 1900);
+    window.setTimeout(function () { done(el); }, wait);
+  }
+
   var io = new IntersectionObserver(function (entries) {
     entries.forEach(function (e) {
       if (!e.isIntersecting) return;
-      var el = e.target;
-      io.unobserve(el);
-      el.classList.add("is-in");
-      if (el.querySelector(".stat-value") || el.classList.contains("stat")) countUp(el.querySelector(".stat-value"));
-      // När animationen är klar tas klasserna bort, så att kortens egna hover-effekter gäller igen.
-      var wait = (parseFloat(el.style.getPropertyValue("--rv-delay")) || 0) * 1000 + (el.classList.contains("rv-words") ? 2200 : 1900);
-      window.setTimeout(function () { done(el); }, wait);
+      io.unobserve(e.target);
+      reveal(e.target);
     });
   }, { rootMargin: "0px 0px -10% 0px", threshold: 0.08 });
-  marked.forEach(function (el) { io.observe(el); });
+
+  // Bilder som avtäcks (.rv-img) är helt bortklippta (clip-path) tills de kommer fram. En helt bortklippt yta
+  // räknas som osynlig av IntersectionObserver och av webbläsarens lazy-laddning – bilden skulle då aldrig
+  // komma fram och aldrig hämtas. Därför bevakas förälderelementet i stället, och bilden hämtas direkt.
+  var proxies = new Map();
+  var imgIo = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      imgIo.unobserve(e.target);
+      (proxies.get(e.target) || []).forEach(reveal);
+      proxies.delete(e.target);
+    });
+  }, { rootMargin: "0px 0px -12% 0px", threshold: 0 });
+
+  marked.forEach(function (el) {
+    if (!el.classList.contains("rv-img") || !el.parentElement) { io.observe(el); return; }
+    $$("img[loading=lazy]", el).forEach(function (img) { img.loading = "eager"; });
+    var proxy = el.parentElement;
+    if (!proxies.has(proxy)) { proxies.set(proxy, []); imgIo.observe(proxy); }
+    proxies.get(proxy).push(el);
+  });
 
   // Säkerhetsnät: skrollar man förbi (t.ex. med "Till toppen" eller ett ankare) ska inget bli kvar osynligt.
   window.addEventListener("hashchange", function () { marked.forEach(function (el) { el.classList.add("is-in"); }); });
