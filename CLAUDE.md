@@ -43,6 +43,13 @@ All synlig text är på **svenska** (även felmeddelanden, admin, alt-texter, ar
   dela/direktlänk (`?bild=ID`, ger också og:image), bildspel och helskärm (på `[data-gal-lb-inner]` – en dialog får inte
   gå i helskärm). Sidans läge sparas och återställs när rutan stängs. Dubblettvarning: SHA-256 av originalet (`file_hash`)
   och bildavtryck (`phash`, dHash med rutmedelvärden i admin.js `jfkPrint`, högst 4 bitar skillnad).
+- **Bilder i nyheter och evenemang** (`src/views/fit-image.ts`, beställt 2026-11-02): kapas inte. `boxImage()` i kort
+  (nyhetskortet 16:10, kalenderns kvadrat `eventThumb()`): bild vars form skiljer ≥ 25 % från rutan (`FIT_TOLERANCE`) visas hel
+  (`.fit-box.is-whole`) med samma bild suddig bakom (`.fit-bg`, .sm-versionen); annars fyller den rutan. `articleImage()` på
+  nyhetens/evenemangets sida: bilden i egen form, stående (< 1,1) som ark (`.article-figure.is-sheet`). Måtten kommer ur
+  `media.width/height` via `withDims()` i `content.ts`; saknas de avgör site.js efter laddning (`data-fit-auto`/`data-fit-natural`).
+  Bildbank → Justera (`bild:<nyckel>`, imagefit.ts) går före: "fyll" behåller den beskurna 16:9-rutan på sidan. Ingen förstoring
+  av nyhetsbilden vid hovring. Test: `tools/e2e/test_fit_images.py`.
 - **Butiken** (`/butik`, `src/pages/shop.ts`, `src/lib/shop.ts`, `public/assets/butik.css|js`, migrering 0024): dold från
   början (`sida:butik`). Produkter (`shop_products`, "alltid" eller "slapp") och släpp (`shop_drops`, svensk lokal tid,
   slutminuten räknas med) under Innehåll → Butik; texterna `shop_*` under Texter och sidor → Butik. Utseendet "Ett plagg
