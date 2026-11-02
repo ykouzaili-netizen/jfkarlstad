@@ -146,6 +146,34 @@ tools/local-preview Reservlösning för förhandsvisning utan wrangler (node:sql
   Ingen ny tredjepartstjänst (analys, inbäddningar, typsnitt från CDN) utan att uppdatera integritetspolicyn
   (texterna under "Integritet och kakor" i `texts.ts`, uppdatera `privacy_updated`) – och för icke-nödvändiga kakor krävs samtycke (LEK 9 kap. 28 §).
 
+## Designskills i repot (`.claude/skills/`)
+
+Beställaren vill att de här används **alltid när de passar** (3 nov 2026), tillsammans med Emil Kowalskis skills (riktlinjer i projektdokumentet `claude/emil-kowalski-skills.md`). Alla tre är MIT-licensierade; licensfilerna ligger i respektive mapp.
+
+- **taste-skill** (`design-taste-frontend`, Leonxlnx/taste-skill): riktning för publika sidor ur en studie av 247 kuraterade
+  sajter. `node .claude/skills/taste-skill/scripts/draw.mjs --sector nonprofit --tone luxury --keep palette,type --have photography --options 3`
+  ger tre riktningar; välj, rita fullt blad, skriv idén ("På den här sidan blir X till Y"). Används i början av varje
+  ny eller omgjord publik sida/avsnitt, och dess lista över AI-kännetecken (`references/tells.md`) vid granskning.
+- **web-design-engineer** (conardli/web-design-skill): arbetsgång från behov till leverans, 25 stilrecept knutna till riktiga
+  förebilder (`references/style-recipes/`, t.ex. aesop, monocle-magazine, stripe-press, nyt-the-daily, pentagram,
+  dieter-rams-braun, muji-kenya-hara), designkritik och kontroll i webbläsare. Används för att förankra en riktning i ett
+  namngivet recept, för kritik före leverans och för adminpanelens skärmar.
+- **extract-design** (designlang, Manavarya09/design-extract): hämtar färger, typografi, avstånd, skuggor och komponenter
+  från en riktig URL (t.ex. en byrås sajt) och ger ett WCAG-betyg. Kräver att sajten går att nå och `npx designlang` –
+  fungerar på beställarens dator (Claude Code), inte i molnmiljön där npm och externa sajter är blockerade.
+
+**Vad som går före när de säger emot varandra:** (1) projektets regler i den här filen – CSP (inga style-attribut, inga
+externa typsnitt eller bilder: `fonts.googleapis.com` och `picsum.photos` som skillsen föreslår får **inte** användas; allt
+självhostat), GDPR, inga runtime-beroenden och ingen React på sajten (React/Babel från CDN bara i fristående prototyper),
+svenska texter, redigerbart via textregistret; (2) beställarens beslut, bl.a. stil A "Advokatbyrå" för rörelse och att
+statistikrutorna står still; (3) Emil Kowalskis regler för rörelse och interaktion; (4) taste-skill för riktning och
+komposition; (5) web-design-engineers recept för konkreta värden.
+
+**Arbetsordning för en ny/omgjord publik del:** taste-skill (tre riktningar) → web-design-engineer (förankra i ett recept,
+extract-design på förebildens URL när det går) → prototype (3–5 versioner i väljare) → beställaren väljer → bygg med
+animate/emil-design-eng/apple-design → mobile-native → break-ui → taste-skillens och web-design-engineers granskning +
+review-animations → e2e-tester, skärmbilder och klartecken före merge.
+
 ## Kommandon
 
 ```bash
