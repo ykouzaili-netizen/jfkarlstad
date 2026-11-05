@@ -4,6 +4,7 @@ import { eventQuery, rows, type EventRow } from "../lib/content.js";
 import { eventDate, isoWeek, monthName, stockholmNow, stockholmToday, truncate } from "../lib/format.js";
 import { renderInline } from "../lib/markdown.js";
 import { fill } from "../lib/texts.js";
+import { ticketDate, ticketText } from "../lib/tickets.js";
 import { htmlResponse } from "../lib/http.js";
 import type { RequestContext } from "../router.js";
 import { joinButton, layout } from "../views/layout.js";
@@ -65,11 +66,37 @@ async function monthView(c: RequestContext): Promise<Response> {
   const next = new Date(Date.UTC(year, month, 1));
   const key = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
 
-  const [s, events, upcoming] = await Promise.all([
+  const gridFrom = `${ymd(gridStart)}T00:00`;
+  const gridTo = `${ymd(addDays(gridEnd, 1))}T00:00`;
+  const [s, events, upcoming, ticketEvents] = await Promise.all([
     loadSettings(db, c.preview),
-    rows<EventRow>(eventQuery.between(db, `${ymd(gridStart)}T00:00`, `${ymd(addDays(gridEnd, 1))}T00:00`)),
+    rows<EventRow>(eventQuery.between(db, gridFrom, gridTo)),
     rows<EventRow>(eventQuery.upcoming(db, stockholmNow(), 10)),
+    rows<EventRow>(eventQuery.ticketsBetween(db, gridFrom, gridTo)),
   ]);
+  const now = stockholmNow();
+
+  // Biljettsläpp och sista biljettdag per dag (kan ligga i en annan månad än själva eventet)
+  type Tix = { e: EventRow; kind: "open" | "close"; at: string };
+  const tixByDay = new Map<string, Tix[]>();
+  const allTix: Tix[] = [];
+  for (const e of ticketEvents) {
+    for (const [kind, at] of [["open", e.tickets_open_at], ["close", e.tickets_close_at]] as const) {
+      if (!at || at < gridFrom || at >= gridTo) continue;
+      const t: Tix = { e, kind, at };
+      allTix.push(t);
+      const k = at.slice(0, 10);
+      if (!tixByDay.has(k)) tixByDay.set(k, []);
+      tixByDay.get(k)!.push(t);
+    }
+  }
+  allTix.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  for (const list of tixByDay.values()) list.sort((a, b) => (a.at < b.at ? -1 : 1));
+  const tixTime = (at: string) => {
+    const t = at.slice(11, 16);
+    return t === "00:00" || t === "23:59" ? "" : t;
+  };
+  const tixLabel = (t: Tix) => (t.kind === "open" ? s.cal_tickets_open : s.cal_tickets_close);
 
   // Evenemang per dag (flerdagarsevenemang visas på varje dag de pågår)
   const byDay = new Map<string, { e: EventRow; first: boolean; last: boolean }[]>();
@@ -99,27 +126,39 @@ async function monthView(c: RequestContext): Promise<Response> {
   const dayCell = (d: Date): SafeHtml => {
     const k = ymd(d);
     const items = byDay.get(k) ?? [];
+    const tix = tixByDay.get(k) ?? [];
     const other = d.getUTCMonth() !== month - 1;
     const dow = d.getUTCDay();
-    const cls = ["cal-day", other ? "is-other" : "", k === today ? "is-today" : "", k < today ? "is-past" : "", dow === 0 || dow === 6 ? "is-weekend" : "", items.length ? "has-events" : ""]
+    const cls = ["cal-day", other ? "is-other" : "", k === today ? "is-today" : "", k < today ? "is-past" : "", dow === 0 || dow === 6 ? "is-weekend" : "", items.length || tix.length ? "has-events" : ""]
       .filter(Boolean)
       .join(" ");
     const label = `${d.getUTCDate()} ${monthName(d.getUTCMonth() + 1).toLowerCase()}`;
+    const shownEvents = items.slice(0, MAX_PER_DAY);
+    const shownTix = tix.slice(0, Math.max(0, MAX_PER_DAY - shownEvents.length));
+    const hidden = items.length + tix.length - shownEvents.length - shownTix.length;
+    const srCount = [items.length ? `${items.length} evenemang` : "", tix.length ? `${tix.length} biljettdatum` : ""].filter(Boolean).join(", ");
     return html`<td class="${cls}">
-      ${items.length && !other
-        ? html`<a class="cal-num" href="#dag-${k}" aria-label="${label}, ${items.length} evenemang">${d.getUTCDate()}</a>`
+      ${(items.length || tix.length) && !other
+        ? html`<a class="cal-num" href="#dag-${k}" aria-label="${label}, ${srCount}">${d.getUTCDate()}</a>`
         : html`<span class="cal-num"${k === today ? html` aria-current="date"` : ""}>${d.getUTCDate()}</span>`}
-      ${items.length
+      ${items.length || tix.length
         ? html`<ul class="cal-events">
-            ${items.slice(0, MAX_PER_DAY).map(({ e, first: isFirst, last: isLast }) => {
+            ${shownEvents.map(({ e, first: isFirst, last: isLast }) => {
               const t = e.starts_at.slice(11, 16);
               return html`<li><a class="cal-ev${e.members_only ? " is-members" : ""}${isFirst ? "" : " is-cont"}${isLast ? "" : " is-continues"}" href="/kalender/${e.slug}" data-pop="cal-pop-${e.id}" aria-describedby="cal-desc-${e.id}"${ec(s, `/admin/event/${e.id}`, `Event › ${e.title}`)}>
                 ${isFirst && t && t !== "00:00" ? html`<span class="cal-ev-time">${t}</span>` : ""}<span class="cal-ev-title">${e.title}</span>
               </a></li>`;
             })}
-            ${items.length > MAX_PER_DAY ? html`<li><a class="cal-more" href="#dag-${k}"${ek(s, "cal_more")}>${fill(s.cal_more, { antal: items.length - MAX_PER_DAY })}</a></li>` : ""}
+            ${shownTix.map((t) => {
+              const time = tixTime(t.at);
+              return html`<li><a class="cal-tix is-${t.kind}" href="/kalender/${t.e.slug}"${ec(s, `/admin/event/${t.e.id}`, `Event › ${t.e.title}`)}>
+                <span class="cal-tix-head">${icon("ticket", "icon")}<span class="cal-tix-label">${tixLabel(t)}</span></span>
+                <span class="cal-tix-name">${time ? html`<span class="cal-ev-time">${time}</span> ` : ""}${t.e.title}</span>
+              </a></li>`;
+            })}
+            ${hidden > 0 ? html`<li><a class="cal-more" href="#dag-${k}"${ek(s, "cal_more")}>${fill(s.cal_more, { antal: hidden })}</a></li>` : ""}
           </ul>
-          <span class="cal-dots" aria-hidden="true">${items.slice(0, 3).map(({ e }) => html`<span class="cal-dot${e.members_only ? " is-members" : ""}"></span>`)}</span>`
+          <span class="cal-dots" aria-hidden="true">${items.slice(0, 3).map(({ e }) => html`<span class="cal-dot${e.members_only ? " is-members" : ""}"></span>`)}${tix.length && items.length < 3 ? html`<span class="cal-dot is-tickets"></span>` : ""}</span>`
         : ""}
     </td>`;
   };
@@ -135,6 +174,15 @@ async function monthView(c: RequestContext): Promise<Response> {
   });
   // Dagar med flerdagarsevenemang som börjat tidigare behöver också ett ankare
   const agendaAnchors = new Set(agenda.map((a) => a.anchor).filter(Boolean));
+  // Biljettdatum i månaden (listan under kalendern); en dag utan evenemang får sitt ankare här
+  const monthTix = allTix
+    .filter((t) => t.at.slice(0, 10) >= ymd(first) && t.at.slice(0, 10) <= ymd(last))
+    .map((t) => {
+      const day = t.at.slice(0, 10);
+      const anchor = agendaAnchors.has(day) ? "" : day;
+      if (anchor) agendaAnchors.add(day);
+      return { t, anchor };
+    });
   const extraAnchors = [...byDay.keys()].filter((k) => k >= ymd(first) && k <= ymd(last) && !agendaAnchors.has(k));
 
   const monthNav = html`<div class="cal-toolbar">
@@ -175,7 +223,31 @@ async function monthView(c: RequestContext): Promise<Response> {
         <ul class="cal-legend">
           <li><span class="cal-dot" aria-hidden="true"></span><span${ek(s, "cal_legend_open")}>${s.cal_legend_open}</span></li>
           <li><span class="cal-dot is-members" aria-hidden="true"></span><span${ek(s, "members_tag")}>${s.members_tag}</span></li>
+          ${allTix.length ? html`<li><span class="cal-dot is-tickets" aria-hidden="true"></span><span${ek(s, "cal_legend_tickets")}>${s.cal_legend_tickets}</span></li>` : ""}
         </ul>
+
+        ${monthTix.length
+          ? html`<div class="cal-tix-block">
+              <h2 class="subsection-title"${ek(s, "cal_tickets_title")}>${fill(s.cal_tickets_title, { månad: monthName(month).toLowerCase() })}</h2>
+              <ul class="cal-tix-list">
+                ${monthTix.map(({ t, anchor }) => {
+                  const ev = eventDate(t.e.starts_at, t.e.ends_at);
+                  const passed = t.kind === "close" ? t.at < now : t.at.slice(0, 16) <= now;
+                  return html`<li${anchor ? html` id="dag-${anchor}" class="cal-anchor"` : ""}>
+                    <a class="cal-tix-row is-${t.kind}${passed ? " is-passed" : ""}" href="/kalender/${t.e.slug}"${ec(s, `/admin/event/${t.e.id}`, `Event › ${t.e.title}`)}>
+                      <span class="cal-tix-icon">${icon("ticket", "icon")}</span>
+                      <span class="cal-tix-body">
+                        <span class="cal-tix-when"><strong>${tixLabel(t)}</strong> · <time datetime="${t.at}">${ticketDate(t.at)}</time></span>
+                        <span class="cal-tix-name">${t.e.title}</span>
+                        ${ev ? html`<span class="cal-tix-event">${fill(s.cal_tickets_event, { datum: `${ev.day} ${ev.monthShort}` })}</span>` : ""}
+                      </span>
+                      ${icon("arrowRight", "icon icon-sm cal-tix-arrow")}
+                    </a>
+                  </li>`;
+                })}
+              </ul>
+            </div>`
+          : ""}
 
         <div class="cal-agenda">
           <h2 class="subsection-title"${ek(s, "cal_agenda_title")}>${fill(s.cal_agenda_title, { månad: monthName(month).toLowerCase() })}</h2>
@@ -212,12 +284,14 @@ function popoverSources(s: Settings, events: EventRow[], today: string): SafeHtm
       const d = eventDate(e.starts_at, e.ends_at);
       const [, end] = eventDays(e);
       const past = end < today;
+      const tix = past ? null : ticketText(s, e, stockholmNow());
       return html`<div id="cal-pop-${e.id}">
         <p class="cal-pop-title">${e.title}</p>
         <p class="cal-pop-meta" id="cal-desc-${e.id}">
           ${d ? html`<span class="cal-pop-row">${icon("calendar", "icon icon-sm")}<span class="capitalize-first">${d.dateLong}</span></span><span class="cal-pop-row">${icon("clock", "icon icon-sm")}<span>${d.time}</span></span>` : ""}
           ${e.location ? html`<span class="cal-pop-row">${icon("pin", "icon icon-sm")}<span>${e.location}</span></span>` : ""}
           ${e.members_only ? html`<span class="cal-pop-row">${icon("lock", "icon icon-sm")}<span>${s.event_members_only}</span></span>` : ""}
+          ${tix ? html`<span class="cal-pop-row tix-line is-${tix.state}">${icon("ticket", "icon icon-sm")}<span>${tix.text}</span></span>` : ""}
         </p>
         ${e.summary ? html`<p class="cal-pop-summary">${truncate(e.summary, 160)}</p>` : ""}
         <div class="cal-pop-actions">

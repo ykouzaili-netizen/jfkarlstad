@@ -23,6 +23,7 @@ const PATHS = {
   sparkle:
     '<path d="M12 3.5 13.9 9a1 1 0 0 0 .6.6l5.5 1.9-5.5 1.9a1 1 0 0 0-.6.6L12 19.5 10.1 14a1 1 0 0 0-.6-.6L4 11.5l5.5-1.9a1 1 0 0 0 .6-.6Z"/><path d="M19 3v3M17.5 4.5h3"/>',
   calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  ticket: '<path d="M3.5 7.5h17v3a1.5 1.5 0 0 0 0 3v3h-17v-3a1.5 1.5 0 0 0 0-3Z"/><path d="M14.5 8v1.5M14.5 11.25v1.5M14.5 14.5V16"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   pin: '<path d="M12 21s-6.5-5.7-6.5-11a6.5 6.5 0 0 1 13 0c0 5.3-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.3"/>',
   mail: '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="m4 7.5 8 6 8-6"/>',

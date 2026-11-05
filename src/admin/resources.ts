@@ -679,6 +679,20 @@ export const RESOURCES: Resource[] = [
       { name: "summary", label: "Kort beskrivning", type: "textarea", rows: 2, max: 250, help: "En mening som visas i kalendern." },
       { name: "body", label: "Mer information", type: "textarea", rows: 10, max: 20000, help: MARKDOWN_HELP },
       { name: "signup_url", label: "Länk till anmälan/biljetter", type: "url", nullable: true, max: 500, help: "T.ex. eventets sida hos Hitract." },
+      {
+        name: "tickets_open_at",
+        label: "Biljettsläpp",
+        type: "datetime-local",
+        nullable: true,
+        help: "Valfritt. När biljetterna börjar säljas. Syns i kalendern den dagen och på eventet (”Biljettsläpp 12 nov kl. 12:00”).",
+      },
+      {
+        name: "tickets_close_at",
+        label: "Biljettförsäljningen slutar",
+        type: "datetime-local",
+        nullable: true,
+        help: "Valfritt. Sista tidpunkten att köpa biljett. Syns i kalendern som ”Sista dag för biljetter”. Välj 23:59 om hela dagen räknas.",
+      },
       { name: "members_only", label: "Endast för medlemmar", type: "checkbox" },
       {
         name: "partner_id",
@@ -700,7 +714,14 @@ export const RESOURCES: Resource[] = [
       { name: "image_alt", label: "Bildbeskrivning (alt-text)", type: "text", max: 200 },
       { name: "publish_at", label: "Publicera på webbplatsen", type: "datetime-local", schedule: true, nullable: true, help: SCHEDULE_HELP },
     ],
-    check: (v): Errors => (v.ends_at && v.starts_at && v.ends_at < v.starts_at ? { ends_at: "Sluttiden kan inte vara före starttiden." } : {}),
+    check: (v): Errors => {
+      const err: Errors = {};
+      if (v.ends_at && v.starts_at && v.ends_at < v.starts_at) err.ends_at = "Sluttiden kan inte vara före starttiden.";
+      if (v.tickets_open_at && v.tickets_close_at && v.tickets_close_at < v.tickets_open_at) err.tickets_close_at = "Försäljningen kan inte sluta innan biljettsläppet.";
+      const eventEnd = v.ends_at || v.starts_at;
+      if (v.tickets_open_at && eventEnd && v.tickets_open_at > eventEnd) err.tickets_open_at = "Biljettsläppet kan inte vara efter eventet.";
+      return err;
+    },
     listColumns: [
       {
         label: "Datum",

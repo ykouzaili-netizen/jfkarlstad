@@ -1,5 +1,6 @@
 import { html, raw, type SafeHtml } from "../lib/html.js";
-import { eventDate, formatDate, isoDate, truncate } from "../lib/format.js";
+import { eventDate, formatDate, isoDate, stockholmNow, truncate } from "../lib/format.js";
+import { ticketText } from "../lib/tickets.js";
 import type { EventRow, NewsRow, PartnerRow } from "../lib/content.js";
 import { ec, ek, type SettingKey, type Settings } from "../lib/settings.js";
 import { icon } from "./icons.js";
@@ -27,6 +28,9 @@ export function sectionHead(
 
 export function eventCard(s: Settings, e: EventRow, headingLevel: 2 | 3 = 3): SafeHtml {
   const d = eventDate(e.starts_at, e.ends_at);
+  const now = stockholmNow();
+  const isPast = (e.ends_at ?? e.starts_at.slice(0, 10) + "T23:59") < now;
+  const tix = isPast ? null : ticketText(s, e, now);
   const heading = html`<a class="card-link" href="/kalender/${e.slug}">${e.title}</a>`;
   return html`<article class="card event-card"${ec(s, `/admin/event/${e.id}`, `Event › ${e.title}`)}>
     ${d
@@ -39,6 +43,7 @@ export function eventCard(s: Settings, e: EventRow, headingLevel: 2 | 3 = 3): Sa
       <ul class="meta-list">
         ${d ? html`<li>${icon("clock", "icon icon-sm")}<span><span class="capitalize">${d.weekday}</span> ${d.time}</span></li>` : ""}
         ${e.location ? html`<li>${icon("pin", "icon icon-sm")}<span>${e.location}</span></li>` : ""}
+        ${tix ? html`<li class="tix-line is-${tix.state}">${icon("ticket", "icon icon-sm")}<span>${tix.text}</span></li>` : ""}
       </ul>
       ${e.members_only ? html`<span class="tag">${s.members_tag}</span>` : ""}
     </div>

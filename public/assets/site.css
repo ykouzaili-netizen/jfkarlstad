@@ -2846,6 +2846,56 @@ a.cal-num:hover { background: var(--c-hover); }
 .cal-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 14px; font-size: 0.875rem; color: var(--c-muted); }
 .cal-legend li { display: inline-flex; align-items: center; gap: 8px; }
 .cal-legend .cal-dot { width: 12px; height: 12px; border-radius: 4px; }
+/* Biljettsläpp och sista biljettdag: streckad/kantad etikett, så att de skiljer sig från själva evenemangen */
+.cal-tix {
+  display: grid; gap: 1px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px dashed color-mix(in srgb, var(--c-text) 40%, transparent);
+  font-size: 0.8125rem; line-height: 1.3; font-weight: 500;
+  color: inherit; text-decoration: none;
+  overflow: hidden; white-space: nowrap;
+  transition: background-color 0.15s var(--ease);
+}
+.cal-tix.is-open { border-style: solid; border-color: var(--c-accent); }
+.cal-tix:hover { background: var(--c-hover); }
+.cal-tix-head { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 0.75rem; font-weight: 700; }
+.cal-tix-head .icon { width: 14px; height: 14px; flex: none; }
+.cal-tix-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cal-tix .cal-tix-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cal-tix .cal-ev-time { margin-right: 2px; }
+.cal-dot.is-tickets { background: transparent; box-shadow: inset 0 0 0 1.5px var(--c-text); }
+.cal-legend .cal-dot.is-tickets { box-shadow: inset 0 0 0 1.5px var(--c-text); }
+
+.cal-tix-block { margin-top: 32px; }
+.cal-tix-list { list-style: none; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
+.cal-tix-list li { display: grid; }
+.cal-tix-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  color: inherit; text-decoration: none;
+  transition: border-color 0.15s var(--ease);
+}
+.cal-tix-row:hover { border-color: var(--c-text); }
+.cal-tix-list li:target .cal-tix-row { box-shadow: 0 0 0 3px var(--c-accent); }
+.cal-tix-icon { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: color-mix(in srgb, var(--c-accent) 32%, var(--c-surface)); }
+.cal-tix-row.is-close .cal-tix-icon { background: transparent; border: 1px dashed color-mix(in srgb, var(--c-text) 40%, transparent); }
+.cal-tix-body { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.cal-tix-when { font-size: 0.875rem; }
+.cal-tix-name { font-weight: 600; overflow-wrap: anywhere; }
+.cal-tix-event { font-size: 0.8125rem; color: var(--c-muted); }
+.cal-tix-row.is-passed { color: var(--c-muted); }
+.cal-tix-row.is-passed .cal-tix-icon { opacity: 0.55; }
+.cal-tix-arrow { flex: none; color: var(--c-muted); }
+
+/* Raden om biljetterna på eventkort, eventets sida och rutan i kalendern */
+.tix-line.is-soon, .tix-line.is-open { color: var(--c-text); }
+.tix-line.is-soon > span, .tix-line.is-open > span { font-weight: 600; }
+.tix-line.is-closed { color: var(--c-muted); }
+
 .cal-agenda { margin-top: 8px; }
 .cal-agenda-item, .cal-anchor { scroll-margin-top: calc(var(--header-h) + 24px); }
 .cal-agenda-item { display: grid; }

@@ -32,6 +32,9 @@ export interface EventRow {
   partner_id?: number | null;
   /** Utskottet som arrangerar eventet (migrering 0026), annars null. */
   committee_id?: number | null;
+  /** Biljettförsäljningen börjar/slutar, svensk lokal tid (migrering 0029), annars null. */
+  tickets_open_at?: string | null;
+  tickets_close_at?: string | null;
 }
 
 export interface PartnerRow {
@@ -255,6 +258,13 @@ export const eventQuery = {
   /** För kalenderprenumerationen: från ett datum och framåt. */
   since: (db: D1Database, fromLocal: string) =>
     db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND ${EVENT_END} >= ? ORDER BY starts_at ASC LIMIT 300`).bind(fromLocal),
+  /** Evenemang vars biljettsläpp eller sista biljettdag ligger mellan from och to (svensk tid). */
+  ticketsBetween: (db: D1Database, fromLocal: string, toLocal: string) =>
+    db
+      .prepare(
+        `SELECT * FROM events WHERE ${EVENT_LIVE} AND ((tickets_open_at >= ?1 AND tickets_open_at < ?2) OR (tickets_close_at >= ?1 AND tickets_close_at < ?2)) ORDER BY starts_at ASC LIMIT 300`,
+      )
+      .bind(fromLocal, toLocal),
   bySlug: (db: D1Database, slug: string) => db.prepare(`SELECT * FROM events WHERE ${EVENT_LIVE} AND slug = ?`).bind(slug),
   /** Kommande evenemang tillsammans med ett studentnätverk (nätverkets egen sida). */
   upcomingForPartner: (db: D1Database, partnerId: number, nowLocal: string, limit: number) =>
