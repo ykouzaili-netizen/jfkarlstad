@@ -139,17 +139,17 @@ async function monthView(c: RequestContext): Promise<Response> {
 
   const monthNav = html`<div class="cal-toolbar">
     <div class="cal-nav">
-      <a class="cal-nav-btn" href="/kalender?manad=${key(prev)}" rel="nofollow"${ek(s, "cal_prev")}>${icon("chevronLeft", "icon")}<span class="sr-only">${s.cal_prev}</span></a>
+      <a class="cal-nav-btn" href="/kalender?manad=${key(prev)}" rel="nofollow" data-cal-go="prev"${ek(s, "cal_prev")}>${icon("chevronLeft", "icon")}<span class="sr-only">${s.cal_prev}</span></a>
       <h2 class="cal-month" id="kalender-manad" aria-live="polite">${monthLabel}</h2>
-      <a class="cal-nav-btn" href="/kalender?manad=${key(next)}" rel="nofollow"${ek(s, "cal_next")}>${icon("chevronRight", "icon")}<span class="sr-only">${s.cal_next}</span></a>
-      ${!isCurrent ? html`<a class="btn btn-outline btn-sm cal-today" href="/kalender"${ek(s, "cal_today")}>${s.cal_today}</a>` : ""}
+      <a class="cal-nav-btn" href="/kalender?manad=${key(next)}" rel="nofollow" data-cal-go="next"${ek(s, "cal_next")}>${icon("chevronRight", "icon")}<span class="sr-only">${s.cal_next}</span></a>
+      ${!isCurrent ? html`<a class="btn btn-outline btn-sm cal-today" href="/kalender" data-cal-go="today"${ek(s, "cal_today")}>${s.cal_today}</a>` : ""}
     </div>
     ${viewSwitch(s, "manad")}
   </div>`;
 
   const content = html`
     ${pageHeader(s, { kickerKey: "cal_kicker", hero: "cal", titleKey: "cal_title", leadKey: "cal_lead", actions: subscribePanel(c, s) })}
-    <section class="section section-tight-top${sc(s, "calendar_month")}" aria-labelledby="kalender-manad">
+    <section class="section section-tight-top${sc(s, "calendar_month")}" aria-labelledby="kalender-manad" data-cal-month>
       <div class="container">
         ${monthNav}
         <div class="cal-wrap">

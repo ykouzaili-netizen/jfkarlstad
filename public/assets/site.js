@@ -201,20 +201,69 @@
     var hide = function () { pop.hidden = true; current = null; };
     var hideSoon = function () { clearTimeout(showTimer); clearTimeout(hideTimer); hideTimer = setTimeout(hide, 180); };
 
-    calGrid.addEventListener("mouseover", function (e) {
+    // Lyssnarna sitter på avsnittet, inte på tabellen: tabellen byts ut när man byter månad.
+    var calArea = calGrid.closest("[data-cal-month]") || calGrid;
+    calArea.addEventListener("mouseover", function (e) {
       var chip = e.target.closest && e.target.closest("[data-pop]");
       if (!chip) return;
       clearTimeout(hideTimer);
       clearTimeout(showTimer);
       showTimer = setTimeout(function () { show(chip); }, pop.hidden ? 120 : 0);
     });
-    calGrid.addEventListener("mouseout", function (e) {
+    calArea.addEventListener("mouseout", function (e) {
       if (e.target.closest && e.target.closest("[data-pop]")) hideSoon();
     });
     pop.addEventListener("mouseenter", function () { clearTimeout(hideTimer); });
     pop.addEventListener("mouseleave", hideSoon);
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !pop.hidden) hide(); });
     window.addEventListener("resize", hide);
+    document.addEventListener("jfk:cal-swap", hide);
+  }
+
+  /* ---------- Kalendern: byt månad utan att sidan hoppar till toppen ----------
+     Pilarna och Idag hämtar den nya månaden och byter bara ut kalenderavsnittet, så att man står kvar
+     där man har skrollat. Adressen uppdateras (bakåtknappen fungerar). Utan JS är det vanliga länkar. */
+  var calMonth = document.querySelector("[data-cal-month]");
+  if (calMonth && window.fetch && window.DOMParser && history.pushState && !document.body.classList.contains("is-preview")) {
+    var calCtrl = null;
+    var swapMonth = function (url, push, focusGo) {
+      if (calCtrl) calCtrl.abort();
+      var ctrl = calCtrl = "AbortController" in window ? new AbortController() : null;
+      calMonth.setAttribute("aria-busy", "true");
+      fetch(url, { credentials: "same-origin", signal: ctrl ? ctrl.signal : undefined })
+        .then(function (res) { if (!res.ok) throw new Error(String(res.status)); return res.text(); })
+        .then(function (text) {
+          var doc = new DOMParser().parseFromString(text, "text/html");
+          var next = doc.querySelector("[data-cal-month]");
+          if (!next) throw new Error("ingen kalender");
+          var y = window.scrollY;
+          calMonth.className = next.className;
+          calMonth.innerHTML = next.innerHTML;
+          calMonth.removeAttribute("aria-busy");
+          if (doc.title) document.title = doc.title;
+          if (push) history.pushState({ jfkCal: true }, "", url);
+          window.scrollTo(window.scrollX, y);
+          document.dispatchEvent(new CustomEvent("jfk:cal-swap"));
+          if (focusGo) {
+            var btn = calMonth.querySelector('[data-cal-go="' + focusGo + '"]') || calMonth.querySelector('[data-cal-go="next"]');
+            if (btn) btn.focus({ preventScroll: true });
+          }
+        })
+        .catch(function (err) {
+          if (err && err.name === "AbortError") return;
+          window.location.href = url; // Något gick fel: ladda sidan som vanligt
+        });
+    };
+    calMonth.addEventListener("click", function (e) {
+      var a = e.target.closest && e.target.closest("a[data-cal-go]");
+      if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      swapMonth(a.href, true, a.getAttribute("data-cal-go"));
+    });
+    history.replaceState(Object.assign({}, history.state, { jfkCal: true }), "");
+    window.addEventListener("popstate", function (e) {
+      if (e.state && e.state.jfkCal) swapMonth(window.location.href, false, null);
+    });
   }
 
   /* ---------- Sektionsmenyn: markera avsnittet man läser ---------- */

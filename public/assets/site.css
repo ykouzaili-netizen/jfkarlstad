@@ -2758,6 +2758,8 @@ mark { background: color-mix(in srgb, var(--c-accent) 55%, transparent); color: 
   transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease);
 }
 .cal-nav-btn:hover { border-color: var(--c-text); }
+/* Medan nästa månad hämtas (byts på plats av site.js) */
+[data-cal-month][aria-busy="true"] .cal-wrap { opacity: 0.6; transition: opacity 0.15s ease 0.1s; }
 .cal-today { margin-left: 8px; }
 .cal-views { display: inline-flex; padding: 4px; border-radius: 999px; background: var(--c-surface); border: 1px solid var(--c-border); }
 .cal-views a {
